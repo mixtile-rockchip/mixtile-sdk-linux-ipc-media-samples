@@ -57,6 +57,9 @@ struct svc_param {
 	int scalinglist;
 	int enable_debreath_effect;
 	int debreath_effect_strength;
+	int qbias_en;
+	int qbias_I;
+	int qbias_P;
 };
 
 static struct svc_param bitrate_first[2] = {
@@ -73,6 +76,9 @@ static struct svc_param bitrate_first[2] = {
 		.scalinglist = 0,
 		.enable_debreath_effect = 0,
 		.debreath_effect_strength = 8,
+		.qbias_en = 1,
+		.qbias_I = 683,
+		.qbias_P = 341,
 	},
 	{
 		.max_rate = 1400,
@@ -87,6 +93,9 @@ static struct svc_param bitrate_first[2] = {
 		.scalinglist = 1,
 		.enable_debreath_effect = 0,
 		.debreath_effect_strength = 8,
+		.qbias_en = 1,
+		.qbias_I = 683,
+		.qbias_P = 341,
 	}
 };
 
@@ -104,6 +113,9 @@ static struct svc_param quality_first[2] = {
 		.scalinglist = 0,
 		.enable_debreath_effect = 1,
 		.debreath_effect_strength = 10,
+		.qbias_en = 1,
+		.qbias_I = 683,
+		.qbias_P = 341,
 	},
 	{
 		.max_rate = 2000,
@@ -118,6 +130,9 @@ static struct svc_param quality_first[2] = {
 		.scalinglist = 0,
 		.enable_debreath_effect = 1,
 		.debreath_effect_strength = 10,
+		.qbias_en = 1,
+		.qbias_I = 683,
+		.qbias_P = 341,
 	}
 };
 
@@ -330,6 +345,32 @@ static RK_S32 test_venc_init(int chnId, int width, int height, int fps, RK_CODEC
 		stVencChnRefBufShare.bEnable = 1;
 		RK_MPI_VENC_SetChnRefBufShareAttr(chnId, &stVencChnRefBufShare);
 	}
+
+	if (param->qbias_en) {
+		if (enType == RK_VIDEO_ID_AVC) {
+			VENC_H264_QBIAS_S stQbias;
+			memset(&stQbias, 0, sizeof(stQbias));
+			stQbias.bEnable = RK_TRUE;
+			stQbias.u32QbiasI = param->qbias_I;
+			stQbias.u32QbiasP = param->qbias_P;
+			RK_MPI_VENC_SetH264Qbias(chnId, &stQbias);
+		} else if (enType == RK_VIDEO_ID_HEVC) {
+			VENC_H265_QBIAS_S stQbias;
+			memset(&stQbias, 0, sizeof(stQbias));
+			stQbias.bEnable = RK_TRUE;
+			stQbias.u32QbiasI = param->qbias_I;
+			stQbias.u32QbiasP = param->qbias_P;
+			RK_MPI_VENC_SetH265Qbias(chnId, &stQbias);
+		}
+	}
+
+	VENC_RC_PARAM2_S rc_param2 = {
+		.u32ThrdI = {1,2,3,3,3,3,5,5,8,8,15,15,20,25,28,28},
+		.u32ThrdP = {0,0,0,0,3,3,5,5,8,8,15,15,20,25,28,28},
+		.s32AqStepI = {-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8},
+		.s32AqStepP = {-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,6,8,8,10},
+	};
+	RK_MPI_VENC_SetRcParam2(chnId, &rc_param2);
 
 	memset(&stRecvParam, 0, sizeof(VENC_RECV_PIC_PARAM_S));
 	stRecvParam.s32RecvPicNum = -1;
