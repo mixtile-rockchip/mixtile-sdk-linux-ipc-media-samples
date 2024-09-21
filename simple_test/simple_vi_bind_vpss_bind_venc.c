@@ -91,15 +91,21 @@ static void *GetMediaBuffer0(void *arg) {
 }
 
 static RK_S32 test_venc_init(int chnId, int width, int height, RK_CODEC_ID_E enType) {
-	printf("================================%s==================================\n",
-	       __func__);
+	printf("================================%s==================================\n", __func__);
+	RK_S32 s32Ret;
+	VENC_RC_MODE_E enRcMode = VENC_RC_MODE_H264CBR;
 	VENC_RECV_PIC_PARAM_S stRecvParam;
 	VENC_CHN_ATTR_S stAttr;
 	memset(&stAttr, 0, sizeof(VENC_CHN_ATTR_S));
 
+	if (enType == RK_VIDEO_ID_HEVC)
+		enRcMode = VENC_RC_MODE_H265CBR;
+	else if (enType == RK_VIDEO_ID_MJPEG)
+		enRcMode = VENC_RC_MODE_MJPEGCBR;
+
 	stAttr.stVencAttr.enType = enType;
 	stAttr.stVencAttr.enPixelFormat = RK_FMT_YUV420SP;
-	stAttr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
+	stAttr.stRcAttr.enRcMode = enRcMode;
 	stAttr.stRcAttr.stH264Cbr.u32BitRate = 10 * 1024;
 	stAttr.stRcAttr.stH264Cbr.u32Gop = 60;
 	stAttr.stVencAttr.u32PicWidth = width;
@@ -109,11 +115,17 @@ static RK_S32 test_venc_init(int chnId, int width, int height, RK_CODEC_ID_E enT
 	stAttr.stVencAttr.u32StreamBufCnt = 2;
 	stAttr.stVencAttr.u32BufSize = width * height * 3 / 2;
 
-	RK_MPI_VENC_CreateChn(chnId, &stAttr);
+	s32Ret = RK_MPI_VENC_CreateChn(chnId, &stAttr);
+	if (s32Ret != RK_SUCCESS) {
+		RK_LOGE("RK_MPI_VENC_CreateChn failed[%x]", s32Ret);
+	}
 
 	memset(&stRecvParam, 0, sizeof(VENC_RECV_PIC_PARAM_S));
 	stRecvParam.s32RecvPicNum = -1;
 	RK_MPI_VENC_StartRecvFrame(chnId, &stRecvParam);
+	if (s32Ret != RK_SUCCESS) {
+		RK_LOGE("RK_MPI_VENC_StartRecvFrame failed[%x]", s32Ret);
+	}
 
 	return 0;
 }
@@ -313,7 +325,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	printf("#CodecName:%s\n", pCodecName);
+	printf("#CodecName:%s, enCodecType: %d\n", pCodecName, enCodecType);
 	printf("#INPUT Resolution: %dx%d\n", u32Width, u32Height);
 	printf("#VPSS Resolution: %dx%d\n", disp_width, disp_height);
 	printf("#Output Path: %s\n", pOutPath);
