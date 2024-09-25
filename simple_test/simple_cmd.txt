@@ -493,7 +493,7 @@ simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih
 checkmd5sum /data/venc_chn0_320x240_240.h264
 checkmd5sum /data/venc_chn1_320x240_240.h264
 
-simple_vi_bind_avs_bind_venc -W 1920 -H 1080 -w 3840 -h 1080 -m 2 -e h264 -o /tmp/venc0.h264 -O /tmp/venc1.h264 -c 100
+simple_vi_bind_avs_bind_venc -I 1 -W 1280 -H 720 -w 2560 -h 720 -m 2 -e h264 -o /tmp/venc0.h264 -O /tmp/venc1.h264 -c 100
 checkmd5sum /tmp/venc0.h264
 checkmd5sum /tmp/venc1.h264
 
