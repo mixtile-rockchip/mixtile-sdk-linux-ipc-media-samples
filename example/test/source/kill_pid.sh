@@ -4,7 +4,7 @@ set -x
 check_coredump()
 {
 	if [ "$__has_coredump" = "1" ];then
-		if ls $(dirname $__dump_path)/core* 1> /dev/null 2>&1;then
+		if ls $__dump_path/core* 1> /dev/null 2>&1;then
 			echo "[$0] core dump exist"
 			exit 3
 		fi
@@ -48,7 +48,12 @@ __dump_path=$(cat /proc/sys/kernel/core_pattern)
 if [ -d "$(dirname $__dump_path)" ];then
 	__has_coredump=1
 	# clean coredump, before test
-	rm -rf $(dirname $__dump_path)/core*
+	__dump_path=$(dirname $__dump_path)
+	rm -rf $__dump_path/core* || true
+else
+	# TODO: SDK use /mnt/sdcard default if spi nand or spi nor
+	__dump_path="/mnt/sdcard"
+	rm -rf $__dump_path/core* || true
 fi
 while [ $counter -lt 10000 ]
 do
