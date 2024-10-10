@@ -64,8 +64,6 @@ do
 	echo "$0 counter [$counter]"
 	if [ -n "$has_sdcard" ];then
 		logdir=$has_sdcard/kill_pid/log_$counter
-	else
-		logdir=/tmp/kill_pid/log_$counter
 	fi
 	echo "----------------------------------------"
 	echo ""
@@ -102,8 +100,6 @@ do
 	if [ -n "$has_sdcard" ];then
 		logdir=$has_sdcard/kill_pid/log_$counter
 		dump_log $logdir $counter
-	else
-		logdir=/tmp/kill_pid/log_$counter
 	fi
 	echo "----------------------------------------"
 	echo ""
