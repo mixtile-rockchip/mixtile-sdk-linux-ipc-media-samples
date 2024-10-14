@@ -31,13 +31,13 @@ test_cmd()
 		echo "not found cmd, return"
 		return
 	fi
-	__echo_test_cmd_msg "TEST    [$*]"
+	__echo_test_cmd_msg "TEST    `date "+%D %H:%M:%S"` [$*]"
 	eval $*
 	__chk_cma_free
 	if [ $? -eq 0 ]; then
-		__echo_test_cmd_msg "SUCCESS [$*]"
+		__echo_test_cmd_msg "SUCCESS `date "+%D %H:%M:%S"` [$*]"
 	else
-		__echo_test_cmd_msg "FAILURE [$*]"
+		__echo_test_cmd_msg "FAILURE `date "+%D %H:%M:%S"` [$*]"
 		exit 1
 	fi
 }
