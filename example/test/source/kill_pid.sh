@@ -14,6 +14,10 @@ check_coredump()
 __chk_cma_free()
 {
 	local f
+
+	echo "chek slab"
+	cat /proc/meminfo |grep Slab
+
 	if [ ! -f "/proc/rk_dma_heap/alloc_bitmap" ];then
 		echo "[$0] not found /proc/rk_dma_heap/alloc_bitmap, ignore"
 		return
@@ -30,20 +34,32 @@ __chk_cma_free()
 
 dump_log(){
 	local log_dir cnt
-	log_dir=$1
-	cnt=$2
-	mkdir -p $log_dir
-	(cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys; echo ==========================================; cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys;) |tee > $log_dir/dev-mpi-$cnt.log
-	cat /proc/vcodec/enc/venc_info &> $log_dir/proc-vcodec-enc-venc_info-$cnt-1
-	cat /proc/vcodec/enc/venc_info &> $log_dir/proc-vcodec-enc-venc_info-$cnt-2
+	log_dir=$2
+	cnt=$1
+	if [ -n "$2" ];then
+		mkdir -p $log_dir
+		(cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys; echo ==========================================; cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys;) |tee > $log_dir/dev-mpi-$cnt.log
+		cat /proc/vcodec/enc/venc_info &> $log_dir/proc-vcodec-enc-venc_info-$cnt-1
+		sleep 0.5
+		cat /proc/vcodec/enc/venc_info &> $log_dir/proc-vcodec-enc-venc_info-$cnt-2
+	else
+		(cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys; echo ==========================================; cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys;)
+		cat /proc/vcodec/enc/venc_info
+		sleep 0.5
+		cat /proc/vcodec/enc/venc_info
+	fi
 }
+
 if mount|grep "\/mnt\/sdcard";then
 	has_sdcard="/mnt/sdcard"
 fi
 
 killall nginx || echo "Not found nginx"
 sleep 10
-counter=0
+counter=15000
+if [ -n "$rk_dbg_only" ];then
+	counter=$rk_dbg_only
+fi
 __dump_path=$(cat /proc/sys/kernel/core_pattern)
 if [ -d "$(dirname $__dump_path)" ];then
 	__has_coredump=1
@@ -55,9 +71,10 @@ else
 	__dump_path="/mnt/sdcard"
 	rm -rf $__dump_path/core* || true
 fi
-while [ $counter -lt 10000 ]
+
+while true
 do
-    counter=$(( counter + 1 ))
+    counter=$(( counter - 1 ))
 	echo ""
 	echo ""
 	echo "----------------------------------------"
@@ -74,7 +91,7 @@ do
         ps|grep rkipc |grep -v grep
         if [ $? -ne 0 ]; then
             echo "kill -9 rkipc exit, run once: count = $counter"
-			dump_log $logdir $counter
+			dump_log $counter $logdir
             break
         else
             sleep 1
@@ -82,41 +99,10 @@ do
         fi
     done
 	__chk_cma_free
-    rkipc -a /oem/usr/share/iqfiles &
-    sleep 5
-	echo ""
-done
-
-killall nginx
-sleep 10
-counter=0
-while [ $counter -lt 10000 ]
-do
-    counter=$(( counter + 1 ))
-	echo ""
-	echo ""
-	echo "----------------------------------------"
-	echo "$0 counter [$counter]"
-	if [ -n "$has_sdcard" ];then
-		logdir=$has_sdcard/kill_pid/log_$counter
-		dump_log $logdir $counter
+	if [ $counter -lt 1 ];then
+		echo "test done"
+		break
 	fi
-	echo "----------------------------------------"
-	echo ""
-    killall rkipc
-    while true
-    do
-        ps|grep rkipc |grep -v grep
-        if [ $? -ne 0 ]; then
-            echo "killall rkipc exit, run once: count = $counter"
-			dump_log $logdir $counter
-            break
-        else
-            sleep 1
-            echo "killall rkipc active"
-        fi
-    done
-	__chk_cma_free
     rkipc -a /oem/usr/share/iqfiles &
     sleep 5
 	echo ""
