@@ -32,8 +32,9 @@ test_cmd()
 	fi
 	__echo_test_cmd_msg "TEST    `date "+%D %H:%M:%S"` [$*]"
 	eval $*
+	ret=$?
 	__chk_cma_free
-	if [ $? -eq 0 ]; then
+	if [ $ret -eq 0 ]; then
 		__echo_test_cmd_msg "SUCCESS `date "+%D %H:%M:%S"` [$*]"
 	else
 		__echo_test_cmd_msg "FAILURE `date "+%D %H:%M:%S"` [$*]"
