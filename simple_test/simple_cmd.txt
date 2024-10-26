@@ -316,25 +316,25 @@ simple_vi_bind_venc_rawstream_wrap -c 12 --iw 1920 --ih 1080 --ow 320 --oh 240 -
 checkmd5sum /data/venc_chn0_320x240_120.h265
 
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 1920 --oh 1080 -d /data -w 1 -l 64 --frame_cnt 10
-checkmd5sum /data/venc_chn0_1920x1080_64.mjpeg
+checkmd5sum /data/venc_chn0_1920x1080_64.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 1920 --oh 1080 -d /data -w 1 -l 1080 --frame_cnt 10
-checkmd5sum /data/venc_chn0_1920x1080_1080.mjpeg
+checkmd5sum /data/venc_chn0_1920x1080_1080.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 1920 --oh 1080 -d /data -w 1 -l 270 --frame_cnt 10
-checkmd5sum /data/venc_chn0_1920x1080_270.mjpeg
+checkmd5sum /data/venc_chn0_1920x1080_270.mjpg
 #
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 2880 --oh 1620 -d /data -w 1 -l 64 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x1620_64.mjpeg
+checkmd5sum /data/venc_chn0_2880x1620_64.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 2880 --oh 1620 -d /data -w 1 -l 1620 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x1620_1620.mjpeg
+checkmd5sum /data/venc_chn0_2880x1620_1620.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 2880 --oh 1620 -d /data -w 1 -l 360 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x1620_360.mjpeg
+checkmd5sum /data/venc_chn0_2880x1620_360.mjpg
 #
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 320 --oh 240 -d /data -w 1 -l 64 --frame_cnt 10
-checkmd5sum /data/venc_chn0_320x240_64.mjpeg
+checkmd5sum /data/venc_chn0_320x240_64.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 320 --oh 240 -d /data -w 1 -l 240 --frame_cnt 10
-checkmd5sum /data/venc_chn0_320x240_240.mjpeg
+checkmd5sum /data/venc_chn0_320x240_240.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 1920 --ih 1080 --ow 320 --oh 240 -d /data -w 1 -l 120 --frame_cnt 10
-checkmd5sum /data/venc_chn0_320x240_120.mjpeg
+checkmd5sum /data/venc_chn0_320x240_120.mjpg
 
 simple_vi_bind_venc_rawstream_wrap -c 8 --iw 2880 --ih 1620 --ow 1920 --oh 1080 -d /data -w 1 -l 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_64.h264
@@ -379,117 +379,117 @@ simple_vi_bind_venc_rawstream_wrap -c 12 --iw 2880 --ih 1620 --ow 320 --oh 240 -
 checkmd5sum /data/venc_chn0_320x240_120.h265
 
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 1920 --oh 1080 -d /data -w 1 -l 64 --frame_cnt 10
-checkmd5sum /data/venc_chn0_1920x1080_64.mjpeg
+checkmd5sum /data/venc_chn0_1920x1080_64.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 1920 --oh 1080 -d /data -w 1 -l 1080 --frame_cnt 10
-checkmd5sum /data/venc_chn0_1920x1080_1080.mjpeg
+checkmd5sum /data/venc_chn0_1920x1080_1080.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 1920 --oh 1080 -d /data -w 1 -l 270 --frame_cnt 10
-checkmd5sum /data/venc_chn0_1920x1080_270.mjpeg
+checkmd5sum /data/venc_chn0_1920x1080_270.mjpg
 #
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 2880 --oh 1620 -d /data -w 1 -l 64 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x1620_64.mjpeg
+checkmd5sum /data/venc_chn0_2880x1620_64.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 2880 --oh 1620 -d /data -w 1 -l 1620 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x1620_1620.mjpeg
+checkmd5sum /data/venc_chn0_2880x1620_1620.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 2880 --oh 1620 -d /data -w 1 -l 360 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x1620_360.mjpeg
+checkmd5sum /data/venc_chn0_2880x1620_360.mjpg
 #
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 320 --oh 240 -d /data -w 1 -l 64 --frame_cnt 10
-checkmd5sum /data/venc_chn0_320x240_64.mjpeg
+checkmd5sum /data/venc_chn0_320x240_64.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 320 --oh 240 -d /data -w 1 -l 240 --frame_cnt 10
-checkmd5sum /data/venc_chn0_320x240_240.mjpeg
+checkmd5sum /data/venc_chn0_320x240_240.mjpg
 simple_vi_bind_venc_rawstream_wrap -c 9 --iw 2880 --ih 1620 --ow 320 --oh 240 -d /data -w 1 -l 120 --frame_cnt 10
-checkmd5sum /data/venc_chn0_320x240_120.mjpeg
+checkmd5sum /data/venc_chn0_320x240_120.mjpg
 
 
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 2880 --oh1 1620 -d /data -w 1 -l 96 -W 1 -L 64 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 2880 --oh1 1620 -d /data -w 1 -l 96 -W 1 -L 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_96.h264
 checkmd5sum /data/venc_chn1_2880x1620_64.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 2880 --oh1 1620 -d /data -w 1 -l 480 -W 1 -L 320 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 2880 --oh1 1620 -d /data -w 1 -l 480 -W 1 -L 320 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_480.h264
 checkmd5sum /data/venc_chn1_2880x1620_320.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 2880 --oh1 1620 -d /data -w 1 -l 1080 -W 1 -L 720 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 2880 --oh1 1620 -d /data -w 1 -l 1080 -W 1 -L 720 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_1080.h264
 checkmd5sum /data/venc_chn1_2880x1620_720.h264
 #
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_64.h264
 checkmd5sum /data/venc_chn1_1920x1080_64.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 270 -W 1 -L 320 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 270 -W 1 -L 320 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_270.h264
-checkmd5sum /data/venc_chn1_1920x1080_270.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 1080 -W 1 -L 1080 --frame_cnt 10
+checkmd5sum /data/venc_chn1_1920x1080_320.h264
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 1080 -W 1 -L 1080 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_1080.h264
 checkmd5sum /data/venc_chn1_1920x1080_1080.h264
 #
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_64.h264
 checkmd5sum /data/venc_chn1_320x240_64.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 120 -W 1 -L 320 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 120 -W 1 -L 120 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_120.h264
 checkmd5sum /data/venc_chn1_320x240_120.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 240 -W 1 -L 720 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 1920 --ih 1080 --iw1 1920 --ih1 1080 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 240 -W 1 -L 240 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_240.h264
 checkmd5sum /data/venc_chn1_320x240_240.h264
 
 
 
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 2880 --oh 1620 -ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 96 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x_1620_64.h264
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 2880 --oh 1620 --ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 96 --frame_cnt 10
+checkmd5sum /data/venc_chn0_2880x1620_64.h264
 checkmd5sum /data/venc_chn1_1920x1080_96.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 2880 --oh 1620 -ow1 1920 --oh1 1080 -d /data -w 1 -l 320 -W 1 -L 480 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 2560 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 320 -W 1 -L 480 --frame_cnt 10
 checkmd5sum /data/venc_chn0_2560x1080_320.h264
 checkmd5sum /data/venc_chn1_1920x1080_480.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 2880 --oh 1620 -ow1 1920 --oh1 1080 -d /data -w 1 -l 1620 -W 1 -L 2430 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2560x1080_1620.h264
-checkmd5sum /data/venc_chn1_1920x1080_2430.h264
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 2560 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 1080 -W 1 -L 1080 --frame_cnt 10
+checkmd5sum /data/venc_chn0_2560x1080_1080.h264
+checkmd5sum /data/venc_chn1_1920x1080_1080.h264
 #
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_64.h264
 checkmd5sum /data/venc_chn1_1920x1080_64.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 270 -W 1 -L 320 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 270 -W 1 -L 320 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_270.h264
-checkmd5sum /data/venc_chn1_1920x1080_270.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 1080 -W 1 -L 1080 --frame_cnt 10
+checkmd5sum /data/venc_chn1_1920x1080_320.h264
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 1080 -W 1 -L 1080 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_1080.h264
 checkmd5sum /data/venc_chn1_1920x1080_1080.h264
 #
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_64.h264
 checkmd5sum /data/venc_chn1_320x240_64.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 120 -W 1 -L 320 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 120 -W 1 -L 120 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_120.h264
 checkmd5sum /data/venc_chn1_320x240_120.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 240 -W 1 -L 720 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 2880 --ih1 1620 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 240 -W 1 -L 240 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_240.h264
 checkmd5sum /data/venc_chn1_320x240_240.h264
 
 
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 2880 --oh 1620 -ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 96 --frame_cnt 10
-checkmd5sum /data/venc_chn0_2880x_1620_64.h264
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 2880 --oh 1620 --ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 96 --frame_cnt 10
+checkmd5sum /data/venc_chn0_2880x1620_64.h264
 checkmd5sum /data/venc_chn1_1920x1080_96.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 2880 --oh 1620 -ow1 1920 --oh1 1080 -d /data -w 1 -l 480 -W 1 -L 720 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 2560 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 480 -W 1 -L 720 --frame_cnt 10
 checkmd5sum /data/venc_chn0_2560x1080_480.h264
 checkmd5sum /data/venc_chn1_1920x1080_720.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 2880 --oh 1620 -ow1 1920 --oh1 1080 -d /data -w 1 -l 720 -W 1 -L 1080 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 2560 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 720 -W 1 -L 1080 --frame_cnt 10
 checkmd5sum /data/venc_chn0_2560x1080_720.h264
 checkmd5sum /data/venc_chn1_1920x1080_1080.h264
 #
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_64.h264
 checkmd5sum /data/venc_chn1_1920x1080_64.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 270 -W 1 -L 320 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 270 -W 1 -L 320 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_270.h264
-checkmd5sum /data/venc_chn1_1920x1080_270.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 -ow1 1920 --oh1 1080 -d /data -w 1 -l 1080 -W 1 -L 1080 --frame_cnt 10
+checkmd5sum /data/venc_chn1_1920x1080_320.h264
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 1920 --oh 1080 --ow1 1920 --oh1 1080 -d /data -w 1 -l 1080 -W 1 -L 1080 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_1080.h264
 checkmd5sum /data/venc_chn1_1920x1080_1080.h264
 #
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 64 -W 1 -L 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_64.h264
 checkmd5sum /data/venc_chn1_320x240_64.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 120 -W 1 -L 320 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 120 -W 1 -L 120 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_120.h264
 checkmd5sum /data/venc_chn1_320x240_120.h264
-simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 320 --oh 240 -ow1 320 --oh1 240 -d /data -w 1 -l 240 -W 1 -L 720 --frame_cnt 10
+simple_vi_bind_venc_rawstream_wrap -n 2 -c 8 --iw 2880 --ih 1620 --iw1 1920 --ih1 1080 --ow 320 --oh 240 --ow1 320 --oh1 240 -d /data -w 1 -l 240 -W 1 -L 240 --frame_cnt 10
 checkmd5sum /data/venc_chn0_320x240_240.h264
 checkmd5sum /data/venc_chn1_320x240_240.h264
 

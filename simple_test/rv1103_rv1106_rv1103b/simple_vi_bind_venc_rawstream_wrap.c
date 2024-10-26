@@ -462,7 +462,7 @@ static void *get_venc_stream(void *arg) {
 	return NULL;
 }
 
-static RK_CHAR optstr[] = "?::d:n:c:I:o:w:l:d:m:b:f:s:v:F:r:R:";
+static RK_CHAR optstr[] = "?::d:n:c:I:o:w:W:l:L:d:m:b:f:s:v:F:r:R:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\tNOTE: Only RV1106 and RV1103 support this demo.\n");
@@ -477,7 +477,7 @@ static void print_usage(const RK_CHAR *name) {
 	printf("\t--iw1: second sensor vi input width, Default:1920\n");
 	printf("\t--ih1: second sensor vi input height, Default:1080\n");
 	printf("\t--ow1: second sensor vi output width, Default:1920\n");
-	printf("\t--oh2: second sensor vi output height, Default:1080\n");
+	printf("\t--oh1: second sensor vi output height, Default:1080\n");
 	printf("\t--buf_size1: second sensor venc buffer size, Default:out_width_second * out_height_second\n");
 	printf("\t--buf_cnt: Vi buf_cnt, Default:2\n");
 	printf("\t--pipe_mb_cnt: Vi pipe mediabuffer cnt, Default:1\n");
