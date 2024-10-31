@@ -322,8 +322,8 @@ int main(int argc, char *argv[]) {
 	RK_S32 s32chnlId = 0;
 	int c;
 	int ret = -1;
-	char *iq_dir = NULL;
 	VI_SAVE_FILE_INFO_S stDebugFile;
+	char *iq_dir = "/etc/iqfiles";
 #ifdef RKAIQ
 	int hdr = 0;
 	int multi_sensor = RK_FALSE;
@@ -334,8 +334,6 @@ int main(int argc, char *argv[]) {
 		case 'a':
 			if (optarg)
 				iq_dir = optarg;
-			else
-				iq_dir = "/etc/iqfiles";
 			break;
 		case 'w':
 			u32Width = atoi(optarg);
