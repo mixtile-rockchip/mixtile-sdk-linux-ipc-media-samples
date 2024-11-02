@@ -250,8 +250,13 @@ static void print_usage(const RK_CHAR *name) {
 	printf("\t%s simple_vi_get_frame_send_vo  -w 1024 -h 600 -I 0 -l 0 -d 0\n", name);
 	printf("\t-w | --width: VI width, Default:1920\n");
 	printf("\t-h | --heght: VI height, Default:1080\n");
-	printf("\t-I | --camid: camera ctx id, Default 0. "
-	       "0:rkisp_mainpath,1:rkisp_selfpath,2:rkisp_bypasspath\n");
+#if defined RV1126_RV1109
+	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
+			"0:rkisp_m_bypass, 1:rkispp_scale0, 2:rkispp_scale2, 2:rkispp_scale3\n");
+#elif (defined RV1106_RV1103 || defined RV1103B)
+	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
+			"0:rkisp_mainpath, 1:rkisp_selfpath, 2:rkisp_bypasspath\n");
+#endif
 	printf("\t-l | --layer: Vo layer, Default 0. ");
 	printf("\t-d | --device: Vo device, Default 0. ");
 }
@@ -285,7 +290,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("#Resolution: %dx%d\n", u32Width, u32Height);
-	printf("#CameraIdx: %d\n\n", s32chnlId);
+	printf("#ChannelIdx: %d\n\n", s32chnlId);
 	printf("#Vo Layer: %d\n\n", VoLayer);
 	printf("#Vo Devices: %d\n\n", VoDev);
 

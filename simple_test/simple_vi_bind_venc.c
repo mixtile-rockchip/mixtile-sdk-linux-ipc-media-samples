@@ -211,8 +211,13 @@ static void print_usage(const RK_CHAR *name) {
 	printf("\t-w | --width: VI width, Default:1920\n");
 	printf("\t-h | --heght: VI height, Default:1080\n");
 	printf("\t-c | --frame_cnt: frame number of output, Default:-1\n");
-	printf("\t-I | --camid: camera ctx id, Default 0. "
-	       "0:rkisp_mainpath,1:rkisp_selfpath,2:rkisp_bypasspath\n");
+#if defined RV1126_RV1109
+	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
+			"0:rkisp_m_bypass, 1:rkispp_scale0, 2:rkispp_scale2, 2:rkispp_scale3\n");
+#elif (defined RV1106_RV1103 || defined RV1103B)
+	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
+			"0:rkisp_mainpath, 1:rkisp_selfpath, 2:rkisp_bypasspath\n");
+#endif
 	printf("\t-e | --encode: encode type, Default:h264, Value:h264, h265, mjpeg\n");
 	printf("\t-o: output path, Default:NULL\n");
 }
@@ -270,7 +275,7 @@ int main(int argc, char *argv[]) {
 	printf("#CodecName:%s\n", pCodecName);
 	printf("#Resolution: %dx%d\n", u32Width, u32Height);
 	printf("#Output Path: %s\n", pOutPath);
-	printf("#CameraIdx: %d\n\n", s32chnlId);
+	printf("#ChannelIdx: %d\n\n", s32chnlId);
 	printf("#Frame Count to save: %d\n", g_s32FrameCnt);
 
 	if (pOutPath) {

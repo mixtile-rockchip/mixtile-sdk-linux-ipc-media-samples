@@ -488,8 +488,13 @@ static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s -W 1920 -H 1080 -w 3840 -h 1080 -m 2 -e h264 -o /tmp/venc0.h264 -O /tmp/venc1.h264\n", name);
 	printf("\t-a | --aiq: iq file path, Default:/etc/iqfiles\n");
-	printf("\t-I | --camid: camera ctx id, Default 0. "
-	       "0:rkisp_mainpath,1:rkisp_selfpath,2:rkisp_bypasspath\n");
+#if defined RV1126_RV1109
+	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
+			"0:rkisp_m_bypass, 1:rkispp_scale0, 2:rkispp_scale2, 2:rkispp_scale3\n");
+#elif (defined RV1106_RV1103 || defined RV1103B)
+	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
+			"0:rkisp_mainpath, 1:rkisp_selfpath, 2:rkisp_bypasspath\n");
+#endif
 	printf("\t-W | --width: VI width, Default:1920\n");
 	printf("\t-H | --heght: VI height, Default:1080\n");
 	printf("\t-w | --avs_width: AVS width, Default:3840\n");
