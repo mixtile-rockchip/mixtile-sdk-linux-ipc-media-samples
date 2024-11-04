@@ -477,8 +477,6 @@ int main(int argc, char *argv[]) {
 		stDemuxerInput.s8ReadModeFlag = 1;
 		stDemuxerInput.s8VideoEnableFlag = 0;
 		stDemuxerInput.s8AudioEnableFlag = 1;
-		stDemuxerInput.transport = 0;
-		stDemuxerInput.rtsp_io_timeout = 0;
 
 		ret = rkdemuxer_init(&demuxerCfg, &stDemuxerInput);
 		if (ret) {
