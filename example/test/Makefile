@@ -59,6 +59,7 @@ endif
 	$(CMD_DBG)cp   -f   source/kill_pid.sh                      $(SAMPLE_OUT_DIR)/install_to_userdata
 ifeq ($(RK_MEDIA_CHIP), rv1103b)
 	$(CMD_DBG)cp   -f   source/thunderboot-stresstest.sh        $(SAMPLE_OUT_DIR)/install_to_userdata
+	$(CMD_DBG)cp   -f   source/pre-recording-stresstest.sh        $(SAMPLE_OUT_DIR)/install_to_userdata
 	$(CMD_DBG)cp   -f   source/rv1103_stresstest.sh             $(SAMPLE_OUT_DIR)/install_to_userdata/rv1103b_wrap_stresstest.sh
 	$(CMD_DBG)cp   -f   source/rv1106_stresstest.sh             $(SAMPLE_OUT_DIR)/install_to_userdata/rv1103b_stresstest.sh
 	$(CMD_DBG)cp   -f   source/rv1106_multi_cam_stresstest.sh   $(SAMPLE_OUT_DIR)/install_to_userdata/rv1103b_multi_cam_stresstest.sh
