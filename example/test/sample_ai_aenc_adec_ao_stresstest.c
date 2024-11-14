@@ -68,6 +68,8 @@ typedef struct _rkTestMpiAICtx {
 	RK_S32 s32VqeEnable;
 	RK_S32 s32DumpAlgo;
 	const char *pVqeCfgPath;
+	RK_S32 s32VqeDynamicCount;
+	RK_S32 s32SedDynamicCount;
 } TEST_AI_CTX_S;
 
 RK_S32 init_ai_aed() {
@@ -82,6 +84,7 @@ RK_S32 init_ai_aed() {
 	stAiAedConfig.fSnrDB = 10.0f;
 	stAiAedConfig.fLsdDB = -35.0f;
 	stAiAedConfig.s32Policy = 1;
+	stAiAedConfig.fSmoothParam = 0.9;
 
 	result = RK_MPI_AI_SetAedAttr(s32DevId, s32ChnIndex, &stAiAedConfig);
 	if (result != RK_SUCCESS) {
@@ -123,8 +126,8 @@ static RK_S32 init_ai_bcd() {
 	memset(&stAiBcdConfig, 0, sizeof(AI_BCD_CONFIG_S));
 	memset(&stAiBcdConfig2, 0, sizeof(AI_BCD_CONFIG_S));
 
-	stAiBcdConfig.mFrameLen = 60;
-	stAiBcdConfig.mConfirmProb = 0.85f;
+        stAiBcdConfig.mFrameLen = 50;
+        stAiBcdConfig.mConfirmProb = 0.83f;
         switch (s32DeviceChannel) {
         case 4:
             // just for example: 2mic + 2ref
@@ -604,7 +607,123 @@ void *getDataThread(void *ptr) {
 	return RK_NULL;
 }
 
-static RK_CHAR optstr[] = "?::r:t:v:s:l:";
+void* vqeThread(void * ptr) {
+    TEST_AI_CTX_S *params = (TEST_AI_CTX_S *)(ptr);
+    AI_VQE_CONFIG_S stAiVqeConfig;
+    RK_S32 result;
+
+    //When it is necessary to configure module switches separately, this interface needs to be called.
+    //By default, it can be ignored.
+    while (!quit && params->s32VqeDynamicCount-- > 0) {
+        result = RK_MPI_AI_DisableVqe(params->s32DevId, params->s32ChnIndex);
+        if (result != RK_SUCCESS) {
+            RK_LOGE("%s: RK_MPI_AI_DisableVqe(%d,%d) failed with %#x",
+                __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+        }
+
+		if (params->s32VqeGapMs != 16 && params->s32VqeGapMs != 10) {
+			RK_LOGE("Invalid gap: %d, just supports 16ms or 10ms for AI VQE", params->s32VqeGapMs);
+		}
+
+		stAiVqeConfig.s32WorkSampleRate = params->s32SampleRate;
+		stAiVqeConfig.s32FrameSample = params->s32SampleRate * params->s32VqeGapMs / 1000;
+		result = RK_MPI_AI_SetVqeAttr(params->s32DevId, params->s32ChnIndex, 0, 0, &stAiVqeConfig);
+		if (result != RK_SUCCESS) {
+			RK_LOGE("%s: SetVqeAttr(%d,%d) failed with %#x", __FUNCTION__, params->s32DevId,
+					params->s32ChnIndex, result);
+		}
+
+        result = RK_MPI_AI_EnableVqe(params->s32DevId, params->s32ChnIndex);
+        if (result != RK_SUCCESS) {
+            RK_LOGE("%s: EnableVqe(%d,%d) failed with %#x",
+                __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+        }
+
+        usleep(1000000);
+    }
+
+    return NULL;
+}
+
+void* sedThread(void * ptr) {
+    TEST_AI_CTX_S *params = (TEST_AI_CTX_S *)(ptr);
+    RK_S32 result;
+    while (!quit && params->s32SedDynamicCount-- > 0) {
+        if (params->s32SedDynamicCount % 2 == 0) {
+            if (params->s32AedEnable) {
+                result = RK_MPI_AI_EnableAed(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: EnableAed(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+
+            if (params->s32BcdEnable) {
+                result = RK_MPI_AI_DisableBcd(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: RK_MPI_AI_DisableBcd(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+
+            if (params->s32BuzEnable) {
+                result = RK_MPI_AI_EnableBuz(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: RK_MPI_AI_EnableBuz(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+
+            if (params->s32GbsEnable) {
+                result = RK_MPI_AI_DisableGbs(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: RK_MPI_AI_DisableGbs(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+        } else {
+            if (params->s32AedEnable) {
+                result = RK_MPI_AI_DisableAed(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: RK_MPI_AI_DisableAed(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+
+            if (params->s32BcdEnable) {
+                result = RK_MPI_AI_EnableBcd(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: EnableBcd(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+
+            if (params->s32BuzEnable) {
+                result = RK_MPI_AI_DisableBuz(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: RK_MPI_AI_DisableBuz(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+
+            if (params->s32GbsEnable) {
+                result = RK_MPI_AI_EnableBcd(params->s32DevId, params->s32ChnIndex);
+                if (result != RK_SUCCESS) {
+                    RK_LOGE("%s: RK_MPI_AI_EnableGbs(%d,%d) failed with %#x",
+                        __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+                }
+            }
+
+        }
+
+        usleep(1000000);
+    }
+
+    return NULL;
+}
+
+
+static RK_CHAR optstr[] = "?::r:t:v:s:l:d:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s [-r 8000] [-t g726] -o /tmp/aenc.g726\n", name);
@@ -619,12 +738,15 @@ int main(int argc, char *argv[]) {
 	RK_S32 s32AiVqe = 0;
 	RK_S32 s32AiSed = 0;
 	RK_S32 loopCount = 1;
+	RK_S32 dynamicCount = 0;
 	RK_U32 u32FrameCnt = 1024;
 	RK_CHAR *pCodecName = (RK_CHAR *)"g726";
 	int ret = 0;
 	int c;
 	TEST_AI_CTX_S params;
-	pthread_t tidGet;
+	pthread_t tidGet = 0;
+	pthread_t tidVqe = 0;
+	pthread_t tidSed = 0;
 
 	params.srcFilePath = RK_NULL;
 	params.dstFilePath = RK_NULL;
@@ -683,6 +805,9 @@ int main(int argc, char *argv[]) {
 		case 'l':
 			loopCount = atoi(optarg);
 			break;
+		case 'd':
+			dynamicCount = atoi(optarg);
+			break;
 		case '?':
 		default:
 			print_usage(argv[0]);
@@ -696,11 +821,15 @@ int main(int argc, char *argv[]) {
 	printf("#AI VQE enable: %d\n", s32AiVqe);
 	printf("#AI SED enable: %d\n", s32AiSed);
 	printf("#loop count: %d\n", loopCount);
+	printf("#dynamic count: %d\n", dynamicCount);
 
 	params.s32DevId = 0;
 	params.s32ChnIndex = 0;
 	params.s32SampleRate = s32SampleRate;
 	params.s32LoopCount = loopCount;
+	params.s32VqeDynamicCount = dynamicCount;
+	params.s32SedDynamicCount = dynamicCount;
+	params.s32SampleRate = s32SampleRate;
 
 	if (s32AiVqe)
 		params.s32VqeEnable = 1;
@@ -715,6 +844,11 @@ int main(int argc, char *argv[]) {
 	RK_MPI_SYS_Init();
 
 	for (int i = 0; i < loopCount; i++) {
+		if (loopCount > 1 && dynamicCount == 1) {
+			params.s32VqeDynamicCount = dynamicCount;
+			params.s32SedDynamicCount = dynamicCount;
+		}
+
 		params.s32AedLoudCount = 0;
 		params.s32BcdCount = 0;
 		params.s32BuzCount = 0;
@@ -774,6 +908,14 @@ int main(int argc, char *argv[]) {
 			return -1;
 		}
 
+		if (dynamicCount > 0) {
+			if (params.s32VqeEnable)
+				pthread_create(&tidVqe, RK_NULL, vqeThread, (void *)(&params));
+
+			if (params.s32AedEnable || params.s32BcdEnable || params.s32BuzEnable || params.s32GbsEnable)
+				pthread_create(&tidSed, RK_NULL, sedThread, (void *)(&params));
+		}
+
 		pthread_create(&tidGet, RK_NULL, getDataThread, (void *)(&params));
 		printf("%s initial finish\n", __func__);
 
@@ -789,6 +931,16 @@ int main(int argc, char *argv[]) {
 		if (tidGet) {
 			pthread_join(tidGet, RK_NULL);
 			tidGet = 0;
+		}
+
+		if (tidVqe) {
+			pthread_join(tidVqe, RK_NULL);
+			tidVqe = 0;
+		}
+
+		if (tidSed) {
+			pthread_join(tidSed, RK_NULL);
+			tidSed = 0;
 		}
 
 		if (params.s32AedEnable)
