@@ -180,6 +180,9 @@ RK_S32 load_bmp_ex(const char *filename, OSD_LOGO_T *pVideoLogo, OSD_COLOR_FMT_E
 	fseek(pFile, bmpFileHeader.bfOffBits, 0);
 	if (fread(pOrigBMPBuf, 1, h * stride, pFile) != (h * stride)) {
 		printf("fread (%d*%d)error!line:%d\n", h, stride, __LINE__);
+		fclose(pFile);
+		free(pOrigBMPBuf);
+		pOrigBMPBuf = NULL;
 		return -1;
 	}
 

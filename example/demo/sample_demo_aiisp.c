@@ -1309,6 +1309,8 @@ int main(int argc, char *argv[]) {
 	memset(&parsedArgs, 0, sizeof(RkCmdArgs));
 	if (parse_cmd_args(argc, argv, &parsedArgs) != RK_SUCCESS) {
 		printf("parse command line failure\n");
+		free(ctx);
+		ctx = NULL;
 		return RK_FAILURE;
 	}
 
