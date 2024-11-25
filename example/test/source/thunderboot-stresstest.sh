@@ -33,6 +33,8 @@ if [ -n "$f" ];then
 	cp /tmp/venc-test.bin $log_dir/venc-test-$cnt.bin
 	cp /tmp/venc0.bin $log_dir/venc0-$cnt.bin
 	cp /tmp/venc1.bin $log_dir/venc1-$cnt.bin
+	cp /tmp/venc2.bin $log_dir/venc2-$cnt.bin
+	cp /tmp/venc3.bin $log_dir/venc3-$cnt.bin
 	(cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys; echo ==========================================; cat /dev/mpi/vlog; cat /dev/mpi/valloc; cat /dev/mpi/vmcu; cat /dev/mpi/vrgn; cat /dev/mpi/vsys;) |tee > $log_dir/dev-mpi-$cnt.log
 	cat /proc/vcodec/enc/venc_info &> $log_dir/proc-vcodec-enc-venc_info-$cnt-1
 	cat /proc/vcodec/enc/venc_info &> $log_dir/proc-vcodec-enc-venc_info-$cnt-2
