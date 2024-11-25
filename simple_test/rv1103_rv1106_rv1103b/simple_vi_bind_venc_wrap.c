@@ -427,7 +427,7 @@ int main(int argc, char *argv[]) {
 	}
 	pthread_join(main_thread, NULL);
 	if (!g_venc_cfgs[0].fp) {
-		close(g_venc_cfgs[0].fp);
+		fclose(g_venc_cfgs[0].fp);
 	}
 	s32Ret = RK_MPI_VI_DisableChn(0, 0);
 	printf("RK_MPI_VI_DisableChn %x\n", s32Ret);
