@@ -59,5 +59,5 @@ frame=$(rand 40 139)
 echo "pre-recording will exit after $frame frame"
 export lppr_wakeup=2
 export lppr_wakeup_cnt=$frame
-/usr/bin/tinyplay /oem/usr/share/enter_preroll_2ch.wav -D 0 -d 0
+/usr/bin/tinyplay /oem/usr/share/enter_pre_recording_2ch.wav -D 0 -d 0
 /usr/bin/lppr
