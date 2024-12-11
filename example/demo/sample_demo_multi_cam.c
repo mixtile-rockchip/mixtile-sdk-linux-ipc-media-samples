@@ -1716,6 +1716,7 @@ static RK_S32 time_osd_deinit() {
 	return ret;
 }
 
+__attribute__((unused))
 static RK_S32 cover_osd_init() {
 	int ret = RK_SUCCESS;
 	int cover_chn;
@@ -1791,6 +1792,7 @@ static RK_S32 cover_osd_init() {
 	return ret;
 }
 
+__attribute__((unused))
 static RK_S32 cover_osd_deinit() {
 	int ret = RK_SUCCESS;
 	int cover_chn;
@@ -1829,6 +1831,7 @@ static RK_S32 cover_osd_deinit() {
 	return ret;
 }
 
+__attribute__((unused))
 static RK_S32 mosaic_osd_init() {
 	int ret = 0;
 	int mosaic_chn = 0;
@@ -1903,6 +1906,7 @@ static RK_S32 mosaic_osd_init() {
 	TRACE_END();
 }
 
+__attribute__((unused))
 static RK_S32 mosaic_osd_deinit() {
 	int ret = 0;
 	int mosaic_chn;
@@ -1947,8 +1951,11 @@ static RK_S32 osd_init() {
 	TRACE_BEGIN();
 	if (g_cmd_args->bEnableOsd) {
 		ret |= time_osd_init();
+// INFO: RK3576 hardware vpss support mosaic and cover.
+#if defined(RK3576)
 		ret |= cover_osd_init();
 		ret |= mosaic_osd_init();
+#endif
 	}
 	TRACE_END();
 	return ret;
@@ -1958,8 +1965,10 @@ static RK_S32 osd_deinit() {
 	RK_S32 ret = RK_SUCCESS;
 	TRACE_BEGIN();
 	if (g_cmd_args->bEnableOsd) {
+#if defined(RK3576)
 		ret |= mosaic_osd_deinit();
 		ret |= cover_osd_deinit();
+#endif
 		ret |= time_osd_deinit();
 	}
 	TRACE_END();
