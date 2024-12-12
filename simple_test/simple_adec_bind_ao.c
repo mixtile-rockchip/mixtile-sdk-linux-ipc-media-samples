@@ -64,12 +64,12 @@ RK_S32 open_device_ao(RK_S32 s32SampleRate, RK_S32 channel, RK_S32 u32FrameCnt) 
 #endif
 	sprintf((char *)aoAttr.u8CardName, "%s", "hw:0,0");
 
-	aoAttr.soundCard.channels = 2;       // 2
-	aoAttr.soundCard.sampleRate = 48000; // s32SampleRate;       16000
+	aoAttr.soundCard.channels = 2;
+	aoAttr.soundCard.sampleRate = s32SampleRate;
 	aoAttr.soundCard.bitWidth = AUDIO_BIT_WIDTH_16;
 
-	aoAttr.enBitwidth = AUDIO_BIT_WIDTH_16;                   // AUDIO_BIT_WIDTH_16
-	aoAttr.enSamplerate = (AUDIO_SAMPLE_RATE_E)s32SampleRate; // 16000
+	aoAttr.enBitwidth = AUDIO_BIT_WIDTH_16;
+	aoAttr.enSamplerate = (AUDIO_SAMPLE_RATE_E)s32SampleRate;
 
 	if (channel == 1)
 		aoAttr.enSoundmode = AUDIO_SOUND_MODE_MONO;
@@ -80,7 +80,7 @@ RK_S32 open_device_ao(RK_S32 s32SampleRate, RK_S32 channel, RK_S32 u32FrameCnt) 
 		return RK_FAILURE;
 	}
 
-	aoAttr.u32PtNumPerFrm = u32FrameCnt; // 1024
+	aoAttr.u32PtNumPerFrm = u32FrameCnt * 2;
 	//以下参数没有特殊需要，无需修改
 	aoAttr.u32FrmNum = 4;
 	aoAttr.u32EXFlag = 0;
