@@ -18,39 +18,39 @@ simple_adec_bind_ao -r 16000 -t g711u -c 1 -i /tmp/simple/output/_simple_ai_bind
 
 logai=6
 simple_ai_get_frame&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /tmp/ai.pcm
 simple_ai_get_frame -r 16000 -R 16000 -v 1 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 simple_ai_get_frame -r 16000 -R 16000 -v 0 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 simple_ai_get_frame -r 8000 -R 16000 -b 0 -v 1 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 simple_ai_get_frame -r 8000 -R 16000 -b 0 -v 0 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 simple_ai_get_frame -r 16000 -R 8000 -v 1 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 simple_ai_get_frame -r 16000 -R 8000 -v 0 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 simple_ai_get_frame -r 8000 -R 8000 -b 0 -v 1 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 simple_ai_get_frame -r 8000 -R 8000 -b 0 -v 0 -o /data/ai.pcm&
-sleep 1
+sleep 3
 killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 
@@ -61,9 +61,9 @@ simple_ao_send_frame -r 16000 -R 8000 -v 2 -i /tmp/simple/output/_simple_ai_get_
 
 logvi=6
 simple_vi_get_frame&
-sleep 1
+sleep 3
 killall simple_vi_get_frame
-sleep 1
+sleep 3
 simple_vi_get_frame -I 0 -w 1920 -h 1080 -c 10 -o 1
 checkmd5sum /data/test_0.yuv
 simple_vi_get_frame -I 0 -w 320 -h 240 -c 10 -o 1
@@ -78,9 +78,9 @@ simple_vi_get_frame -I 2 -w 320 -h 240 -c 10 -o 1
 checkmd5sum /data/test_2.yuv
 
 simple_vi_get_frame_rkaiq&
-sleep 1
+sleep 3
 killall simple_vi_get_frame_rkaiq
-sleep 1
+sleep 3
 simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1
 checkmd5sum /data/test_0.yuv
 simple_vi_get_frame_rkaiq -I 0 -w 320 -h 240 -c 10 -o 1
@@ -102,43 +102,43 @@ simple_vi_get_frame_tde -a /etc/iqfiles -w 1920 -h 1080 -l 10 -o /tmp
 checkmd5sum /tmp/tde_out.bin
 
 simple_vi_get_frame_send_vo -w 1920 -h 1080 -I 0 -l 0 -d 0&
-sleep 1
+sleep 3
 killall simple_vi_get_frame_send_vo
-sleep 1
+sleep 3
 logivs=6
 simple_vi_bind_ivs&
-sleep 1
+sleep 3
 killall simple_vi_bind_ivs
-sleep 1
+sleep 3
 simple_vi_bind_ivs -I 1 -w 1920 -h 1080 -A 0 -S 2&
-sleep 1
+sleep 3
 killall simple_vi_bind_ivs
-sleep 1
+sleep 3
 simple_vi_bind_ivs -I 1 -w 1920 -h 1080 -A 1 -S 2&
-sleep 1
+sleep 3
 killall simple_vi_bind_ivs
-sleep 1
+sleep 3
 simple_vi_bind_ivs -I 1 -w 1920 -h 1080 -A 1 -S 0&
-sleep 1
+sleep 3
 killall simple_vi_bind_ivs
-sleep 1
+sleep 3
 simple_vi_bind_ivs -I 1 -w 1920 -h 1080 -A 1 -S 1&
-sleep 1
+sleep 3
 killall simple_vi_bind_ivs
-sleep 1
+sleep 3
 simple_vi_bind_ivs -I 1 -w 1920 -h 1080 -A 1 -S 3&
-sleep 1
+sleep 3
 killall simple_vi_bind_ivs
-sleep 1
+sleep 3
 simple_vi_bind_ivs -I 1 -w 1920 -h 1080 -A 1 -S 4&
-sleep 1
+sleep 3
 killall simple_vi_bind_ivs
-sleep 1
+sleep 3
 logvenc=6
 simple_vi_bind_venc&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc
-sleep 1
+sleep 3
 simple_vi_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
 checkmd5sum /tmp/venc.h265
 simple_vi_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
@@ -151,9 +151,9 @@ simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
 checkmd5sum /tmp/venc.h264
 
 simple_vi_bind_vpss_bind_venc&
-sleep 1
+sleep 3
 killall simple_vi_bind_vpss_bind_venc
-sleep 1
+sleep 3
 simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
 checkmd5sum /tmp/venc.h265
 simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
@@ -166,9 +166,9 @@ simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
 checkmd5sum /tmp/venc.h264
 
 simple_vi_bind_venc_wrap&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_wrap
-sleep 1
+sleep 3
 simple_vi_bind_venc_wrap -I 0 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -o 1 -r 1 -L 180
 checkmd5sum /data/venc_wrap_0.bin
 simple_vi_bind_venc_wrap -I 0 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -o 1 -r 1 -L 360
@@ -195,9 +195,9 @@ simple_vi_bind_venc_wrap -I 0 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 9 -o 1 -r 
 checkmd5sum /data/venc_wrap_0.bin
 
 simple_vi_bind_venc_osd&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_osd
-sleep 1
+sleep 3
 simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
 checkmd5sum /tmp/venc.h265
 simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
@@ -210,25 +210,25 @@ simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
 checkmd5sum /tmp/venc.h264
 
 simple_vi_bind_venc_rtsp&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_rtsp
-sleep 1
+sleep 3
 simple_vi_bind_venc_svc_rtsp&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_svc_rtsp
-sleep 1
+sleep 3
 simple_vi_bind_venc_change_resolution&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_change_resolution
-sleep 1
+sleep 3
 simple_vi_bind_venc_change_resolution -I 0 -w 1920 -h 1080 -c 1000 -e h264
 simple_vi_bind_venc_change_resolution -I 0 -w 1920 -h 1080 -c 1000 -e h265
 simple_vi_bind_venc_change_resolution -I 0 -w 1920 -h 1080 -c 1000 -e mjpeg
 
 simple_vi_bind_venc_combo -a /etc/iqfiles&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_combo
-sleep 1
+sleep 3
 simple_vi_bind_venc_combo -a /etc/iqfiles -w 1920 -h 1080 -l 30 -o /tmp/ -r 1 -j 1
 checkmd5sum /tmp/venc_0.bin
 checkmd5sum /tmp/jpeg_chn1_0.jpeg
@@ -240,16 +240,16 @@ checkmd5sum /tmp/jpeg_chn1_1.jpeg
 
 
 simple_vi_bind_venc_jpeg&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_jpeg
-sleep 1
+sleep 3
 checkmd5sum /tmp/test_jpeg0.jpeg
 rm /tmp/test*
 
 simple_vi_bind_venc_chn_sharebuf&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_chn_sharebuf
-sleep 1
+sleep 3
 simple_vi_bind_venc_chn_sharebuf -c 10 -o /tmp/venc.h264
 checkmd5sum /tmp/venc.h264
 
@@ -262,17 +262,17 @@ checkmd5sum /tmp/venc.h264
 simple_vi_bind_venc_rtsp_dev_chn_sharebuf -w 640 -h 480 -W 2304 -H 1760&
 sleep 5
 killall simple_vi_bind_venc_rtsp_dev_chn_sharebuf
-sleep 1
+sleep 3
 # sample_demo_dual_camera_wrap -s 0 -W 1920 -H 1080 -w 640 -h 360 -f 15 -r 0 -s 1 -W 1920 -H 1080 -w 640 -h 360 -f 15 -r 0 -n 1 -S 0 -x 1920 -y 1080 -l 72
 
 simple_vi_bind_venc_rawstream_wrap&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_rawstream_wrap
-sleep 1
+sleep 3
 simple_vi_bind_venc_rawstream_wrap --pipe_mb_cnt 2&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_rawstream_wrap
-sleep 1
+sleep 3
 simple_vi_bind_venc_rawstream_wrap -c 8 --iw 1920 --ih 1080 --ow 1920 --oh 1080 -d /data -w 1 -l 64 --frame_cnt 10
 checkmd5sum /data/venc_chn0_1920x1080_64.h264
 simple_vi_bind_venc_rawstream_wrap -c 8 --iw 1920 --ih 1080 --ow 1920 --oh 1080 -d /data -w 1 -l 1080 --frame_cnt 10
@@ -499,7 +499,7 @@ checkmd5sum /tmp/venc1.h264
 
 
 #The eptz test must be the last one
-sleep 1
+sleep 3
 simple_vi_bind_venc_rtsp_eptz&
-sleep 1
+sleep 3
 killall simple_vi_bind_venc_rtsp_eptz
