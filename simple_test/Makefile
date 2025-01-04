@@ -70,6 +70,8 @@ SIMPLE_LD_FLAGS += $(SIMPLE_OPTS) -L$(RK_MEDIA_OUTPUT)/lib -L$(RK_MEDIA_OUTPUT)/
 					-lrga
 SIMPLE_LD_FLAGS += -Wl,--gc-sections -Wl,--as-needed
 
+SIMPLE_CFLAGS += -Wl,-rpath-link,${RK_MEDIA_OUTPUT}/lib -Wl,-rpath-link,$(RK_MEDIA_OUTPUT)/root/usr/lib
+
 SIMPLE_VO_LD_FLAGS += $(RK_MEDIA_OPTS) -L$(RK_MEDIA_OUTPUT)/lib -L$(RK_MEDIA_OUTPUT)/root/usr/lib -Wl,-Bdynamic \
 						-lrockchip_mpp -lrga -ldrm -lpthread
 

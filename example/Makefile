@@ -155,6 +155,8 @@ ifeq ($(CONFIG_RK_LIBEASYIIO),y)
 SAMPLE_CFLAGS += -DEIS_ENABLE
 endif
 
+SAMPLE_CFLAGS += -Wl,-rpath-link,${RK_MEDIA_OUTPUT}/lib -Wl,-rpath-link,$(RK_MEDIA_OUTPUT)/root/usr/lib
+
 ifneq ($(findstring $(RK_MEDIA_CHIP),rv1106 rv1103b),)
 LD_FLAGS += -lrockit_full
 else
