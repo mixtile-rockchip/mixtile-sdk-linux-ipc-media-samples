@@ -571,11 +571,6 @@ int main(int argc, char *argv[]) {
 
 		s32Ret = SIMPLE_COMM_ISP_Init(s32CamId, hdr_mode, bMultictx, iq_file_dir);
 		s32Ret |= SIMPLE_COMM_ISP_Run(s32CamId);
-		if (s32Ret != RK_SUCCESS) {
-			RK_LOGE("ISP init Failure:%X", s32Ret);
-			g_exit_result = RK_FALSE;
-			goto __CTX_ALLOC_FAILED;
-		}
 #endif
 	}
 
