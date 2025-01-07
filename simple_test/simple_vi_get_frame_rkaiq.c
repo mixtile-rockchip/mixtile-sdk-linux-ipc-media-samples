@@ -236,7 +236,7 @@ RK_S32 SIMPLE_COMM_ISP_Init(RK_S32 CamId, rk_aiq_working_mode_t WDRMode, RK_BOOL
 	    rk_aiq_uapi2_sysctl_init(aiq_static_info.sensor_info.sensor_name, iq_file_dir,
 	                             SIMPLE_COMM_ISP_ErrCb, SIMPLE_COMM_ISP_SofCb);
 
-	if (MultiCam)
+	if (MultiCam && aiq_ctx)
 		rk_aiq_uapi2_sysctl_setMulCamConc(aiq_ctx, true);
 #endif
 	g_aiq_ctx[CamId] = aiq_ctx;
