@@ -23,6 +23,10 @@ static	int s32chnlId = 0;
 static	int VoLayer = 0;
 static	int VoDev = 0;
 static	int VoChn = 0;
+static	int IntfType = 0;
+static	int enIntfType = 0;
+static	int VoWidth = 0;
+static	int VoHeight = 0;
 
 static void sigterm_handler(int sig) {
 	fprintf(stderr, "signal %d\n", sig);
@@ -126,7 +130,7 @@ int vi_chn_init(int channelId, int width, int height) {
 	return ret;
 }
 
-static int vo_init(int VoLayer, int VoDev, int VoChn, int Width, int Height) {
+static int vo_init(int VoLayer, int VoDev, int VoChn, int Width, int Height, int IntfType) {
 	int ret = RK_SUCCESS;
 	VO_PUB_ATTR_S            stVoPubAttr;
 	VO_VIDEO_LAYER_ATTR_S    stLayerAttr;
@@ -142,7 +146,10 @@ static int vo_init(int VoLayer, int VoDev, int VoChn, int Width, int Height) {
 	memset(&stLayerAttr, 0, sizeof(VO_VIDEO_LAYER_ATTR_S));
 	memset(&stChnAttr, 0, sizeof(VO_CHN_ATTR_S));
 
-	stVoPubAttr.enIntfType = VO_INTF_DEFAULT;
+	if (IntfType != VO_INTF_DEFAULT)
+		stVoPubAttr.enIntfType = IntfType;
+	else
+		stVoPubAttr.enIntfType = VO_INTF_DEFAULT;
 	stVoPubAttr.enIntfSync = VO_OUTPUT_DEFAULT;
 
 	ret = RK_MPI_VO_SetPubAttr(VoDev, &stVoPubAttr);
@@ -243,8 +250,22 @@ static int vo_deinit(int VoLayer, int VoDev, int VoChn) {
 	return ret;
 }
 
+static int vo_get_en_intf_type(int type) {
+	int enIntfType = 0;
 
-static RK_CHAR optstr[] = "?::w:h:I:l:d:";
+	if (type == 1)
+		enIntfType = VO_INTF_MIPI;
+	else if (type == 2)
+		enIntfType = VO_INTF_HDMI;
+	else if (type == 3)
+		enIntfType = VO_INTF_LCD;
+	else
+		enIntfType = VO_INTF_DEFAULT;
+
+	return enIntfType;
+}
+
+static RK_CHAR optstr[] = "?::w:h:I:l:d:t:W:H:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s simple_vi_get_frame_send_vo  -w 1024 -h 600 -I 0 -l 0 -d 0\n", name);
@@ -257,8 +278,11 @@ static void print_usage(const RK_CHAR *name) {
 	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
 			"0:rkisp_mainpath, 1:rkisp_selfpath, 2:rkisp_bypasspath\n");
 #endif
-	printf("\t-l | --layer: Vo layer, Default 0. ");
-	printf("\t-d | --device: Vo device, Default 0. ");
+	printf("\t-l | --layer: Vo layer, Default 0. \n");
+	printf("\t-d | --device: Vo device, Default 0. \n");
+	printf("\t-t | --type: Vo en intf type, Default 0. \n");
+	printf("\t-W | --width: Vo display width, Default 0. \n");
+	printf("\t-H | --height: Vo display height, Default 0. \n");
 }
 
 int main(int argc, char *argv[]) {
@@ -282,6 +306,15 @@ int main(int argc, char *argv[]) {
 		case 'd':
 			VoDev = atoi(optarg);
 			break;
+		case 't':
+			IntfType = atoi(optarg);
+			break;
+		case 'W':
+			VoWidth = atoi(optarg);
+			break;
+		case 'H':
+			VoHeight = atoi(optarg);
+			break;
 		case '?':
 		default:
 			print_usage(argv[0]);
@@ -303,7 +336,13 @@ int main(int argc, char *argv[]) {
 
 	vi_dev_init();
 	vi_chn_init(s32chnlId, u32Width, u32Height);
-	vo_init(VoLayer, VoDev, VoChn, u32Width, u32Height);
+
+	enIntfType = vo_get_en_intf_type(IntfType);
+	printf("VoWidth %d, VoHeight %d\n", VoWidth, VoHeight);
+	if (VoWidth != 0 && VoHeight != 0)
+		vo_init(VoLayer, VoDev, VoChn, VoWidth, VoHeight, enIntfType);
+	else
+		vo_init(VoLayer, VoDev, VoChn, u32Width, u32Height, enIntfType);
 
 	pthread_t main_thread;
 	pthread_create(&main_thread, NULL, GetMediaBuffer0, NULL);
