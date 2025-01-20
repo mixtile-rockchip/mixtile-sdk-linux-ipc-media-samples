@@ -80,6 +80,8 @@ SIMPLE_LD_FLAGS += -lasound
 SIMPLE_VO_LD_FLAGS += -lasound
 endif
 
+SIMPLE_VO_LD_FLAGS += $(SIMPLE_LD_FLAGS)
+
 SOURCES_C     = $(wildcard *.c)
 ifneq ($(SIMPLE_SPECIAL_SRC_DIR),)
 SPEICAL_SOURCES_C = $(wildcard $(strip $(SIMPLE_SPECIAL_SRC_DIR))/*.c)
