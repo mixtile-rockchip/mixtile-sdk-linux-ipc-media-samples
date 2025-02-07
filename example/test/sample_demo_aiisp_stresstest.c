@@ -339,7 +339,7 @@ static RK_S32 rgn_init(RK_CHAR *bmp1_file_path, RK_CHAR *bmp2_file_path,
 	ctx->rgn[2].stRegion.s32Y = 256;            // must be 16 aligned
 	ctx->rgn[2].stRegion.u32Width = u32Width;   // must be 8 aligned
 	ctx->rgn[2].stRegion.u32Height = u32Height; // must be 8 aligned
-	ctx->rgn[2].u32BmpFormat = RK_FMT_BGRA5551;
+	ctx->rgn[2].u32BmpFormat = RK_FMT_ARGB1555;
 	ctx->rgn[2].u32BgAlpha = 128;
 	ctx->rgn[2].u32FgAlpha = 128;
 	ctx->rgn[2].u32Layer = 3;
@@ -372,7 +372,7 @@ static RK_S32 rgn_init(RK_CHAR *bmp1_file_path, RK_CHAR *bmp2_file_path,
 	ctx->rgn[3].stRegion.s32Y = 512;            // must be 16 aligned
 	ctx->rgn[3].stRegion.u32Width = u32Width;   // must be 8 aligned
 	ctx->rgn[3].stRegion.u32Height = u32Height; // must be 8 aligned
-	ctx->rgn[3].u32BmpFormat = RK_FMT_BGRA5551;
+	ctx->rgn[3].u32BmpFormat = RK_FMT_ARGB1555;
 	ctx->rgn[3].u32BgAlpha = 128;
 	ctx->rgn[3].u32FgAlpha = 128;
 	ctx->rgn[3].u32Layer = 4;

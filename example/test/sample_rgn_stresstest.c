@@ -390,11 +390,11 @@ static RK_S32 rgn_init(void) {
 	ctx->rgn[4].stMppChn.enModId = RK_ID_VENC;
 	ctx->rgn[4].stMppChn.s32ChnId = ctx->venc.s32ChnId;
 	ctx->rgn[4].stMppChn.s32DevId = 0;
-	ctx->rgn[4].stRegion.s32X = RK_ALIGN_16(ctx->venc.u32Width / 2); // must be 2 aligned
+	ctx->rgn[4].stRegion.s32X = RK_ALIGN_2(ctx->venc.u32Width / 2); // must be 2 aligned
 	ctx->rgn[4].stRegion.s32Y = 0;                                   // must be 2 aligned
 	ctx->rgn[4].stRegion.u32Width = u32Width;                        // must be 8 aligned
 	ctx->rgn[4].stRegion.u32Height = u32Height;                      // must be 8 aligned
-	ctx->rgn[4].u32BmpFormat = RK_FMT_BGRA5551;
+	ctx->rgn[4].u32BmpFormat = RK_FMT_ARGB1555;
 	ctx->rgn[4].u32BgAlpha = 128;
 	ctx->rgn[4].u32FgAlpha = 128;
 	ctx->rgn[4].u32Layer = 4;
@@ -423,11 +423,11 @@ static RK_S32 rgn_init(void) {
 	ctx->rgn[5].stMppChn.enModId = RK_ID_VENC;
 	ctx->rgn[5].stMppChn.s32ChnId = ctx->venc.s32ChnId;
 	ctx->rgn[5].stMppChn.s32DevId = 0;
-	ctx->rgn[5].stRegion.s32X = RK_ALIGN_16(ctx->venc.u32Width / 2);  // must be 2 aligned
-	ctx->rgn[5].stRegion.s32Y = RK_ALIGN_16(ctx->venc.u32Height / 2); // must be 2 aligned
+	ctx->rgn[5].stRegion.s32X = RK_ALIGN_2(ctx->venc.u32Width / 2);  // must be 2 aligned
+	ctx->rgn[5].stRegion.s32Y = RK_ALIGN_2(ctx->venc.u32Height / 2); // must be 2 aligned
 	ctx->rgn[5].stRegion.u32Width = u32Width;                         // must be 8 aligned
 	ctx->rgn[5].stRegion.u32Height = u32Height;                       // must be 8 aligned
-	ctx->rgn[5].u32BmpFormat = RK_FMT_BGRA5551;
+	ctx->rgn[5].u32BmpFormat = RK_FMT_ARGB1555;
 	ctx->rgn[5].u32BgAlpha = 128;
 	ctx->rgn[5].u32FgAlpha = 128;
 	ctx->rgn[5].u32Layer = 5;
@@ -456,12 +456,12 @@ static RK_S32 rgn_init(void) {
 	ctx->rgn[6].stMppChn.enModId = RK_ID_VENC;
 	ctx->rgn[6].stMppChn.s32ChnId = ctx->venc.s32ChnId;
 	ctx->rgn[6].stMppChn.s32DevId = 0;
-	ctx->rgn[6].stRegion.s32X = RK_ALIGN_16(ctx->venc.u32Width / 2); // must be 2 aligned
+	ctx->rgn[6].stRegion.s32X = RK_ALIGN_2(ctx->venc.u32Width / 2); // must be 2 aligned
 	ctx->rgn[6].stRegion.s32Y =
-	    RK_ALIGN_16(ctx->venc.u32Height - u32Height); // must be 2 aligned
+	    RK_ALIGN_2(ctx->venc.u32Height - u32Height); // must be 2 aligned
 	ctx->rgn[6].stRegion.u32Width = u32Width;         // must be 8 aligned
 	ctx->rgn[6].stRegion.u32Height = u32Height;       // must be 8 aligned
-	ctx->rgn[6].u32BmpFormat = RK_FMT_BGRA5551;
+	ctx->rgn[6].u32BmpFormat = RK_FMT_ARGB1555;
 	ctx->rgn[6].u32BgAlpha = 128;
 	ctx->rgn[6].u32FgAlpha = 128;
 	ctx->rgn[6].u32Layer = 6;
