@@ -93,7 +93,7 @@ checkmd5sum /data/test_0.yuv
 simple_vi_get_frame_tde -a /etc/iqfiles -w 1920 -h 1080 -l 10 -o /tmp
 checkmd5sum /tmp/tde_out.bin
 
-simple_vi_get_frame_send_vo -w 1920 -h 1080 -I 0 -l 0 -d 0 -t 1 -W 1080 -H 1920 &
+simple_vi_get_frame_send_vo -w 1920 -h 1080 -I 0 -l 0 -d 1 -t 1 -W 1080 -H 1920 &
 sleep 1
 killall simple_vi_get_frame_send_vo
 sleep 1
