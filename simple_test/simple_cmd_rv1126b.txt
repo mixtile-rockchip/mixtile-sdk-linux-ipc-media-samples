@@ -543,6 +543,209 @@ simple_vi_bind_venc_rtsp -I 7 -w 2688 -h 1520
 sleep 10
 killall simple_vi_bind_venc_rtsp
 
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp --pw 1 --pl 162
+checkmd5sum /tmp/vpss_chn0_2880x1620_162.h264
+rm /tmp/vpss_chn0_2880x1620_162.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp --pw 1 --pl 324
+checkmd5sum /tmp/vpss_chn0_2880x1620_324.h264
+rm /tmp/vpss_chn0_2880x1620_324.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp --pw 1 --pl 810
+checkmd5sum /tmp/vpss_chn0_2880x1620_810.h264
+rm /tmp/vpss_chn0_2880x1620_810.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp --pw 1 --pl 1620
+checkmd5sum /tmp/vpss_chn0_2880x1620_1620.h264
+rm /tmp/vpss_chn0_2880x1620_1620.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp  --pw 1 --pl 72
+checkmd5sum /tmp/vpss_chn0_1920x1080_72.h264
+rm /tmp/vpss_chn0_1920x1080_72.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp  --pw 1 --pl 270
+checkmd5sum /tmp/vpss_chn0_1920x1080_270.h264
+rm /tmp/vpss_chn0_1920x1080_270.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp  --pw 1 --pl 540
+checkmd5sum tmp/vpss_chn0_1920x1080_540.h264
+rm /tmp/vpss_chn0_1920x1080_540.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp  --pw 1 --pl 1080
+checkmd5sum tmp/vpss_chn0_1920x1080_1080.h264
+rm /tmp/vpss_chn0_1920x1080_1080.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 320 --oph 240 --ow 320 --oh 240  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp --pw 1 --pl 80
+checkmd5sum tmp/vpss_chn0_320x240_80.h264
+rm /tmp/vpss_chn0_320x240_80.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 320 --oph 240 --ow 320 --oh 240  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp --pw 1 --pl 120
+checkmd5sum tmp/vpss_chn0_320x240_120.h264
+rm /tmp/vpss_chn0_320x240_120.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 2880 --ih 1620 --opw 320 --oph 240 --ow 320 --oh 240  -d data --opf /data --opf1 /data -N 6 -t 2  -k 2880x1620_1.raw  -K 2880x1620_2.raw --opf tmp --pw 1 --pl 240
+checkmd5sum tmp/vpss_chn0_320x240_240.h264
+rm /tmp/vpss_chn0_320x240_240.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  --opf tmp  --pw 1 --pl 162
+checkmd5sum tmp/vpss_chn0_2880x1620_162.h264
+rm /tmp/vpss_chn0_2880x1620_162.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  --opf tmp  --pw 1 --pl 324
+checkmd5sum tmp/vpss_chn0_2880x1620_324.h264
+rm /tmp/vpss_chn0_2880x1620_324.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  --opf tmp  --pw 1 --pl 810
+checkmd5sum tmp/vpss_chn0_2880x1620_810.h264
+rm /tmp/vpss_chn0_2880x1620_810.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620  -d data --opf /data --opf1 /data -N 6 -t 2  --opf tmp  --pw 1 --pl 1620
+checkmd5sum tmp/vpss_chn0_2880x1620_1620.h264
+rm /tmp/vpss_chn0_2880x1620_1620.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2 --opf tmp  --pw 1 --pl 72
+checkmd5sum tmp/vpss_chn0_1920x1080_72.h264
+rm /tmp/vpss_chn0_1920x1080_72.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2 --opf tmp  --pw 1 --pl 270
+checkmd5sum tmp/vpss_chn0_1920x1080_270.h264
+rm /tmp/vpss_chn0_1920x1080_270.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2 --opf tmp  --pw 1 --pl 540
+checkmd5sum tmp/vpss_chn0_1920x1080_540.h264
+rm /tmp/vpss_chn0_1920x1080_540.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080  -d data --opf /data --opf1 /data -N 6 -t 2 --opf tmp  --pw 1 --pl 1080
+checkmd5sum tmp/vpss_chn0_1920x1080_1080.h264
+rm /tmp/vpss_chn0_1920x1080_1080.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240  -d data --opf /data --opf1 /data -N 6 -t 2 --opf tmp --pw 1 --pl 80
+checkmd5sum tmp/vpss_chn0_320x240_80.h264
+rm /tmp/vpss_chn0_320x240_80.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240  -d data --opf /data --opf1 /data -N 6 -t 2 --opf tmp --pw 1 --pl 120
+checkmd5sum tmp/vpss_chn0_320x240_120.h264
+rm /tmp/vpss_chn0_320x240_120.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240  -d data --opf /data --opf1 /data -N 6 -t 2 --opf tmp --pw 1 --pl 240
+checkmd5sum tmp/vpss_chn0_320x240_240.h264
+rm /tmp/vpss_chn0_320x240_240.h264
+
+#dual vpss wrap, need to select dual isp and vpss in dts
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620 --iw1 1920 --ih1 1080 --opw1 2880 --oph1 1620 --ow1 2880 --oh1 1620  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 162 --pw1 1 --pl1 162
+checkmd5sum tmp/vpss_chn0_2880x1620_162.h264
+checkmd5sum tmp/vpss_chn1_2880x1620_162.h264
+rm /tmp/vpss_chn0_2880x1620_162.h264
+rm /tmp/vpss_chn1_2880x1620_162.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620 --iw1 1920 --ih1 1080 --opw1 2880 --oph1 1620 --ow1 2880 --oh1 1620  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 810 --pw1 1 --pl1 810
+checkmd5sum tmp/vpss_chn0_2880x1620_810.h264
+checkmd5sum tmp/vpss_chn1_2880x1620_810.h264
+rm /tmp/vpss_chn0_2880x1620_810.h264
+rm /tmp/vpss_chn1_2880x1620_810.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620 --iw1 1920 --ih1 1080 --opw1 2880 --oph1 1620 --ow1 2880 --oh1 1620  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 1620 --pw1 1 --pl1 1620
+checkmd5sum tmp/vpss_chn0_2880x1620_1620.h264
+checkmd5sum tmp/vpss_chn1_2880x1620_1620.h264
+rm /tmp/vpss_chn0_2880x1620_1620.h264
+rm /tmp/vpss_chn1_2880x1620_1620.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080 --iw1 1920 --ih1 1080 --opw1 1920 --oph1 1080 --ow1 1920 --oh1 1080  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 72 --pw1 1 --pl1 72
+checkmd5sum tmp/vpss_chn0_1920x1080_72.h264
+checkmd5sum tmp/vpss_chn1_1920x1080_72.h264
+rm /tmp/vpss_chn0_1920x1080_72.h264
+rm /tmp/vpss_chn1_1920x1080_72.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080 --iw1 1920 --ih1 1080 --opw1 1920 --oph1 1080 --ow1 1920 --oh1 1080  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 270 --pw1 1 --pl1 270
+checkmd5sum tmp/vpss_chn0_1920x1080_270.h264
+checkmd5sum tmp/vpss_chn1_1920x1080_270.h264
+rm /tmp/vpss_chn0_1920x1080_270.h264
+rm /tmp/vpss_chn1_1920x1080_270.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080 --iw1 1920 --ih1 1080 --opw1 1920 --oph1 1080 --ow1 1920 --oh1 1080  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 540 --pw1 1 --pl1 540
+checkmd5sum tmp/vpss_chn0_1920x1080_540.h264
+checkmd5sum tmp/vpss_chn1_1920x1080_540.h264
+rm /tmp/vpss_chn0_1920x1080_540.h264
+rm /tmp/vpss_chn1_1920x1080_540.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080 --iw1 1920 --ih1 1080 --opw1 1920 --oph1 1080 --ow1 1920 --oh1 1080  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 1080 --pw1 1 --pl1 1080
+checkmd5sum tmp/vpss_chn0_1920x1080_1080.h264
+checkmd5sum tmp/vpss_chn1_1920x1080_1080.h264
+rm /tmp/vpss_chn0_1920x1080_1080.h264
+rm /tmp/vpss_chn1_1920x1080_1080.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240 --iw1 1920 --ih1 1080 --opw1 320 --oph1 240 --ow1 320 --oh1 240  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 80 --pw1 1 --pl1 80
+checkmd5sum tmp/vpss_chn0_320x240_80.h264
+checkmd5sum tmp/vpss_chn1_320x240_80.h264
+rm /tmp/vpss_chn0_320x240_80.h264
+rm /tmp/vpss_chn1_320x240_80.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240 --iw1 1920 --ih1 1080 --opw1 320 --oph1 240 --ow1 320 --oh1 240  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 120 --pw1 1 --pl1 120
+checkmd5sum tmp/vpss_chn0_320x240_120.h264
+checkmd5sum tmp/vpss_chn1_320x240_120.h264
+rm /tmp/vpss_chn0_320x240_120.h264
+rm /tmp/vpss_chn1_320x240_120.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240 --iw1 1920 --ih1 1080 --opw1 320 --oph1 240 --ow1 320 --oh1 240  -d data --opf tmp --opf1 tmp -N 6 -n 2 -t 2 --pw 1 --pl 240 --pw1 1 --pl1 240
+checkmd5sum tmp/vpss_chn0_320x240_240.h264
+checkmd5sum tmp/vpss_chn1_320x240_240.h264
+rm /tmp/vpss_chn0_320x240_240.h264
+rm /tmp/vpss_chn1_320x240_240.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih  1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620 --iw1 2880 --ih1 1620 --opw1 2880 --oph1 1620 --ow1 2880 --oh1 1620 -N 6 -n 2 -t 2 --pw 1 --pl 162 --pw1 1 --pl1 162
+checkmd5sum tmp/vpss_chn0_2880x1620_162.h264
+checkmd5sum tmp/vpss_chn1_2880x1620_162.h264
+rm /tmp/vpss_chn0_2880x1620_162.h264
+rm /tmp/vpss_chn1_2880x1620_162.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih  1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620 --iw1 2880 --ih1 1620 --opw1 2880 --oph1 1620 --ow1 2880 --oh1 1620 -N 6 -n 2 -t 2 --pw 1 --pl 810 --pw1 1 --pl1 810
+checkmd5sum tmp/vpss_chn0_2880x1620_810.h264
+checkmd5sum tmp/vpss_chn1_2880x1620_810.h264
+rm /tmp/vpss_chn0_2880x1620_810.h264
+rm /tmp/vpss_chn1_2880x1620_810.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih  1080 --opw 2880 --oph 1620 --ow 2880 --oh 1620 --iw1 2880 --ih1 1620 --opw1 2880 --oph1 1620 --ow1 2880 --oh1 1620 -N 6 -n 2 -t 2 --pw 1 --pl 1620 --pw1 1 --pl1 1620
+checkmd5sum tmp/vpss_chn0_2880x1620_1620.h264
+checkmd5sum tmp/vpss_chn1_2880x1620_1620.h264
+rm /tmp/vpss_chn0_2880x1620_1620.h264
+rm /tmp/vpss_chn1_2880x1620_1620.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080 --iw1 2880 --ih1 1620 --opw1 1920 --oph1 1080 --ow1 1920 --oh1 1080 -N 6 -n 2 -t 2 --pw 1 --pl 72 --pw1 1 --pl1 72
+checkmd5sum tmp/vpss_chn0_1920x1080_72.h264
+checkmd5sum tmp/vpss_chn1_1920x1080_72.h264
+rm /tmp/vpss_chn0_1920x1080_72.h264
+rm /tmp/vpss_chn1_1920x1080_72.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080 --iw1 2880 --ih1 1620 --opw1 1920 --oph1 1080 --ow1 1920 --oh1 1080 -N 6 -n 2 -t 2 --pw 1 --pl 540 --pw1 1 --pl1 540
+checkmd5sum tmp/vpss_chn0_1920x1080_540.h264
+checkmd5sum tmp/vpss_chn1_1920x1080_540.h264
+rm /tmp/vpss_chn0_1920x1080_540.h264
+rm /tmp/vpss_chn1_1920x1080_540.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 1920 --oph 1080 --ow 1920 --oh 1080 --iw1 2880 --ih1 1620 --opw1 1920 --oph1 1080 --ow1 1920 --oh1 1080 -N 6 -n 2 -t 2 --pw 1 --pl 1080 --pw1 1 --pl1 1080
+checkmd5sum tmp/vpss_chn0_1920x1080_1080.h264
+checkmd5sum tmp/vpss_chn1_1920x1080_1080.h264
+rm /tmp/vpss_chn0_1920x1080_1080.h264
+rm /tmp/vpss_chn1_1920x1080_1080.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240 --iw1 2880 --ih1 1620 --opw1 320 --oph1 240 --ow1 320 --oh1 240 -N 6 -n 2 -t 2 --pw 1 --pl 80 --pw1 1 --pl1 80
+checkmd5sum tmp/vpss_chn0_320x240_80.h264
+checkmd5sum tmp/vpss_chn1_320x240_80.h264
+rm /tmp/vpss_chn0_320x240_80.h264
+rm /tmp/vpss_chn1_320x240_80.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240 --iw1 2880 --ih1 1620 --opw1 320 --oph1 240 --ow1 320 --oh1 240 -N 6 -n 2 -t 2 --pw 1 --pl 120 --pw1 1 --pl1 120
+checkmd5sum tmp/vpss_chn0_320x240_120.h264
+checkmd5sum tmp/vpss_chn1_320x240_120.h264
+rm /tmp/vpss_chn0_320x240_120.h264
+rm /tmp/vpss_chn1_320x240_120.h264
+
+simple_vi_vpss_venc_rawstream -I 0 --iw 1920 --ih 1080 --opw 320 --oph 240 --ow 320 --oh 240 --iw1 2880 --ih1 1620 --opw1 320 --oph1 240 --ow1 320 --oh1 240 -N 6 -n 2 -t 2 --pw 1 --pl 240 --pw1 1 --pl1 240
+checkmd5sum tmp/vpss_chn0_320x240_240.h264
+checkmd5sum tmp/vpss_chn1_320x240_240.h264
+rm /tmp/vpss_chn0_320x240_240.h264
+rm /tmp/vpss_chn1_320x240_240.h264
+
 #The eptz test must be the last one
 sleep 3
 simple_vi_bind_venc_rtsp_eptz&
