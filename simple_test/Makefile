@@ -179,6 +179,9 @@ simple_vi_bind_venc_rtsp_eptz: simple_vi_bind_venc_rtsp_eptz.c
 simple_vi_get_frame_send_vo: simple_vi_get_frame_send_vo.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
 
+simple_vi_bind_vpss_bind_vo: simple_vi_bind_vpss_bind_vo.c
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
+
 $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_chn_sharebuf: $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_chn_sharebuf.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS)
 
