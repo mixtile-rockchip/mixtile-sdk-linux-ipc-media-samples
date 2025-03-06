@@ -138,6 +138,19 @@ typedef struct _rkMpiVOCtx {
 	VO_CHN_ATTR_S stChnAttr;
 } SAMPLE_VO_CTX_S;
 
+typedef struct _rkMpiVDECtx {
+	VDEC_CHN VdChn;
+	RK_BOOL bEnableMbPool;
+	MB_POOL s32Pool;
+	VDEC_CHN_ATTR_S stChnAttr;
+	VDEC_STREAM_S stStream;
+	ROTATION_E enRotation;
+	VDEC_MOD_PARAM_S stModParam;
+	VIDEO_DISPLAY_MODE_E enDisplayMode;
+	VDEC_CHN_STATUS_S stStatus;
+	VDEC_CHN_PARAM_S stParam;
+} SAMPLE_VDEC_CTX_S;
+
 typedef struct _rkMpiVENCCtx {
 	RK_BOOL bSvcIfEnable;
 	RK_BOOL bMotionDeblurIfEnable;
@@ -329,6 +342,7 @@ RK_S32 SAMPLE_COMM_AI_ReleaseFrame(SAMPLE_AI_CTX_S *ctx);
 
 RK_S32 SAMPLE_COMM_VO_CreateChn(SAMPLE_VO_CTX_S *ctx);
 RK_S32 SAMPLE_COMM_VO_DestroyChn(SAMPLE_VO_CTX_S *ctx);
+RK_S32 SAMPLE_COMM_VO_GetRevCountByDumpsys(SAMPLE_VO_CTX_S *ctx);
 
 RK_S32 SAMPLE_COMM_AO_CreateChn(SAMPLE_AO_CTX_S *ctx);
 RK_S32 SAMPLE_COMM_AO_DestroyChn(SAMPLE_AO_CTX_S *ctx);
@@ -349,6 +363,11 @@ RK_S32 SAMPLE_COMM_VENC_CreateChn(SAMPLE_VENC_CTX_S *ctx);
 RK_S32 SAMPLE_COMM_VENC_GetStream(SAMPLE_VENC_CTX_S *ctx, void **pdata);
 RK_S32 SAMPLE_COMM_VENC_ReleaseStream(SAMPLE_VENC_CTX_S *ctx);
 RK_S32 SAMPLE_COMM_VENC_DestroyChn(SAMPLE_VENC_CTX_S *ctx);
+
+RK_S32 SAMPLE_COMM_VDEC_CreateChn(SAMPLE_VDEC_CTX_S *ctx);
+RK_S32 SAMPLE_COMM_VDEC_DestroyChn(SAMPLE_VDEC_CTX_S *ctx);
+RK_S32 SAMPLE_COMM_VDEC_SendStream(SAMPLE_VDEC_CTX_S *ctx, FILE *fp);
+RK_S32 SAMPLE_COMM_VDEC_SendFrame(SAMPLE_VDEC_CTX_S *ctx, FILE *fp, RK_U8* buffer, int *nalStart);
 
 RK_S32 SAMPLE_COMM_AENC_CreateChn(SAMPLE_AENC_CTX_S *ctx);
 RK_S32 SAMPLE_COMM_AENC_GetStream(SAMPLE_AENC_CTX_S *ctx, void **pdata);

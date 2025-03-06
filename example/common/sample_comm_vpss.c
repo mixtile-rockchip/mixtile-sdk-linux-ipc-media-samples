@@ -43,6 +43,7 @@ RK_S32 SAMPLE_COMM_VPSS_CreateChn(SAMPLE_VPSS_CTX_S *ctx) {
 	ctx->stGrpVpssAttr.u32MaxH = 4096;
 	ctx->stGrpVpssAttr.stFrameRate.s32SrcFrameRate = -1;
 	ctx->stGrpVpssAttr.stFrameRate.s32DstFrameRate = -1;
+	ctx->stGrpVpssAttr.enVProcDev = (VIDEO_PROC_DEV_TYPE_E)ctx->enVProcDevType;
 	s32Ret = RK_MPI_VPSS_CreateGrp(ctx->s32GrpId, &ctx->stGrpVpssAttr);
 	if (s32Ret != RK_SUCCESS) {
 		RK_LOGE("RK_MPI_VPSS_CreateGrp failed with %#x!\n", s32Ret);

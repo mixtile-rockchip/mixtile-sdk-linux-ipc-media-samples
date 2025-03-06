@@ -32,6 +32,12 @@ RK_S32 SAMPLE_COMM_VO_CreateChn(SAMPLE_VO_CTX_S *ctx) {
 	RK_S32 s32Ret = RK_FAILURE;
 	VO_PUB_ATTR_S pstA;
 #ifdef HAVE_VO
+	s32Ret = RK_MPI_VO_BindLayer(ctx->s32LayerId, ctx->s32DevId, ctx->Volayer_mode);
+	if (s32Ret != RK_SUCCESS) {
+		RK_LOGE("RK_MPI_VO_BindLayer failed with %#x!\n", s32Ret);
+		return RK_FAILURE;
+	}
+
 	// 0. Set/Enable vo PubAttr
 	s32Ret = RK_MPI_VO_SetPubAttr(ctx->s32DevId, &ctx->stVoPubAttr);
 	if (s32Ret != RK_SUCCESS) {
@@ -44,7 +50,7 @@ RK_S32 SAMPLE_COMM_VO_CreateChn(SAMPLE_VO_CTX_S *ctx) {
 		RK_LOGE("RK_MPI_VO_Enable failed with %#x!\n", s32Ret);
 		return RK_FAILURE;
 	} else {
-		RK_LOGE("RK_MPI_VO_Enable already");
+		RK_LOGI("RK_MPI_VO_Enable success");
 	}
 
 	// 1. Set dispBufLen
@@ -83,12 +89,6 @@ RK_S32 SAMPLE_COMM_VO_CreateChn(SAMPLE_VO_CTX_S *ctx) {
 		ctx->stLayerAttr.stImageSize.u32Height = pstA.stSyncInfo.u16Vact;
 	}
 
-	s32Ret = RK_MPI_VO_BindLayer(ctx->s32LayerId, ctx->s32DevId, ctx->Volayer_mode);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("RK_MPI_VO_BindLayer failed with %#x!\n", s32Ret);
-		return RK_FAILURE;
-	}
-
 	s32Ret = RK_MPI_VO_SetLayerAttr(ctx->s32LayerId, &ctx->stLayerAttr);
 	if (s32Ret != RK_SUCCESS) {
 		RK_LOGE("RK_MPI_VO_SetLayerAttr failed with %#x!\n", s32Ret);
@@ -100,7 +100,7 @@ RK_S32 SAMPLE_COMM_VO_CreateChn(SAMPLE_VO_CTX_S *ctx) {
 		RK_LOGE("RK_MPI_VO_EnableLayer failed with %#x!\n", s32Ret);
 		return RK_FAILURE;
 	} else {
-		RK_LOGE("RK_MPI_VO_EnableLayer already");
+		RK_LOGI("RK_MPI_VO_EnableLayer success");
 	}
 
 	// 3. Set/Enable ChnAttr
@@ -119,10 +119,67 @@ RK_S32 SAMPLE_COMM_VO_CreateChn(SAMPLE_VO_CTX_S *ctx) {
 		RK_LOGE("RK_MPI_VO_EnableChn failed with %#x!\n", s32Ret);
 		return RK_FAILURE;
 	} else {
-		RK_LOGE("RK_MPI_VO_EnableChn already");
+		RK_LOGI("RK_MPI_VO_EnableChn success");
 	}
 #endif
 	return RK_SUCCESS;
+}
+
+#define MAX_BUFFER_SIZE 4096
+#define MAX_LINE_SIZE 512
+RK_S32 SAMPLE_COMM_VO_GetRevCountByDumpsys(SAMPLE_VO_CTX_S *ctx) {
+	FILE *fp;
+    char buffer[MAX_BUFFER_SIZE] = {0};
+    char line[MAX_LINE_SIZE] = {0};
+    char cmd[128] = {0};
+    int revcnt = -1;
+    int found_layer = 0;
+    int found_channel_section = 0, layerId, chnId;
+
+    layerId = ctx->s32LayerId;
+    chnId = ctx->s32ChnId;
+
+    snprintf(cmd, sizeof(cmd), "dumpsys vo");
+
+    fp = popen(cmd, "r");
+    if (fp == NULL) {
+        perror("Failed to run command");
+        return -1;
+    }
+
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        strcat(buffer, line);
+
+        if (strstr(line, "LAYER") && strstr(line, "CHANNEL STATUS")) {
+            int layer;
+            if (sscanf(line, "LAYER %d CHANNEL STATUS:", &layer) == 1) {
+                if (layer == layerId) {
+                    found_layer = 1;
+                    found_channel_section = 1;
+                } else {
+                    found_channel_section = 0;
+                }
+            }
+        }
+
+        if (found_channel_section) {
+            int channel;
+            int rev_cnt;
+
+            // ChnId Prio X    Y    W    H    ChnFrt FgAlpha BgAlpha KeyEn Color Show GDC Pause Step Cache RevThr RevCnt     InsCnt     LosCnt
+            // 0     0    0    0    1080 1920 0      0       0       N     0     Y    N   N     N    6     0      1780       3          1
+            if (sscanf(line, "%d %*d %*d %*d %*d %*d %*d %*d %*d %*s %*d %*s %*s %*s %*s %*d %*d %d",
+                      &channel, &rev_cnt) == 2) {
+                if (channel == chnId) {
+                    revcnt = rev_cnt;
+                    break;
+                }
+            }
+        }
+    }
+
+    pclose(fp);
+    return revcnt;
 }
 
 RK_S32 SAMPLE_COMM_VO_DestroyChn(SAMPLE_VO_CTX_S *ctx) {
@@ -137,7 +194,7 @@ RK_S32 SAMPLE_COMM_VO_DestroyChn(SAMPLE_VO_CTX_S *ctx) {
 		RK_LOGE("RK_MPI_VO_Close failed with %#x!\n", s32Ret);
 		return RK_FAILURE;
 	} else {
-		RK_LOGE("RK_MPI_VO_Close success");
+		RK_LOGI("RK_MPI_VO_Close success");
 	}
 #endif
 	return RK_SUCCESS;

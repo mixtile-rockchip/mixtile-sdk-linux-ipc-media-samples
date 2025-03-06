@@ -302,6 +302,42 @@ demo_vi_venc_stresstest()
     echo "-----------------exit demo_vi_venc stresstest-----------------" >> $test_result_path
 }
 
+vdec_vo_stresstest()
+{
+    # vdec mode random switch
+    test_cmd sample_vdec_vo_stresstest -i 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 1 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # vdec attach pool
+    test_cmd sample_vdec_vo_stresstest -i 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 2 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # vdec reset
+    test_cmd sample_vdec_vo_stresstest -i 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 3 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # vo resolution
+    test_cmd sample_vdec_vo_stresstest -i 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 4 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # bind-unbind
+    test_cmd sample_vdec_vo_stresstest -i 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 5 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # deinit
+    test_cmd sample_vdec_vo_stresstest -i 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 6 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+}
+
+vdec_vpss_vo_stresstest()
+{
+    # vpss_resolution
+    test_cmd sample_vdec_vpss_vo_stresstest -i 1280x720 -p 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 1 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # vpss switch dev type
+    test_cmd sample_vdec_vpss_vo_stresstest -i 1280x720 -p 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 2 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # ubind and bind
+    test_cmd sample_vdec_vpss_vo_stresstest -i 1280x720 -p 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 3 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+
+    # deinit
+    test_cmd sample_vdec_vpss_vo_stresstest -i 1280x720 -p 1280x720 -o 1080x1920 -f /data/h264_1280x720 -e h264 -v 0 -m 0 --test_type 4 --test_loop $TEST_LOOP --test_frame_count $TEST_FRAME
+}
+
 killall rkipc
 while true
 do
@@ -332,6 +368,12 @@ vpss_stresstest
 
 #5.demo vi venc stresstest
 demo_vi_venc_stresstest
+
+#6.vdec vo stresstest
+vdec_vo_stresstest
+
+#7.vdec vpss vo stresstest
+vdec_vpss_vo_stresstest
 
 #print test result
 cat $test_result_path
