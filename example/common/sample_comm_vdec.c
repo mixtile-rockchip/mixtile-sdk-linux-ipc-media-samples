@@ -48,8 +48,10 @@ RK_S32 SAMPLE_COMM_VDEC_CreateChn(SAMPLE_VDEC_CTX_S *ctx) {
         stVdecPicBufAttr.enCodecType = ctx->stChnAttr.enType;
         stVdecPicBufAttr.stPicBufAttr.u32Width = ctx->stChnAttr.u32PicWidth;
         stVdecPicBufAttr.stPicBufAttr.u32Height = ctx->stChnAttr.u32PicHeight;
+        #ifdef RV1126B
         stVdecPicBufAttr.stPicBufAttr.enPixelFormat = (PIXEL_FORMAT_E)ctx->stChnAttr.enPixelFormat;
         stVdecPicBufAttr.stPicBufAttr.enCompMode = (COMPRESS_MODE_E)ctx->stChnAttr.enCompressMode;
+        #endif
         ret = RK_MPI_CAL_VDEC_GetPicBufferSize(&stVdecPicBufAttr, &stMbPicCalResult);
         if (ret != RK_SUCCESS) {
             RK_LOGE("get picture buffer size failed. err 0x%x", ret);

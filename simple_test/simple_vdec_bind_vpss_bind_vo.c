@@ -212,7 +212,9 @@ int main(int argc, char* argv[]) {
     vpss_grp_attr.u32MaxW = width;
     vpss_grp_attr.u32MaxH = height;
     vpss_grp_attr.enPixelFormat = RK_FMT_YUV420SP;
+#ifdef RV1126B
     vpss_grp_attr.u32InputQueueCnt = 10;
+#endif
     ret = RK_MPI_VPSS_CreateGrp(DEFAULT_VPSS_GRP, &vpss_grp_attr);
     check_ret(ret, "RK_MPI_VPSS_CreateGrp");
 
@@ -295,7 +297,6 @@ int main(int argc, char* argv[]) {
     MPP_CHN_S vo_chn = {.enModId = RK_ID_VO, .s32DevId = DEFAULT_VO_LAYER, .s32ChnId = DEFAULT_VO_CHN};
     ret = RK_MPI_SYS_Bind(&vpss_chn, &vo_chn);
     check_ret(ret, "RK_MPI_SYS_Bind(VPSS to VO)");
-
 
      // 创建线程发送 H264 数据
     pthread_t h264_thread;

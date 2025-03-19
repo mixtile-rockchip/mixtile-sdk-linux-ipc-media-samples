@@ -27,6 +27,10 @@ endif
 
 SIMPLE_VO_LD_FLAGS := -lrockit
 
+ifeq ($(RK_MEDIA_CHIP), rv1126b)
+SIMPLE_LD_FLAGS += -DRV1126B
+endif
+
 ifeq ($(RK_MEDIA_CHIP), rv1106)
 SIMPLE_VO_LD_FLAGS := -lrockit_full
 SIMPLE_PKG_CONF_OPTS += -DARCH64=OFF
@@ -106,13 +110,13 @@ endif
 	$(call MAROC_COPY_PKG_TO_MEDIA_OUTPUT, $(RK_MEDIA_OUTPUT)/bin, $(SIMPLE_OUT_DIR)/bin)
 
 simple_vdec_bind_vpss_bind_vo: simple_vdec_bind_vpss_bind_vo.c
-	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS)
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
 
 simple_vdec_bind_vo: simple_vdec_bind_vo.c
-	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS)
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
 
 simple_vo_send_frame: simple_vo_send_frame.c
-	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS)
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
 
 simple_adec_bind_ao: simple_adec_bind_ao.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS)

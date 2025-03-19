@@ -219,6 +219,7 @@ RK_S32 vdec_mode_switch(ARGV_PARAMS_S *pstTestParams) {
             // g_ctx->vdec.stChnAttr.enCompressMode = COMPRESS_AFBC_16x16;
             break;
         default:
+            break;
     }
 
     if (g_ctx->vdec.stChnAttr.enMode == VIDEO_MODE_FRAME) {
@@ -306,7 +307,11 @@ RK_S32 vo_change_layer_resolution() {
     RK_LOGI("change to x:%d y:%d  w:%d  h:%d", stRect.s32X,
             stRect.s32Y, stRect.u32Width, stRect.u32Height);
     RK_MPI_VO_SetLayerFlush(g_ctx->vo.s32LayerId);
+    #ifdef RV1126B
     return RK_MPI_VO_SetLayerDispRect(g_ctx->vo.s32LayerId, &stRect);
+    #else
+    return 0;
+    #endif
 }
 
 RK_S32 vdec_vo_bind_unbind() {
@@ -368,6 +373,7 @@ void *module_test_thread_func(void *args) {
                 ret = vdec_vo_deinit(pstTestParams);
                 break;
             default:
+                break;
         }
 
         wait_module_test_switch_success();

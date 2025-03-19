@@ -203,6 +203,7 @@ RK_S32 vpss_resolution() {
             stChnAttr.u32Height = 640;
             break;
         default:
+            break;
     }
 
     RK_LOGI("vpss resolution switch to: w:%d h:%d", stChnAttr.u32Width, stChnAttr.u32Height);
@@ -313,6 +314,7 @@ void *module_test_thread_func(void *args) {
                 ret = media_init_deinit(pstTestParams);
                 break;
             default:
+                break;
         }
 
         if (ret)
