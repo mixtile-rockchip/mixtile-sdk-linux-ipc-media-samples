@@ -14,11 +14,17 @@
 #include <pthread.h>
 #include <getopt.h>
 
+#ifdef RV1126B
+#define DEFAULT_VO_DEV 0
+#define DEFAULT_VO_LAYER 1
+#else
+#define DEFAULT_VO_DEV 1
+#define DEFAULT_VO_LAYER 5
+#endif
+
 #define DEFAULT_VDEC_CHN 0
 #define DEFAULT_VPSS_GRP 0
 #define DEFAULT_VPSS_CHN 0
-#define DEFAULT_VO_DEV 1
-#define DEFAULT_VO_LAYER 5
 #define DEFAULT_VO_CHN 0
 #define DEFAULT_H264_FILE_PATH "test.h264"
 #define DEFAULT_WIDTH 1920
@@ -279,7 +285,6 @@ int main(int argc, char* argv[]) {
     vo_chn_attr.stRect.s32Y = 0;
     vo_chn_attr.stRect.u32Width = 1920;
     vo_chn_attr.stRect.u32Height = 1080;
-    vo_chn_attr.u32MaxChnQueue = 10;
     ret = RK_MPI_VO_SetChnAttr(DEFAULT_VO_LAYER, DEFAULT_VO_CHN, &vo_chn_attr);
     check_ret(ret, "RK_MPI_VO_SetChnAttr");
 

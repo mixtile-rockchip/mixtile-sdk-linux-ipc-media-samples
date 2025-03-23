@@ -42,6 +42,10 @@ extern "C" {
 #define BUFFER_SIZE (1024 * 1024)
 #define MAX_TIME_OUT_MS   20
 
+#ifndef VIDEO_PROC_DEV_VPSS
+#define VIDEO_PROC_DEV_VPSS VIDEO_PROC_DEV_RGA
+#endif
+
 typedef struct _rkModeTest {
     RK_BOOL bIfMainThreadQuit;
     RK_BOOL bIfVoThreadQuit;;

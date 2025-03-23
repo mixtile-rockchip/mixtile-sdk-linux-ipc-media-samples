@@ -26,7 +26,6 @@ SIMPLE_PKG_CONF_OPTS += -DARCH64=OFF
 endif
 
 SIMPLE_VO_LD_FLAGS := -lrockit
-
 ifeq ($(RK_MEDIA_CHIP), rv1126b)
 SIMPLE_LD_FLAGS += -DRV1126B
 endif

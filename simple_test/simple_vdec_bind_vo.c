@@ -13,9 +13,14 @@
 #include <pthread.h>
 #include <getopt.h>
 
-#define DEFAULT_VDEC_CHN 0
+#ifdef RV1126B
+#define DEFAULT_VO_DEV 0
+#define DEFAULT_VO_LAYER 1
+#else
 #define DEFAULT_VO_DEV 1
 #define DEFAULT_VO_LAYER 5
+#endif
+#define DEFAULT_VDEC_CHN 0
 #define DEFAULT_VO_CHN 0
 #define DEFAULT_H264_FILE_PATH "test.h264"
 #define DEFAULT_WIDTH 1920
@@ -240,7 +245,7 @@ int main(int argc, char* argv[]) {
     // 配置 VO 图层属性
     VO_VIDEO_LAYER_ATTR_S vo_layer_attr;
     memset(&vo_layer_attr, 0, sizeof(VO_VIDEO_LAYER_ATTR_S));
-    vo_layer_attr.enPixFormat = RK_FMT_YUV420SP;
+    vo_layer_attr.enPixFormat = RK_FMT_RGB888;
     vo_layer_attr.stDispRect.s32X = 0;
     vo_layer_attr.stDispRect.s32Y = 480;
     vo_layer_attr.stDispRect.u32Width = 640;
