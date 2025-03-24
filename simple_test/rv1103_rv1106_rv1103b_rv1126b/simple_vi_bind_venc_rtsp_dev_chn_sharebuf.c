@@ -458,6 +458,7 @@ int main(int argc, char *argv[]) {
 	if (iq_dir) {
 #ifdef RKAIQ
 		printf("ISP IQ file path: %s\n\n", iq_dir);
+#ifndef RV1126B
 		rk_aiq_static_info_t aiq_static_info;
 		rk_aiq_rkrawstream_info_t info = {0};
 		rk_aiq_uapi2_sysctl_enumStaticMetasByPhyId(0, &aiq_static_info);
@@ -467,6 +468,7 @@ int main(int argc, char *argv[]) {
 		info.mode = RK_ISP_RKRAWSTREAM_MODE_HALF_ONLINE;
 		rk_aiq_uapi2_sysctl_preInit_rkrawstream_info(
 			aiq_static_info.sensor_info.sensor_name, &info);
+#endif
 		SIMPLE_COMM_ISP_Init(0, RK_AIQ_WORKING_MODE_NORMAL, 0, iq_dir);
 		SIMPLE_COMM_ISP_Run(0);
 #endif

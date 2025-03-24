@@ -28,13 +28,14 @@ endif
 SIMPLE_VO_LD_FLAGS := -lrockit
 ifeq ($(RK_MEDIA_CHIP), rv1126b)
 SIMPLE_LD_FLAGS += -DRV1126B
+SIMPLE_SPECIAL_SRC_DIR := rv1103_rv1106_rv1103b_rv1126b
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rv1106)
 SIMPLE_VO_LD_FLAGS := -lrockit_full
 SIMPLE_PKG_CONF_OPTS += -DARCH64=OFF
 SIMPLE_LD_FLAGS += -DRV1106_RV1103
-SIMPLE_SPECIAL_SRC_DIR := rv1103_rv1106_rv1103b
+SIMPLE_SPECIAL_SRC_DIR := rv1103_rv1106_rv1103b_rv1126b
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rv1103b)
@@ -42,7 +43,7 @@ SIMPLE_PKG_CONF_OPTS += -DCMAKE_SYSTEM_PROCESSOR=armv7l
 SIMPLE_PKG_CONF_OPTS += -DARCH64=OFF
 SIMPLE_VO_LD_FLAGS := -lrockit_full
 SIMPLE_LD_FLAGS += -DRV1103B
-SIMPLE_SPECIAL_SRC_DIR := rv1103_rv1106_rv1103b
+SIMPLE_SPECIAL_SRC_DIR := rv1103_rv1106_rv1103b_rv1126b
 endif
 
 SIMPLE_OPTS += -Wl,-rpath-link,${RK_MEDIA_OUTPUT}/lib
@@ -100,12 +101,16 @@ all:
 simple_build: $(OBJECTS)
 	$(CMD_DBG)mkdir -p $(SIMPLE_OUT_DIR)/bin
 	$(CMD_DBG)mv -f $(OBJECTS) $(SIMPLE_OUT_DIR)/bin
+	$(CMD_DBG)cp simple_test.sh simple_cmd.txt $(SIMPLE_OUT_DIR)/bin/
 
 ifeq ($(RK_MEDIA_CHIP), rk3576)
-	$(CMD_DBG)cp simple_test.sh simple_cmd_rk3576.txt $(SIMPLE_OUT_DIR)/bin/
-else
-	$(CMD_DBG)cp simple_test.sh simple_cmd.txt $(SIMPLE_OUT_DIR)/bin/
+	$(CMD_DBG)cp simple_cmd_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
 endif
+
+ifeq ($(RK_MEDIA_CHIP), rv1126b)
+	$(CMD_DBG)cp simple_cmd_rv1126b.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
+endif
+
 	$(call MAROC_COPY_PKG_TO_MEDIA_OUTPUT, $(RK_MEDIA_OUTPUT)/bin, $(SIMPLE_OUT_DIR)/bin)
 
 simple_vdec_bind_vpss_bind_vo: simple_vdec_bind_vpss_bind_vo.c

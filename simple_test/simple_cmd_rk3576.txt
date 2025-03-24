@@ -1,3 +1,4 @@
+#chip rk3576, rockit c++
 logai=6
 simple_ai_bind_aenc&
 sleep 5

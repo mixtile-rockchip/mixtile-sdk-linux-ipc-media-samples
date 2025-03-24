@@ -1,3 +1,4 @@
+#chip rv1103/rv1106, rv1103b/rv1106b rockit c
 logai=6
 simple_ai_bind_aenc&
 sleep 5
