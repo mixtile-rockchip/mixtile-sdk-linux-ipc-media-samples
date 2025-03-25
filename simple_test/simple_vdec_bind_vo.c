@@ -15,7 +15,7 @@
 
 #ifdef RV1126B
 #define DEFAULT_VO_DEV 0
-#define DEFAULT_VO_LAYER 1
+#define DEFAULT_VO_LAYER 0
 #else
 #define DEFAULT_VO_DEV 1
 #define DEFAULT_VO_LAYER 5
@@ -290,11 +290,17 @@ int main(int argc, char* argv[]) {
     check_ret(ret, "RK_MPI_SYS_UnBind");
 
     // 释放资源
+    ret = RK_MPI_VO_DisableChn(DEFAULT_VO_LAYER, DEFAULT_VO_CHN);
+    check_ret(ret, "RK_MPI_VO_DisableChn");
+
     ret = RK_MPI_VO_DisableLayer(DEFAULT_VO_LAYER);
     check_ret(ret, "RK_MPI_VO_DisableLayer");
 
     ret = RK_MPI_VO_Disable(DEFAULT_VO_DEV);
     check_ret(ret, "RK_MPI_VO_Disable");
+
+    ret = RK_MPI_VO_UnBindLayer(DEFAULT_VO_LAYER, DEFAULT_VO_DEV);
+    check_ret(ret, "RK_MPI_VO_UnBindLayer");
 
     ret = RK_MPI_VDEC_StopRecvStream(DEFAULT_VDEC_CHN);
     check_ret(ret, "RK_MPI_VDEC_StopRecvStream");
