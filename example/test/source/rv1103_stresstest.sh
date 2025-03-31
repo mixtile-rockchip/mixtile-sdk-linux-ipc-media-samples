@@ -167,8 +167,8 @@ do
     fi
 done
 
-echo "start rv1103 stresstest" > $test_result_path
-echo "start record rv1103 meminfo" > /tmp/testLog.txt
+echo "start stresstest" > $test_result_path
+echo "start record meminfo" > /tmp/testLog.txt
 
 #1.isp stresstest
 test_mod="PN_MODE=on HDR=$ifEnableHDR FRAMERATE=on LDCH=on ISP_RESTART=on"
