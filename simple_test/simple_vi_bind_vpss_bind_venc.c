@@ -473,7 +473,7 @@ int main(int argc, char *argv[]) {
 
 	RK_CHAR *pOutPath = NULL;
 	RK_CODEC_ID_E enCodecType = RK_VIDEO_ID_AVC;
-	RK_CHAR *pCodecName = "H264";
+	RK_CHAR *pCodecName = "h264";
 	RK_S32 s32chnlId = 0;
 	int c;
 	int ret = -1;
@@ -510,13 +510,13 @@ int main(int argc, char *argv[]) {
 		case 'e':
 			if (!strcmp(optarg, "h264")) {
 				enCodecType = RK_VIDEO_ID_AVC;
-				pCodecName = "H264";
+				pCodecName = "h264";
 			} else if (!strcmp(optarg, "h265")) {
 				enCodecType = RK_VIDEO_ID_HEVC;
-				pCodecName = "H265";
+				pCodecName = "h265";
 			} else if (!strcmp(optarg, "mjpeg")) {
 				enCodecType = RK_VIDEO_ID_MJPEG;
-				pCodecName = "MJPEG";
+				pCodecName = "mjpeg";
 			} else {
 				printf("ERROR: Invalid encoder type.\n");
 				return -1;

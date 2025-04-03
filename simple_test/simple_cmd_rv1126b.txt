@@ -175,19 +175,19 @@ rm /tmp/venc_320x240_0.mjpeg
 simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/
 checkmd5sum /tmp/venc_320x240_0.h264
 rm /tmp/venc_320x240_0.h264
-simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 1800 -e h265 -o /tmp/ -l 72
+simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/ -l 72
 checkmd5sum /tmp/venc_1920x1080_72.h265
 rm /tmp/venc_1920x1080_72.h265
-simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 1800 -e h264 -o /tmp/ -l 540
+simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h264 -o /tmp/ -l 540
 checkmd5sum /tmp/venc_1920x1080_540.h264
 rm /tmp/venc_1920x1080_540.h264
-simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 1800 -e h264 -o /tmp/ -l 1080
+simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h264 -o /tmp/ -l 1080
 checkmd5sum /tmp/venc_1920x1080_1080.h264
 rm /tmp/venc_1920x1080_1080.h264
-simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 1800 -e h264 -o /tmp/ -l 80
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/ -l 80
 checkmd5sum /tmp/venc_320x240_80.h264
 rm /tmp/venc_320x240_80.h264
-simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 1800 -e h265 -o /tmp/ -l 120
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/ -l 120
 checkmd5sum /tmp/venc_320x240_120.h265
 rm /tmp/venc_320x240_120.h265
 
