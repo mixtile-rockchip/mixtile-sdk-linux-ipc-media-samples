@@ -30,6 +30,7 @@
 #include "rk_mpi_vpss.h"
 
 static RK_S32 g_s32FrameCnt = -1;
+static RK_S32 g_s32DevId = 0; // default dev id is 0, if not set, use VI_MAX_PHY_PIPE_NUM as virtual pipe
 static bool quit = false;
 
 static void sigterm_handler(int sig) {
@@ -46,9 +47,11 @@ RK_U64 TEST_COMM_GetNowUs() {
 static void *GetMediaBuffer0(void *arg) {
 	printf("========%s========\n", __func__);
 	int loopCount = 0;
+	int errCount = 0;
+	int quitCount = 0;
 	int s32Ret;
 	RK_S32 waitTime = 1000;
-	int pipeId = 0;
+	int pipeId = g_s32DevId;
 	int channelId = 0;
 	channelId = *(int *)arg;
 	VIDEO_FRAME_INFO_S stViFrame;
@@ -63,16 +66,19 @@ static void *GetMediaBuffer0(void *arg) {
 			    "RK_MPI_VI_GetChnFrame ok:data %p loop:%d seq:%d pts:%lld ms len=%llu",
 			    data, loopCount, stViFrame.stVFrame.u32TimeRef,
 			    stViFrame.stVFrame.u64PTS / 1000, stViFrame.stVFrame.u64PrivateData);
+
 			// 6.get the channel status
-			s32Ret = RK_MPI_VI_QueryChnStatus(pipeId, channelId, &stChnStatus);
-			RK_LOGD("RK_MPI_VI_QueryChnStatus ret %x, w:%d,h:%d,enable:%d,"
-			        "current frame id:%d,input lost:%d,output lost:%d,"
-			        "framerate:%d,vbfail:%d delay=%lldus",
-			        s32Ret, stChnStatus.stSize.u32Width, stChnStatus.stSize.u32Height,
-			        stChnStatus.bEnable, stChnStatus.u32CurFrameID,
-			        stChnStatus.u32InputLostFrame, stChnStatus.u32OutputLostFrame,
-			        stChnStatus.u32FrameRate, stChnStatus.u32VbFail,
-			        nowUs - stViFrame.stVFrame.u64PTS);
+			if (pipeId != VI_MAX_PHY_PIPE_NUM) { /* if not virtual pipe, query chn statue, otherwise skip */
+				s32Ret = RK_MPI_VI_QueryChnStatus(pipeId, channelId, &stChnStatus);
+				RK_LOGD("RK_MPI_VI_QueryChnStatus ret %x, w:%d,h:%d,enable:%d,"
+						"current frame id:%d,input lost:%d,output lost:%d,"
+						"framerate:%d,vbfail:%d delay=%lldus",
+						s32Ret, stChnStatus.stSize.u32Width, stChnStatus.stSize.u32Height,
+						stChnStatus.bEnable, stChnStatus.u32CurFrameID,
+						stChnStatus.u32InputLostFrame, stChnStatus.u32OutputLostFrame,
+						stChnStatus.u32FrameRate, stChnStatus.u32VbFail,
+						nowUs - stViFrame.stVFrame.u64PTS);
+			}
 
 			// 7.release the frame
 			s32Ret = RK_MPI_VI_ReleaseChnFrame(pipeId, channelId, &stViFrame);
@@ -81,6 +87,16 @@ static void *GetMediaBuffer0(void *arg) {
 			}
 			loopCount++;
 		} else {
+			errCount++;
+			if (errCount > 1000) {
+				RK_LOGE("RK_MPI_VI_GetChnFrame timeout %x", s32Ret);
+				quitCount++;
+				if (quitCount > 10) {
+					quit = true;
+					break;
+				}
+				continue;
+			}
 			RK_LOGE("RK_MPI_VI_GetChnFrame timeout %x", s32Ret);
 		}
 
@@ -97,7 +113,7 @@ static void *GetMediaBuffer0(void *arg) {
 int vi_dev_init() {
 	printf("%s\n", __func__);
 	int ret = 0;
-	int devId = 0;
+	int devId = g_s32DevId;
 	int pipeId = devId;
 
 	VI_DEV_ATTR_S stDevAttr;
@@ -140,22 +156,30 @@ int vi_dev_init() {
 	return 0;
 }
 
-int vi_chn_init(int channelId, int width, int height) {
+int vi_chn_init(int channelId, int width, int height, char* video) {
 	int ret;
-	int buf_cnt = 2;
+	int buf_cnt = 3;
+
 	// VI init
 	VI_CHN_ATTR_S vi_chn_attr;
 	memset(&vi_chn_attr, 0, sizeof(vi_chn_attr));
 	vi_chn_attr.stIspOpt.u32BufCount = buf_cnt;
-	vi_chn_attr.stIspOpt.enMemoryType =
-	    VI_V4L2_MEMORY_TYPE_DMABUF; // VI_V4L2_MEMORY_TYPE_MMAP;
+	vi_chn_attr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF; // VI_V4L2_MEMORY_TYPE_MMAP;
 	vi_chn_attr.stSize.u32Width = width;
 	vi_chn_attr.stSize.u32Height = height;
 	vi_chn_attr.enPixelFormat = RK_FMT_YUV420SP;
 	vi_chn_attr.enCompressMode = COMPRESS_MODE_NONE; // COMPRESS_AFBC_16x16;
-	vi_chn_attr.u32Depth = 2; //0, get fail, 1 - u32BufCount, can get, if bind to other device, must be < u32BufCount
-	ret = RK_MPI_VI_SetChnAttr(0, channelId, &vi_chn_attr);
-	ret |= RK_MPI_VI_EnableChn(0, channelId);
+	vi_chn_attr.u32Depth = 1; //0, get fail, 1 - u32BufCount, can get, if bind to other device, must be < u32BufCount
+
+	if (video[0] != '\0' && strlen(video) > 0) {
+		strncpy((char*)vi_chn_attr.stIspOpt.aEntityName, video,
+		        sizeof(vi_chn_attr.stIspOpt.aEntityName) - 1);
+		vi_chn_attr.stIspOpt.aEntityName[sizeof(vi_chn_attr.stIspOpt.aEntityName) - 1] = '\0';
+		printf("videoName: %s\n", vi_chn_attr.stIspOpt.aEntityName);
+	}
+
+	ret = RK_MPI_VI_SetChnAttr(g_s32DevId, channelId, &vi_chn_attr);
+	ret |= RK_MPI_VI_EnableChn(g_s32DevId, channelId);
 	if (ret) {
 		printf("ERROR: create VI error! ret=%d\n", ret);
 		return ret;
@@ -164,7 +188,7 @@ int vi_chn_init(int channelId, int width, int height) {
 	return ret;
 }
 
-static RK_CHAR optstr[] = "?::w:h:c:I:o:";
+static RK_CHAR optstr[] = "?::w:h:c:I:o:n:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s -I 0 -w 1920 -h 1080 -o 1\n", name);
@@ -179,6 +203,8 @@ static void print_usage(const RK_CHAR *name) {
 			"0:rkisp_mainpath, 1:rkisp_selfpath, 2:rkisp_bypasspath\n");
 #endif
 	printf("\t-o: output path, Default:0  0 or 1 /data/test_0.yuv\n");
+	printf("\t-n: --entity_name: video name from which get video data, Default: NULL,"
+			"eg. /dev/video0\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -189,6 +215,7 @@ int main(int argc, char *argv[]) {
 	RK_S32 s32chnlId = 0;
 	int c;
 	int ret = -1;
+	char videoName[64] = {0};
 	VI_SAVE_FILE_INFO_S stDebugFile;
 
 	while ((c = getopt(argc, argv, optstr)) != -1) {
@@ -207,6 +234,16 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'o':
 			savefile = atoi(optarg);
+			break;
+		case 'n':
+			if (strlen(optarg) > 0) {
+				strncpy(videoName, optarg,
+				        sizeof(videoName) - 1);
+				videoName[sizeof(videoName) - 1] = '\0';
+				RK_LOGI("videoName: %s", videoName);
+			} else {
+				videoName[0] = '\0';
+			}
 			break;
 		case '?':
 		default:
@@ -227,8 +264,21 @@ int main(int argc, char *argv[]) {
 		goto __FAILED;
 	}
 
-	vi_dev_init();
-	vi_chn_init(s32chnlId, u32Width, u32Height);
+	//if use dvp sensor / usb camera / hdmi rx, shoud specify the video name, and use virtual pipe.
+	//if use mipi sensor, should not specify the video name, and use physical pipe
+	//The video name is the video device name, such as /dev/video0, /dev/video1, etc.
+	//If the video name is specified, the VI dev will not be initialized with a physical pipe.
+	//Instead, it will use a virtual pipe (VI_MAX_PHY_PIPE_NUM) to get the video data.
+
+	//The virtual channel no longer requires VI dev initialization.
+	//Instead, use VI_MAX_PHY_PIPE_NUM as the pipe for the channel.
+	if (strlen(videoName) > 0) {
+		g_s32DevId = VI_MAX_PHY_PIPE_NUM; // virtual pipe
+		RK_LOGI("g_s32DevId is VI_MAX_PHY_PIPE_NUM, use virtual pipe for channel %d", s32chnlId);
+	} else {
+		vi_dev_init();
+	}
+	vi_chn_init(s32chnlId, u32Width, u32Height, videoName);
 
 	stDebugFile.bCfg = (RK_BOOL)savefile;
 	// memcpy(stDebugFile.aFilePath, "/userdata/", strlen("/data"));
@@ -236,7 +286,7 @@ int main(int argc, char *argv[]) {
 
 	snprintf(stDebugFile.aFileName, sizeof(stDebugFile.aFileName), "test_%d.yuv",
 	         s32chnlId);
-	RK_MPI_VI_ChnSaveFile(0, s32chnlId, &stDebugFile);
+	RK_MPI_VI_ChnSaveFile(g_s32DevId, s32chnlId, &stDebugFile);
 
 	pthread_t main_thread;
 	pthread_create(&main_thread, NULL, GetMediaBuffer0, &s32chnlId);
@@ -245,11 +295,16 @@ int main(int argc, char *argv[]) {
 		usleep(50000);
 	}
 	pthread_join(main_thread, NULL);
-	s32Ret = RK_MPI_VI_DisableChn(0, s32chnlId);
+	s32Ret = RK_MPI_VI_DisableChn(g_s32DevId, s32chnlId);
 	RK_LOGE("RK_MPI_VI_DisableChn %x", s32Ret);
 
-	s32Ret = RK_MPI_VI_DisableDev(0);
-	RK_LOGE("RK_MPI_VI_DisableDev %x", s32Ret);
+	if (g_s32DevId != VI_MAX_PHY_PIPE_NUM) {
+		RK_LOGE("g_s32DevId is not VI_MAX_PHY_PIPE_NUM, disable dev");
+		// disable dev
+		s32Ret = RK_MPI_VI_DisableDev(g_s32DevId);
+		RK_LOGE("RK_MPI_VI_DisableDev %x", s32Ret);
+	}
+
 	ret = 0;
 __FAILED:
 	RK_LOGE("test running exit:%d", s32Ret);
