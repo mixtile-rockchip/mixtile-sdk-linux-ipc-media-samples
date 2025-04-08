@@ -106,7 +106,7 @@ COMM_SRC += $(wildcard $(COMM_DIR)/isp3.3/*.c)
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rv1126b)
-COMM_SRC += $(wildcard $(COMM_DIR)/isp3.9/*.c)
+COMM_SRC += $(wildcard $(COMM_DIR)/isp3.5/*.c)
 COMM_SRC += $(wildcard $(COMM_DIR)/font_factory.c)
 endif
 
@@ -158,9 +158,9 @@ SAMPLE_CFLAGS += -DISP_HW_V30 -DRK3588 -DUAPI2 -DRKAIQ_GRP
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rv1126b)
-INC_FLAGS += -I$(COMM_DIR)/isp3.9
+INC_FLAGS += -I$(COMM_DIR)/isp3.5
 INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/freetype2
-SAMPLE_CFLAGS += -DISP_HW_V35 -DRV1126B -DUAPI2 -DRKAIQ_GRP
+SAMPLE_CFLAGS += -DISP_HW_V35 -DRV1126B -DUAPI2 -DRKAIQ_GRP -DROCKCOMBO
 endif
 
 ifeq ($(CONFIG_RK_IVA),y)

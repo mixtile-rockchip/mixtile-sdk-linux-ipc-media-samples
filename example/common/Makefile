@@ -13,6 +13,7 @@ clean:
 	$(CMD_DBG)make -C isp2.x clean
 	$(CMD_DBG)make -C isp3.x clean
 	$(CMD_DBG)make -C isp3.3 clean
+	$(CMD_DBG)make -C isp3.5 clean
 	$(CMD_DBG)make -C isp3.9 clean
 	$(CMD_DBG)rm  -f *.o
 	$(CMD_DBG)rm -rf $(COMM_DIR)/lib
