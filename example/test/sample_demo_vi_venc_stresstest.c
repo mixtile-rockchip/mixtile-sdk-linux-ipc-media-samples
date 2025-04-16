@@ -1155,7 +1155,7 @@ static RK_S32 rgn_init(void) {
 	RK_S32 s32Ret = RK_FAILURE;
 	RK_U32 u32Width = 0;
 	RK_U32 u32Height = 0;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	/* cover for vi[0]*/
 	ctx->rgn[0].rgnHandle = 0;
 	ctx->rgn[0].stRgnAttr.enType = COVER_RGN;
@@ -1568,7 +1568,7 @@ static RK_S32 rgn_change_posit(void) {
 		return s32Ret;
 	}
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	stChnAttr.unChnAttr.stMosaicChn.stRect.s32Y =
 	    RK_ALIGN_2(stChnAttr.unChnAttr.stMosaicChn.stRect.s32Y + 10);
 	if (stChnAttr.unChnAttr.stMosaicChn.stRect.s32Y >
@@ -1602,7 +1602,7 @@ static RK_S32 rgn_change_posit(void) {
 		return s32Ret;
 	}
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	stChnAttr.unChnAttr.stMosaicChn.stRect.s32X =
 	    RK_ALIGN_2(stChnAttr.unChnAttr.stMosaicChn.stRect.s32X - 10);
 	if (stChnAttr.unChnAttr.stMosaicChn.stRect.s32X < 0) {
@@ -1969,7 +1969,7 @@ static RK_S32 media_deinit_init(void) {
 
 static void wait_module_test_switch_success(void) {
 	for (RK_U32 i = 0; i < VENC_CHN_MAX; i++) {
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 		if (gModeTest->bIfWrapEnable && i == TDE_JPEG_CHNID) {
 			continue;
 		}

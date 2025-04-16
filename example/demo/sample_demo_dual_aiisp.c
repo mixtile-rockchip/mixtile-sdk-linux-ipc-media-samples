@@ -1209,7 +1209,7 @@ static RK_S32 parse_cmd_args(int argc, char **argv, RkCmdArgs *pArgs) {
 	pArgs->u32Sub1Width = 720;
 	pArgs->u32Sub1Height = 480;
 	pArgs->u32ViBuffCnt = 5;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	pArgs->u32ViBuffCnt = 2;
 #endif
 	pArgs->u32Gop = 75;

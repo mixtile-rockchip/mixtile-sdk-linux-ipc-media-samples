@@ -245,7 +245,7 @@ RK_S32 open_device_ai(RK_S32 deviceSampleRate, RK_S32 outputSampleRate, RK_S32 u
 		goto __FAILED;
 	}
 
-#elif defined(RV1103B)
+#elif defined(RV1103B) || defined(RV1126B)
 	result = RK_MPI_AMIX_SetControl(aiDevId, "SAI SDI0 Loopback Src Select",
 	                                (char *)"From SDO0");
 	if (result != RK_SUCCESS) {
@@ -268,7 +268,7 @@ RK_S32 open_device_ai(RK_S32 deviceSampleRate, RK_S32 outputSampleRate, RK_S32 u
 	}
 #endif
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	//这是RV1106 ALC设置，而RV1126设置无效，可以不设置
 	result = RK_MPI_AMIX_SetControl(aiDevId, "ADC ALC Left Volume", (char *)"22");
 	if (result != RK_SUCCESS) {
@@ -432,7 +432,7 @@ int main(int argc, char *argv[]) {
 		if (ret != RK_SUCCESS) {
 			RK_LOGE("ai set I2STDM Digital Loopback Mode fail, reason = %x", ret);
 		}
-#elif defined(RV1103B)
+#elif defined(RV1103B) || defined(RV1126B)
 		ret = RK_MPI_AMIX_SetControl(0, "SAI SDI0 Loopback I2S LR Switch", (char *)"Disable");
 		if (ret != RK_SUCCESS) {
 			RK_LOGE("ai set SAI SAI SDI0 Loopback I2S LR Switch, reason = %x", ret);

@@ -179,7 +179,7 @@ RK_S32 SAMPLE_COMM_VI_DestroyChn(SAMPLE_VI_CTX_S *ctx) {
 		return s32Ret;
 	}
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	RK_MPI_SYS_WaitFreeMB();
 #endif
 	return RK_SUCCESS;

@@ -172,7 +172,7 @@ RK_S32 SAMPLE_COMM_TDE_Destroy(SAMPLE_TDE_CTX_S *ctx) {
 	}
 	RK_TDE_Close();
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	RK_MPI_SYS_WaitFreeMB();
 #endif
 	return s32Ret;

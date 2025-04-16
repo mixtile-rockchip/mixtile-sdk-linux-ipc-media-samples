@@ -436,7 +436,7 @@ static RK_S32 hdrMode_stressTest(RK_S32 s32CamId, RK_BOOL MultiCam,
 
 	RK_S32 s32Ret = RK_FAILURE;
 	// static rk_aiq_working_mode_t eNowHdrMode = RK_AIQ_WORKING_MODE_NORMAL;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	RK_MPI_VI_PauseChn(ctx->vi.u32PipeId, ctx->vi.s32ChnId);
 
 	SAMPLE_COMM_ISP_Stop(s32CamId);
@@ -527,7 +527,7 @@ static RK_S32 vpss_ai_isp_switchTest(SAMPLE_VPSS_CTX_S *ctx) {
 	pstAIISPAttr.stAiIspCallback.pfUpdateCallback = aiisp_callback;
 	pstAIISPAttr.stAiIspCallback.pPrivateData = RK_NULL;
 	pstAIISPAttr.pModelFilePath = "/oem/usr/lib/";
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	pstAIISPAttr.u32FrameBufCnt = 1;
 #else
 	pstAIISPAttr.u32FrameBufCnt = 2;
@@ -1583,7 +1583,7 @@ int main(int argc, char *argv[]) {
 	RK_U32 u32ThirdVideoWidth = 704;
 	RK_U32 u32ThirdVideoHeight = 576;
 	RK_U32 u32ViBuffCnt = 5;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	u32ViBuffCnt = 2;
 #endif
 	RK_U32 u32IvsWidth = 704;
@@ -1885,7 +1885,7 @@ int main(int argc, char *argv[]) {
 		stAIISPAttr.stAiIspCallback.pfUpdateCallback = aiisp_callback;
 		stAIISPAttr.stAiIspCallback.pPrivateData = RK_NULL;
 		stAIISPAttr.pModelFilePath = "/oem/usr/lib/";
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 		stAIISPAttr.u32FrameBufCnt = 1;
 #else
 		stAIISPAttr.u32FrameBufCnt = 2;

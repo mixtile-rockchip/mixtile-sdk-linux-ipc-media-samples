@@ -202,7 +202,7 @@ RK_S32 init_ai_vqe(RK_S32 s32SampleRate) {
 		return RK_FAILURE;
 	}
 
-#elif defined(RV1103B)
+#elif defined(RV1103B) || defined(RV1126B)
 	result = RK_MPI_AMIX_SetControl(s32DevId, "SAI SDI0 Loopback Src Select",
 	                               (char *)"From SDO0");
 	if (result != RK_SUCCESS) {
@@ -225,7 +225,7 @@ RK_S32 init_ai_vqe(RK_S32 s32SampleRate) {
 	}
 #endif
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	result = RK_MPI_AMIX_SetControl(s32DevId, "DAC LINEOUT Volume", (char *)"26");
 	if (result != RK_SUCCESS) {
 		RK_LOGE("ai set alc left voulme fail, reason = %x", result);
@@ -301,7 +301,7 @@ RK_S32 open_device_ai(RK_S32 InputSampleRate, RK_S32 OutputSampleRate, RK_U32 u3
 
 	RK_BOOL needResample = (InputSampleRate != OutputSampleRate) ? RK_TRUE : RK_FALSE;
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	sprintf((char *)aiAttr.u8CardName, "%s", "hw:0,0");
 #else
 	sprintf((char *)aiAttr.u8CardName, "%s", "default");
@@ -967,7 +967,7 @@ int main(int argc, char *argv[]) {
 			if (ret != RK_SUCCESS) {
 				RK_LOGE("ai set I2STDM Digital Loopback Mode fail, reason = %x", ret);
 			}
-#elif defined(RV1103B)
+#elif defined(RV1103B) || defined(RV1126B)
 			ret = RK_MPI_AMIX_SetControl(params.s32DevId, "SAI SDI0 Loopback I2S LR Switch", (char *)"Disable");
 			if (ret != RK_SUCCESS) {
 				RK_LOGE("ai set SAI SAI SDI0 Loopback I2S LR Switch, reason = %x", ret);

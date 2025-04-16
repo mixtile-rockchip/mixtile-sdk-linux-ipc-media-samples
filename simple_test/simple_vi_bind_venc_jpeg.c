@@ -201,7 +201,7 @@ static void print_usage(const RK_CHAR *name) {
 #if defined RV1126_RV1109
 	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
 			"0:rkisp_m_bypass, 1:rkispp_scale0, 2:rkispp_scale2, 2:rkispp_scale3\n");
-#elif (defined RV1106_RV1103 || defined RV1103B)
+#elif (defined RV1106_RV1103 || defined RV1103B) || defined(RV1126B)
 	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
 			"0:rkisp_mainpath, 1:rkisp_selfpath, 2:rkisp_bypasspath\n");
 #endif

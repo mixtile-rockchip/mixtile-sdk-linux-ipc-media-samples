@@ -414,7 +414,7 @@ static RK_S32 rgn_init(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 	ctx->rgn[0].rgnHandle = 0;
 	ctx->rgn[0].stRgnAttr.enType = COVER_RGN;
 // RV1106 just support attach cover in VI channel.
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	ctx->rgn[0].stMppChn.enModId = RK_ID_VI;
 	ctx->rgn[0].stMppChn.s32ChnId = 0;
 	ctx->rgn[0].stMppChn.s32DevId = 0;
@@ -439,7 +439,7 @@ static RK_S32 rgn_init(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 
 	ctx->rgn[1].rgnHandle = 1;
 	ctx->rgn[1].stRgnAttr.enType = COVER_RGN;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	ctx->rgn[1].stMppChn.enModId = RK_ID_VI;
 	ctx->rgn[1].stMppChn.s32ChnId = 0;
 	ctx->rgn[1].stMppChn.s32DevId = 0;
@@ -1145,7 +1145,7 @@ static RK_S32 parse_cmd_args(int argc, char **argv, RkCmdArgs *pArgs) {
 	pArgs->u32ThirdVideoWidth = 640;
 	pArgs->u32ThirdVideoHeight = 480;
 	pArgs->u32ViBuffCnt = 5;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	pArgs->u32ViBuffCnt = 2;
 #endif
 	pArgs->u32IvsWidth = 704;
@@ -1172,7 +1172,7 @@ static RK_S32 parse_cmd_args(int argc, char **argv, RkCmdArgs *pArgs) {
 	pArgs->eHdrMode = RK_AIQ_WORKING_MODE_NORMAL;
 	pArgs->s32RgnAttachModule = RGN_ATTACH_VENC; // 0:vpss,1:venc
 	pArgs->pAiispModelPath = "/oem/usr/lib/";
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	pArgs->u32AiispBuffCnt = 1;
 #else
 	pArgs->u32AiispBuffCnt = 2;

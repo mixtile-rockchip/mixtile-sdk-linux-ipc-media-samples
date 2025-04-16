@@ -36,7 +36,7 @@ RK_S32 SAMPLE_COMM_IVS_Create(SAMPLE_IVS_CTX_S *ctx) {
 		RK_LOGE("RK_MPI_IVS_CreateChn failure:%X", s32Ret);
 		return s32Ret;
 	}
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	IVS_MD_ATTR_S stMdAttr;
 	memset(&stMdAttr, 0, sizeof(stMdAttr));
 	s32Ret = RK_MPI_IVS_GetMdAttr(ctx->s32ChnId, &stMdAttr);
@@ -64,7 +64,7 @@ RK_S32 SAMPLE_COMM_IVS_Destroy(RK_S32 s32IvsChnid) {
 		return s32Ret;
 	}
 
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	RK_MPI_SYS_WaitFreeMB();
 #endif
 	return s32Ret;

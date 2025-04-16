@@ -256,7 +256,7 @@ static RK_S32 hdrMode_stressTest() {
 
 	RK_S32 s32Ret = RK_SUCCESS;
 	// static rk_aiq_working_mode_t eNowHdrMode = RK_AIQ_WORKING_MODE_NORMAL;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 // FIXME: Just return now for 1106, wait for HDR enable...
 #if 0
 	RK_MPI_VI_PauseChn(CAM_0_INDEX, 0);
@@ -1967,7 +1967,7 @@ static RK_S32 parse_cmd_args(int argc, char **argv, RkCmdArgs *pArgs) {
 	pArgs->u32Sub1Width = 720;
 	pArgs->u32Sub1Height = 480;
 	pArgs->u32ViBuffCnt = 5;
-#if defined(RV1106) || defined(RV1103B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	pArgs->u32ViBuffCnt = 2;
 #endif
 	pArgs->u32Gop = 75;
