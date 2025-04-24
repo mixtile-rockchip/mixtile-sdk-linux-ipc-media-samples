@@ -249,7 +249,7 @@ static void save_frame_to_file(VIDEO_FRAME_INFO_S *frame, int channel_idx) {
 		return;
 	}
 
-	RK_U32 length = RK_MPI_MB_GetLength(frame->stVFrame.pMbBlk);
+	RK_U32 length = RK_MPI_MB_GetSize(frame->stVFrame.pMbBlk);
 	size_t written = fwrite(virt_addr, 1, length, fp);
 
 	if (written != length) {
@@ -282,7 +282,7 @@ static void save_avs_frame(VIDEO_FRAME_INFO_S *frame) {
 		return;
 	}
 
-	RK_U32 length = RK_MPI_MB_GetLength(frame->stVFrame.pMbBlk);
+	RK_U32 length = RK_MPI_MB_GetSize(frame->stVFrame.pMbBlk);
 	size_t written = fwrite(virt_addr, 1, length, fp);
 
 	if (written != length) {
