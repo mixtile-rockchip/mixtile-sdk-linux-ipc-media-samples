@@ -210,6 +210,9 @@ $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_combo: $(SIMPLE_SPECIAL_SRC_DIR)/s
 $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_rawstream_wrap: $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_rawstream_wrap.c
 	@$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS) -lrkaiq
 
+simple_vi_gdc_vo: simple_vi_gdc_vo.c
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
+
 clean:
 	$(CMD_DBG)echo "clean simple"
 	$(CMD_DBG)rm -rf $(SIMPLE_OUT_DIR)
