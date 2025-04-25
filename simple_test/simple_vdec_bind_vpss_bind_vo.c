@@ -219,7 +219,7 @@ int main(int argc, char* argv[]) {
     vpss_grp_attr.u32MaxH = height;
     vpss_grp_attr.enPixelFormat = RK_FMT_YUV420SP;
 #ifdef RV1126B
-    vpss_grp_attr.u32InputQueueCnt = 10;
+    vpss_grp_attr.u32MaxQueue = 10;
 #endif
     ret = RK_MPI_VPSS_CreateGrp(DEFAULT_VPSS_GRP, &vpss_grp_attr);
     check_ret(ret, "RK_MPI_VPSS_CreateGrp");
