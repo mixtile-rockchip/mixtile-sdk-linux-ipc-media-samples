@@ -24,6 +24,9 @@ endif
 ifneq ($(findstring $(RK_MEDIA_CHIP), rk3576 rk3588),)
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_multi_cam.c -o sample_demo_multi_cam $(LD_FLAGS) -lrockiva -lfreetype
 endif
+ifneq ($(findstring $(RK_MEDIA_CHIP), rv1126b),)
+	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_eis.c -o sample_demo_eis $(LD_FLAGS)
+endif
 
 install:
 	$(CMD_DBG)mv -f sample_demo_vi_venc $(SAMPLE_OUT_DIR)/bin
@@ -42,6 +45,9 @@ ifeq ($(CONFIG_RK_IVA),y)
 endif
 ifneq ($(findstring $(RK_MEDIA_CHIP), rk3576 rk3588),)
 	$(CMD_DBG)mv -f sample_demo_multi_cam $(SAMPLE_OUT_DIR)/bin
+endif
+ifneq ($(findstring $(RK_MEDIA_CHIP), rv1126b),)
+	$(CMD_DBG)mv -f sample_demo_eis $(SAMPLE_OUT_DIR)/bin
 endif
 
 clean:
