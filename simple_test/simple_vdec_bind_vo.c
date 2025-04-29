@@ -16,9 +16,27 @@
 #ifdef RV1126B
 #define DEFAULT_VO_DEV 0
 #define DEFAULT_VO_LAYER 0
+#define DEFAULT_VO_INTFTYPE VO_INTF_MIPI
+#define VO_LAYER_W 1920
+#define VO_LAYER_H 1080
+#define VO_LAYER_RECT_W 640
+#define VO_LAYER_RECT_H 480
+#elif defined(RV1106_RV1103)
+#define DEFAULT_VO_DEV 0
+#define DEFAULT_VO_LAYER 0
+#define DEFAULT_VO_INTFTYPE VO_INTF_DEFAULT
+#define VO_LAYER_W 320
+#define VO_LAYER_H 480
+#define VO_LAYER_RECT_W 320
+#define VO_LAYER_RECT_H 480
 #else
 #define DEFAULT_VO_DEV 1
 #define DEFAULT_VO_LAYER 5
+#define DEFAULT_VO_INTFTYPE VO_INTF_MIPI
+#define VO_LAYER_W 1920
+#define VO_LAYER_H 1080
+#define VO_LAYER_RECT_W 640
+#define VO_LAYER_RECT_H 480
 #endif
 #define DEFAULT_VDEC_CHN 0
 #define DEFAULT_VO_CHN 0
@@ -127,7 +145,7 @@ void* send_h264_data(void* arg) {
 
     // 处理最后一个 NAL 单元
     if (nal_start < read_size) {
-        RK_S32 ret = RK_MPI_MMZ_Alloc(&mb_blk, read_size - nal_start, 0);
+        RK_S32 ret = RK_MPI_MMZ_Alloc(&mb_blk, read_size - nal_start, 1000);
         check_ret(ret, "RK_MPI_SYS_CreateMB");
 
         memcpy(RK_MPI_MB_Handle2VirAddr(mb_blk), buffer + nal_start, read_size - nal_start);
@@ -150,21 +168,42 @@ void* send_h264_data(void* arg) {
     return NULL;
 }
 
+void* vdec_get_send_vo(void* arg) {
+    VIDEO_FRAME_INFO_S sFrame;
+    struct {
+        MPP_CHN_S src_chn;
+        MPP_CHN_S dest_chn;
+        int loop;
+    } *data = (struct { MPP_CHN_S src_chn; MPP_CHN_S dest_chn; int loop;} *)arg;
+    int ret;
+
+    while (1) {
+        ret = RK_MPI_VDEC_GetFrame(data->src_chn.s32ChnId, &sFrame, 1000);
+        if (ret == RK_SUCCESS)
+            RK_MPI_VO_SendFrame(data->dest_chn.s32DevId, data->dest_chn.s32DevId, &sFrame, -1);
+        else if (data->loop == 0)
+            break;
+        ret = RK_MPI_VDEC_ReleaseFrame(data->src_chn.s32ChnId, &sFrame);
+    }
+}
+
 int main(int argc, char* argv[]) {
     int width = DEFAULT_WIDTH;
     int height = DEFAULT_HEIGHT;
     const char* h264_file_path = DEFAULT_H264_FILE_PATH;
+    int bind = 1;
 
     // 定义长选项
     static struct option long_options[] = {
         {"width", required_argument, 0, 'w'},
         {"height", required_argument, 0, 'h'},
         {"input", required_argument, 0, 'i'},
+        {"bind", required_argument, 1, 'b'},
         {0, 0, 0, 0}
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "w:h:i:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "w:h:i:b:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'w':
                 width = atoi(optarg);
@@ -175,11 +214,15 @@ int main(int argc, char* argv[]) {
             case 'i':
                 h264_file_path = optarg;
                 break;
+            case 'b':
+                bind = atoi(optarg);
+                break;
             default:
                 fprintf(stderr, "Usage: %s [-w|--width <width>] [-h|--height <height>] [-i|--input <h264_file_path>]\n", argv[0]);
                 return EXIT_FAILURE;
         }
     }
+    printf("param list: w = %d, h = %d, i = %s, b = %d\n", width, height, h264_file_path, bind);
 
     // 初始化 RK MPI 系统
     RK_S32 ret = RK_MPI_SYS_Init();
@@ -201,6 +244,7 @@ int main(int argc, char* argv[]) {
     vdec_chn_attr.u32PicHeight = height;
     vdec_chn_attr.u32FrameBufCnt = 6;
     vdec_chn_attr.u32StreamBufCnt = 8;
+    vdec_chn_attr.u32FrameBufDepth = 1;
     ret = RK_MPI_VDEC_CreateChn(DEFAULT_VDEC_CHN, &vdec_chn_attr);
     check_ret(ret, "RK_MPI_VDEC_CreateChn");
 
@@ -234,10 +278,12 @@ int main(int argc, char* argv[]) {
     // 配置 VO 设备
     VO_PUB_ATTR_S vo_pub_attr;
     memset(&vo_pub_attr, 0, sizeof(VO_PUB_ATTR_S));
-    vo_pub_attr.enIntfType = VO_INTF_MIPI;
+    vo_pub_attr.enIntfType = DEFAULT_VO_INTFTYPE;
     vo_pub_attr.enIntfSync = VO_OUTPUT_DEFAULT;
     ret = RK_MPI_VO_SetPubAttr(DEFAULT_VO_DEV, &vo_pub_attr);
     check_ret(ret, "RK_MPI_VO_SetPubAttr");
+
+    RK_MPI_VO_SetLayerSpliceMode(DEFAULT_VO_LAYER, VO_SPLICE_MODE_RGA);
 
     ret = RK_MPI_VO_Enable(DEFAULT_VO_DEV);
     check_ret(ret, "RK_MPI_VO_Enable");
@@ -247,11 +293,11 @@ int main(int argc, char* argv[]) {
     memset(&vo_layer_attr, 0, sizeof(VO_VIDEO_LAYER_ATTR_S));
     vo_layer_attr.enPixFormat = RK_FMT_RGB888;
     vo_layer_attr.stDispRect.s32X = 0;
-    vo_layer_attr.stDispRect.s32Y = 480;
-    vo_layer_attr.stDispRect.u32Width = 640;
-    vo_layer_attr.stDispRect.u32Height = 480;
-    vo_layer_attr.stImageSize.u32Width = 1920;
-    vo_layer_attr.stImageSize.u32Height = 1080;
+    vo_layer_attr.stDispRect.s32Y = 0;
+    vo_layer_attr.stDispRect.u32Width = VO_LAYER_RECT_W;
+    vo_layer_attr.stDispRect.u32Height = VO_LAYER_RECT_H;
+    vo_layer_attr.stImageSize.u32Width = VO_LAYER_W;
+    vo_layer_attr.stImageSize.u32Height = VO_LAYER_H;
     ret = RK_MPI_VO_SetLayerAttr(DEFAULT_VO_LAYER, &vo_layer_attr);
     check_ret(ret, "RK_MPI_VO_SetLayerAttr");
 
@@ -263,31 +309,50 @@ int main(int argc, char* argv[]) {
     memset(&vo_chn_attr, 0, sizeof(VO_CHN_ATTR_S));
     vo_chn_attr.stRect.s32X = 0;
     vo_chn_attr.stRect.s32Y = 0;
-    vo_chn_attr.stRect.u32Width = 1920;
-    vo_chn_attr.stRect.u32Height = 1080;
+    vo_chn_attr.stRect.u32Width = VO_LAYER_W;
+    vo_chn_attr.stRect.u32Height = VO_LAYER_H;
     ret = RK_MPI_VO_SetChnAttr(DEFAULT_VO_LAYER, DEFAULT_VO_CHN, &vo_chn_attr);
     check_ret(ret, "RK_MPI_VO_SetChnAttr");
-
 
     ret = RK_MPI_VO_EnableChn(DEFAULT_VO_LAYER, DEFAULT_VO_CHN);
     check_ret(ret, "RK_MPI_VO_EnableChn");
 
+    pthread_t vo_thread;
+    struct {
+        MPP_CHN_S src_chn;
+        MPP_CHN_S dest_chn;
+        int loop;
+    } vo_thread_data;
     // 绑定 VO 图层到 VO 设备
     MPP_CHN_S src_chn = {.enModId = RK_ID_VDEC, .s32DevId = 0, .s32ChnId = DEFAULT_VDEC_CHN};
     MPP_CHN_S dest_chn = {.enModId = RK_ID_VO, .s32DevId = DEFAULT_VO_LAYER, .s32ChnId = DEFAULT_VO_CHN}; // 设备层一般通道号为 0
 
-    ret = RK_MPI_SYS_Bind(&src_chn, &dest_chn);
-    check_ret(ret, "RK_MPI_SYS_Bind");
-
+    if (bind) {
+        ret = RK_MPI_SYS_Bind(&src_chn, &dest_chn);
+        check_ret(ret, "RK_MPI_SYS_Bind");
+    } else {
+        vo_thread_data.src_chn = src_chn;
+        vo_thread_data.dest_chn = dest_chn;
+        vo_thread_data.loop = 1;
+        pthread_create(&vo_thread, NULL, vdec_get_send_vo, &vo_thread_data);
+    }
     // 等待发送 H264 数据的线程结束
     ret = pthread_join(h264_thread, NULL);
     if (ret != 0) {
-        perror("Failed to join thread");
+        perror("Failed to join h264_thread thread");
     }
 
-    // 解除绑定
-    ret = RK_MPI_SYS_UnBind(&src_chn, &dest_chn);
-    check_ret(ret, "RK_MPI_SYS_UnBind");
+    if (bind) {
+        // 解除绑定
+        ret = RK_MPI_SYS_UnBind(&src_chn, &dest_chn);
+        check_ret(ret, "RK_MPI_SYS_UnBind");
+    } else {
+        vo_thread_data.loop = 0;
+        ret = pthread_join(vo_thread, NULL);
+        if (ret != 0) {
+            perror("Failed to join vo_thread thread");
+        }
+    }
 
     // 释放资源
     ret = RK_MPI_VO_DisableChn(DEFAULT_VO_LAYER, DEFAULT_VO_CHN);
