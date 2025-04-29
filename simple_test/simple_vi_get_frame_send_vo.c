@@ -17,8 +17,8 @@
 #include "rk_mpi_vo.h"
 
 static bool quit = false;
-static	int u32Width = 1024;
-static	int u32Height = 600;
+static	int u32Width = 320;
+static	int u32Height = 480;
 static	int s32chnlId = 0;
 static	int VoLayer = 0;
 static	int VoDev = 0;
