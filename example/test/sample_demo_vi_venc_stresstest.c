@@ -1716,18 +1716,6 @@ static RK_S32 media_init(RK_CHAR *pIqFileDir) {
 		return s32Ret;
 	}
 
-	s32Ret = SAMPLE_COMM_VI_CreateChn(&ctx->vi[0]);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("SAMPLE_COMM_VI_CreateChn failure:%#X", s32Ret);
-		return s32Ret;
-	}
-
-	s32Ret = SAMPLE_COMM_VI_CreateChn(&ctx->vi[1]);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("SAMPLE_COMM_VI_CreateChn failure:%#X", s32Ret);
-		return s32Ret;
-	}
-
 #if defined(ROCKIT_IVS) || defined(ROCKIVA)
 	s32Ret = SAMPLE_COMM_VI_CreateChn(&ctx->vi[2]);
 	if (s32Ret != RK_SUCCESS) {
@@ -1742,6 +1730,18 @@ static RK_S32 media_init(RK_CHAR *pIqFileDir) {
 	}
 #endif
 #endif
+
+s32Ret = SAMPLE_COMM_VI_CreateChn(&ctx->vi[0]);
+if (s32Ret != RK_SUCCESS) {
+	RK_LOGE("SAMPLE_COMM_VI_CreateChn failure:%#X", s32Ret);
+	return s32Ret;
+}
+
+s32Ret = SAMPLE_COMM_VI_CreateChn(&ctx->vi[1]);
+if (s32Ret != RK_SUCCESS) {
+	RK_LOGE("SAMPLE_COMM_VI_CreateChn failure:%#X", s32Ret);
+	return s32Ret;
+}
 
 #ifdef ROCKIVA
 	SAMPLE_COMM_IVA_Create(&ctx->iva);
