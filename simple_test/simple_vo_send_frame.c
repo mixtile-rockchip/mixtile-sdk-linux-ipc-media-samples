@@ -4,9 +4,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef RV1126B
+#define RK356X_VO_DEV_HD0 0
+#define RK356X_VOP_LAYER_CLUSTER_0 0
+#define RK356X_VOP_LAYER_ESMART_0 1
+#else
 #define RK356X_VO_DEV_HD0 1
 #define RK356X_VOP_LAYER_CLUSTER_0 0
 #define RK356X_VOP_LAYER_ESMART_0 5
+#endif
 
 // 测试函数：初始化VO设备并进行基本配置
 int testVOInitAndConfig() {
@@ -106,9 +113,10 @@ int testUIDrawing() {
     RK_VOID *pMblk = RK_NULL;
     RK_U32 s32Ret;
     RK_U32 u32BuffSize;
+    RK_U8 *pData;
 
     // 申请单buffer用于UI绘制
-    u32BuffSize = RK_MPI_VO_CreateGraphicsFrameBuffer(1920, 1080, RK_FMT_ARGB8888, &pMblk);
+    u32BuffSize = RK_MPI_VO_CreateGraphicsFrameBuffer(1080, 1920, RK_FMT_RGBA8888, &pMblk);
     if (u32BuffSize == 0) {
         printf("RK_MPI_VO_CreateGraphicsFrameBuffer failed\n");
         return RK_FAILURE;
@@ -124,8 +132,9 @@ int testUIDrawing() {
 
     // 初始化VO设备公共属性结构体
     memset(&stVoPubAttr, 0, sizeof(VO_PUB_ATTR_S));
-    stVoPubAttr.enIntfType = VO_INTF_HDMI;
-    stVoPubAttr.enIntfSync = VO_OUTPUT_1080P60;
+    stVoPubAttr.enIntfType = VO_INTF_MIPI;
+    // stVoPubAttr.enIntfSync = VO_OUTPUT_1080P60;
+    stVoPubAttr.enIntfSync = VO_OUTPUT_DEFAULT;
 
     // 设置VO设备公共属性
     s32Ret = RK_MPI_VO_SetPubAttr(VoDev, &stVoPubAttr);
@@ -143,13 +152,13 @@ int testUIDrawing() {
 
     // 初始化图层属性结构体
     memset(&stLayerAttr, 0, sizeof(VO_VIDEO_LAYER_ATTR_S));
-    stLayerAttr.enPixFormat = RK_FMT_ARGB8888;
+    stLayerAttr.enPixFormat = RK_FMT_RGBA8888;
     stLayerAttr.stDispRect.s32X = 0;
     stLayerAttr.stDispRect.s32Y = 0;
-    stLayerAttr.stDispRect.u32Width = 1920;
-    stLayerAttr.stDispRect.u32Height = 1080;
-    stLayerAttr.stImageSize.u32Width = 1920;
-    stLayerAttr.stImageSize.u32Height = 1080;
+    stLayerAttr.stDispRect.u32Width = 1080;
+    stLayerAttr.stDispRect.u32Height = 1920;
+    stLayerAttr.stImageSize.u32Width = 1080;
+    stLayerAttr.stImageSize.u32Height = 1920;
 
     // 设置图层属性
     s32Ret = RK_MPI_VO_SetLayerAttr(VoLayer, &stLayerAttr);
@@ -166,7 +175,14 @@ int testUIDrawing() {
     }
 
     // 设置图像数据到stVFrame
+    pData = RK_MPI_MMZ_Handle2VirAddr(pMblk);
+    memset(pData, 0xaa, u32BuffSize / 2);
     stVFrame.stVFrame.pMbBlk = pMblk;
+    stVFrame.stVFrame.u32Width = 1080;
+    stVFrame.stVFrame.u32Height = 1920;
+    stVFrame.stVFrame.u32VirWidth = 1080;
+    stVFrame.stVFrame.u32VirHeight = 1920;
+    stVFrame.stVFrame.enPixelFormat = RK_FMT_RGBA8888;
     // 这里可添加填充图像数据的代码，例如memset(stVFrame.pData, 0xff, stVFrame.u32Size);
 
     // 发送图像到图层显示
@@ -175,6 +191,7 @@ int testUIDrawing() {
         printf("RK_MPI_VO_SendLayerFrame failed with error code: %x\n", s32Ret);
         return s32Ret;
     }
+    sleep(5);
 
     // 释放buffer
     RK_MPI_VO_DestroyGraphicsFrameBuffer(pMblk);
@@ -186,6 +203,13 @@ int testUIDrawing() {
         return s32Ret;
     }
 
+    // 禁用VO设备
+    s32Ret = RK_MPI_VO_Disable(VoDev);
+    if (s32Ret != RK_SUCCESS) {
+        printf("RK_MPI_VO_Disable failed with error code: %x\n", s32Ret);
+        return s32Ret;
+    }
+
     // 解绑图层
     s32Ret = RK_MPI_VO_UnBindLayer(VoLayer, VoDev);
     if (s32Ret != RK_SUCCESS) {
@@ -193,13 +217,6 @@ int testUIDrawing() {
         return s32Ret;
     }
     printf("Layer %d is successfully unbound from device %d.\n", VoLayer, VoDev);
-
-    // 禁用VO设备
-    s32Ret = RK_MPI_VO_Disable(VoDev);
-    if (s32Ret != RK_SUCCESS) {
-        printf("RK_MPI_VO_Disable failed with error code: %x\n", s32Ret);
-        return s32Ret;
-    }
 
     return RK_SUCCESS;
 }
