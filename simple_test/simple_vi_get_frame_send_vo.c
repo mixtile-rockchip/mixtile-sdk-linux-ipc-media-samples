@@ -20,13 +20,31 @@ static bool quit = false;
 static	int u32Width = 320;
 static	int u32Height = 480;
 static	int s32chnlId = 0;
+#ifdef RV1126B
+static	int VoLayer = 0;
+static	int VoDev = 0;
+static	int VoChn = 0;
+static	int IntfType = 1;
+static	int enIntfType = 0;
+static	int VoWidth = 1080;
+static	int VoHeight = 1920;
+#elif RV1106_RV1103
 static	int VoLayer = 0;
 static	int VoDev = 0;
 static	int VoChn = 0;
 static	int IntfType = 0;
 static	int enIntfType = 0;
-static	int VoWidth = 0;
-static	int VoHeight = 0;
+static	int VoWidth = 320;
+static	int VoHeight = 480;
+#else
+static	int VoLayer = 5;
+static	int VoDev = 1;
+static	int VoChn = 0;
+static	int IntfType = 1;
+static	int enIntfType = 0;
+static	int VoWidth = 1080;
+static	int VoHeight = 1920;
+#endif
 
 static void sigterm_handler(int sig) {
 	fprintf(stderr, "signal %d\n", sig);

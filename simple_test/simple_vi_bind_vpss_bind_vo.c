@@ -35,11 +35,31 @@
 static FILE *venc0_file;
 static bool quit = false;
 static RK_S32 g_s32FrameCnt = -1;
+#ifdef RV1126B
+static	int VoLayer = 0;
+static	int VoDev = 0;
+static	int VoChn = 0;
+static	int IntfType = 1;
+static	int enIntfType = 0;
+static  RK_U32 disp_width = 1080;
+static  RK_U32 disp_height = 1920;
+#elif RV1106_RV1103
 static	int VoLayer = 0;
 static	int VoDev = 0;
 static	int VoChn = 0;
 static	int IntfType = 0;
 static	int enIntfType = 0;
+static  RK_U32 disp_width = 320;
+static  RK_U32 disp_height = 480;
+#else
+static	int VoLayer = 5;
+static	int VoDev = 1;
+static	int VoChn = 0;
+static	int IntfType = 1;
+static	int enIntfType = 0;
+static  RK_U32 disp_width = 1080;
+static  RK_U32 disp_height = 1920;
+#endif
 
 static void sigterm_handler(int sig) {
 	fprintf(stderr, "signal %d\n", sig);
@@ -274,7 +294,9 @@ int test_vpss_init(int VpssChn, int width, int height) {
 	stGrpVpssAttr.stFrameRate.s32SrcFrameRate = -1;
 	stGrpVpssAttr.stFrameRate.s32DstFrameRate = -1;
 	stGrpVpssAttr.enCompressMode = COMPRESS_MODE_NONE;
-	// stGrpVpssAttr.enVProcDev = VIDEO_PROC_DEV_RGA; //1126b bind need use rga
+#ifdef RV1126B
+	stGrpVpssAttr.enVProcDev = VIDEO_PROC_DEV_RGA; //1126b bind need use rga
+#endif
 
 	stVpssChnAttr.enChnMode = VPSS_CHN_MODE_USER;
 	stVpssChnAttr.enDynamicRange = DYNAMIC_RANGE_SDR8;
@@ -337,8 +359,6 @@ int main(int argc, char *argv[]) {
 
 	RK_U32 u32Width = 1920;
 	RK_U32 u32Height = 1080;
-	RK_U32 disp_width = 1280;
-	RK_U32 disp_height = 720;
 
 	RK_CHAR *pOutPath = NULL;
 	RK_CODEC_ID_E enCodecType = RK_VIDEO_ID_AVC;

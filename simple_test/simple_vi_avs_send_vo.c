@@ -43,6 +43,7 @@ static int u32Width = 1920;
 static int u32Height = 1080;
 static int s32DevId = 0;    // VI device ID
 static int s32PipeId = 0;   // VI pipe ID
+#ifdef RV1126B
 static int VoLayer = 0;     // VO layer
 static int VoDev = 0;       // VO device
 static int VoChn = 0;       // VO channel
@@ -50,6 +51,23 @@ static int IntfType = 1;    // Interface type
 static int enIntfType = 0;  // Interface type enum
 static int VoWidth = 1080;  // VO width
 static int VoHeight = 1920; // VO height
+#elif RV1106_RV1103
+static int VoLayer = 0;     // VO layer
+static int VoDev = 0;       // VO device
+static int VoChn = 0;       // VO channel
+static int IntfType = 0;    // Interface type
+static int enIntfType = 0;  // Interface type enum
+static int VoWidth = 320;     // VO width
+static int VoHeight = 480;    // VO height
+#else
+static int VoLayer = 5;     // VO layer
+static int VoDev = 1;       // VO device
+static int VoChn = 0;       // VO channel
+static int IntfType = 1;    // Interface type
+static int enIntfType = 0;  // Interface type enum
+static int VoWidth = 1080;  // VO width
+static int VoHeight = 1920; // VO height
+#endif
 
 // AVS related parameters
 static int AVSGrp = 0;              // AVS group ID
@@ -704,8 +722,8 @@ int main(int argc, char *argv[]) {
 	int ret = -1;
 
 	// Default value setting - For common portrait display scenario
-	VoWidth = 1080;  // Default portrait display width
-	VoHeight = 1920; // Default portrait display height
+	// VoWidth = 1080;  // Default portrait display width
+	// VoHeight = 1920; // Default portrait display height
 
 	// Ensure /tmp directory exists and is writable
 	system("mkdir -p /tmp && chmod 777 /tmp");
