@@ -100,6 +100,8 @@ test_case()
         test_cmd sample_ai_aenc_adec_ao_stresstest -r 8000 -t g726 -v 1
     elif [ $test_mode == 5 ]; then
         test_cmd sample_ai_aenc_adec_ao_stresstest -r 16000 -t g711a -v 1 -s 1 -d 1 -l $test_loop
+    elif [ $test_mode == 6 ]; then
+        test_cmd sample_ai_aenc_adec_ao_stresstest -r 16000 -t g711a -v 1 -s 1 -d $test_loop
     else
         __echo_test_cmd_msg "---------------------------------------test_mode($test_mode) is invalid parameter, parameter range is [0,5]-------------------------------------------\n"
     fi

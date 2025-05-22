@@ -336,7 +336,7 @@ RK_S32 open_device_ai(RK_S32 InputSampleRate, RK_S32 OutputSampleRate, RK_U32 u3
 
 	memset(&pstParams, 0, sizeof(AI_CHN_PARAM_S));
 	pstParams.enLoopbackMode = AUDIO_LOOPBACK_NONE;
-	pstParams.s32UsrFrmDepth = 2;
+	pstParams.s32UsrFrmDepth = 1;
 	result = RK_MPI_AI_SetChnParam(aiDevId, aiChn, &pstParams);
 	if (result != RK_SUCCESS) {
 		RK_LOGE("ai set channel params, aiChn = %d", aiChn);
@@ -539,7 +539,7 @@ void *getDataThread(void *ptr) {
 		                            RK_NULL, s32MilliSec);
 		if (result == 0) {
 			void *data = RK_MPI_MB_Handle2VirAddr(getFrame.pMbBlk);
-			RK_LOGV("data = %p, len = %d", data, getFrame.u32Len);
+			RK_LOGI("data = %p, len = %d", data, getFrame.u32Len);
 			RK_MPI_AI_ReleaseFrame(params->s32DevId, params->s32ChnIndex, &getFrame,
 			                       RK_NULL);
 		}
@@ -610,7 +610,8 @@ void *getDataThread(void *ptr) {
 void* vqeThread(void * ptr) {
     TEST_AI_CTX_S *params = (TEST_AI_CTX_S *)(ptr);
     AI_VQE_CONFIG_S stAiVqeConfig;
-    RK_S32 result;
+    memset(&stAiVqeConfig, 0, sizeof(stAiVqeConfig));
+    RK_S32 result = 0;
 
     memset(&stAiVqeConfig, 0, sizeof(stAiVqeConfig));
     //When it is necessary to configure module switches separately, this interface needs to be called.
@@ -640,9 +641,11 @@ void* vqeThread(void * ptr) {
                 __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
         }
 
-        usleep(1000000);
+        usleep(100000);
     }
 
+    if ((params->s32VqeDynamicCount == -1) && (params->s32SedDynamicCount == -1))
+        quit = true;
     return NULL;
 }
 
@@ -717,9 +720,11 @@ void* sedThread(void * ptr) {
 
         }
 
-        usleep(1000000);
+        usleep(100000);
     }
 
+    if ((params->s32VqeDynamicCount == -1) && (params->s32SedDynamicCount == -1))
+        quit = true;
     return NULL;
 }
 
