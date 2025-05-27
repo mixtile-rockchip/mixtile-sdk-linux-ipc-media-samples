@@ -489,11 +489,11 @@ static RK_S32 pnMode_stressTest(RK_S32 s32CamId, rk_aiq_working_mode_t WDRMode,
                                 RK_BOOL MultiCam, const char *iq_file_dir) {
 	RK_S32 s32Ret = RK_FAILURE;
 
+	RK_MPI_VI_PauseChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
+
 	RK_MPI_VI_PauseChn(ctx->vi[0].u32PipeId, ctx->vi[0].s32ChnId);
 
 	RK_MPI_VI_PauseChn(ctx->vi[1].u32PipeId, ctx->vi[1].s32ChnId);
-
-	RK_MPI_VI_PauseChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
 
 	SAMPLE_COMM_ISP_Stop(s32CamId);
 
@@ -504,11 +504,11 @@ static RK_S32 pnMode_stressTest(RK_S32 s32CamId, rk_aiq_working_mode_t WDRMode,
 		return s32Ret;
 	}
 
+	RK_MPI_VI_ResumeChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
+
 	RK_MPI_VI_ResumeChn(ctx->vi[0].u32PipeId, ctx->vi[0].s32ChnId);
 
 	RK_MPI_VI_ResumeChn(ctx->vi[1].u32PipeId, ctx->vi[1].s32ChnId);
-
-	RK_MPI_VI_ResumeChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
 
 	RK_LOGE("-----------------PN mode switch success");
 	return RK_SUCCESS;
