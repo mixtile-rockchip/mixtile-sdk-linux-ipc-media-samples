@@ -49,8 +49,9 @@ static void sigterm_handler(int sig) {
 	quit = true;
 }
 
-static RK_CHAR optstr[] = "?::A:n:w:h:W:H:i:l:o:";
+static RK_CHAR optstr[] = "?::J:A:n:w:h:W:H:i:l:o:";
 static const struct option long_options[] = {
+    {"json_file_path", required_argument, NULL, 'J'},
     {"calib_file_path", required_argument, NULL, 'A'},
     {"camera_num", required_argument, NULL, 'n'},
     {"width", required_argument, NULL, 'w'},
@@ -70,6 +71,8 @@ static const struct option long_options[] = {
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s -w 1920 -h 1080 -n 2\n", name);
+	printf("\t-J | --json_file_path: input file path of rkAlgAvsJson.json "
+	       "Default: NULL\n");
 	printf("\t-A | --calib_file_path: input file path of calib_file_xxx.pto "
 	       "Default: /oem/usr/share/avs_calib/calib_file.xml\n");
 	printf("\t-n | --camera_num: camera number, Default 2\n");
@@ -149,6 +152,7 @@ static void *avs_send_stream(void *pArgs) {
 			stVideoFrames[i].stVFrame.enCompressMode = RK_FMT_YUV420SP;
 
 			if (ctx->pInputYUVPath) {
+				fseek(fp[i], 0, SEEK_SET);
 				fread(RK_MPI_MB_Handle2VirAddr(stVideoFrames[i].stVFrame.pMbBlk), 1,
 				      pstPicCal.u32MBSize, fp[i]);
 			} else {
@@ -267,6 +271,7 @@ static void *avs_get_stream(void *pArgs) {
 int main(int argc, char *argv[]) {
 	SAMPLE_MPI_CTX_S *ctx;
 	RK_S32 s32Ret = RK_FAILURE;
+	RK_CHAR *pAvsJsonFilePath = NULL;
 	RK_CHAR *pAvsCalibFilePath = "/oem/usr/share/avs_calib/calib_file.xml";
 	RK_CHAR *pAvsMeshAlphaPath = "/tmp/";
 	RK_CHAR *pAvsLutFilePath = RK_NULL;
@@ -295,6 +300,9 @@ int main(int argc, char *argv[]) {
 	int c;
 	while ((c = getopt_long(argc, argv, optstr, long_options, NULL)) != -1) {
 		switch (c) {
+		case 'J':
+			pAvsJsonFilePath = optarg;
+			break;
 		case 'A':
 			pAvsCalibFilePath = optarg;
 			break;
@@ -351,6 +359,9 @@ int main(int argc, char *argv[]) {
 	ctx->avs.u32SrcHeight = u32SrcHeight;
 	ctx->avs.fDistance = fStitchDistance;
 	ctx->avs.pLdchMeshData = (RK_U16 **)pLdchMeshData;
+#ifdef RV1126B
+	ctx->avs.stAvsGrpAttr.jsonPath = pAvsJsonFilePath;
+#endif
 	ctx->avs.stAvsGrpAttr.enMode = 0; // 0: blend 1: no blend
 	ctx->avs.stAvsGrpAttr.u32PipeNum = u32CamNum;
 	ctx->avs.stAvsGrpAttr.stGainAttr.enMode = AVS_GAIN_MODE_AUTO;

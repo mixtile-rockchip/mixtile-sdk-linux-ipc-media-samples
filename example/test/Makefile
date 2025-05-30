@@ -67,6 +67,9 @@ ifeq ($(RK_MEDIA_CHIP), rv1126b)
 	$(CMD_DBG)cp   -f   source/rv1103_stresstest.sh             $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_wrap_stresstest.sh
 	$(CMD_DBG)cp   -f   source/rv1106_stresstest.sh             $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_stresstest.sh
 	$(CMD_DBG)cp   -f   source/rv1106_multi_cam_stresstest.sh   $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_multi_cam_stresstest.sh
+	sed -i 's/avs_chn0_resolution=3840x1080/avs_chn0_resolution=3840x1088/' $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_multi_cam_stresstest.sh
+	sed -i 's/avs_chn1_resolution=1920x544/avs_chn1_resolution=1920x576/' $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_multi_cam_stresstest.sh
+	sed -i 's/test_mod="RESTART=on RESOLUTION=on ORDINARY=on"/test_mod="RESTART=on RESOLUTION=off ORDINARY=on"/' $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_multi_cam_stresstest.sh
 endif
 ifeq ($(RK_MEDIA_CHIP), rv1103b)
 	$(CMD_DBG)cp   -f   source/thunderboot-stresstest.sh        $(SAMPLE_OUT_DIR)/install_to_userdata

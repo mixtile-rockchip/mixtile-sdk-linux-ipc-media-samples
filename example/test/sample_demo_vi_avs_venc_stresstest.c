@@ -99,9 +99,10 @@ static void sigterm_handler(int sig) {
 	program_normal_exit(__func__, __LINE__);
 }
 
-static RK_CHAR optstr[] = "?::a::A:n:b:l:o:e:F:h:m:d:L:v:s:e:t:f:c:i:";
+static RK_CHAR optstr[] = "?::a::J:A:n:b:l:o:e:F:h:m:d:L:v:s:e:t:f:c:i:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
+    {"json_file_path", required_argument, NULL, 'J'},
     {"calib_file_path", required_argument, NULL, 'A'},
     {"camera_num", required_argument, NULL, 'n'},
     {"bitrate", required_argument, NULL, 'b'},
@@ -145,6 +146,8 @@ static void print_usage(const RK_CHAR *name) {
 	       "set dirpath empty to using path by default, without this option aiq "
 	       "should run in other application\n");
 #endif
+	printf("\t-J | --json_file_path: input file path of rkAlgAvsJson.json "
+	       "Default: NULL\n");
 	printf("\t-A | --calib_file_path : input file path of xxx.xml "
 	       "Default /oem/usr/share/avs_calib/calib_file.xml\n");
 	printf("\t-n | --camera_num : camera number, Default 2\n");
@@ -775,6 +778,7 @@ int main(int argc, char *argv[]) {
 	RK_U32 u32AvsChn0Height = 1080;
 	RK_U32 u32AvsChn1Width = 1920;
 	RK_U32 u32AvsChn1Height = 544;
+	RK_CHAR *pAvsJsonFilePath = NULL;
 	RK_CHAR *pAvsCalibFilePath = "/oem/usr/share/avs_calib/calib_file.xml";
 	RK_CHAR *pAvsMeshAlphaPath = "/tmp/";
 	RK_CHAR *pAvsLutFilePath = NULL;
@@ -826,6 +830,9 @@ int main(int argc, char *argv[]) {
 			} else {
 				iq_file_dir = NULL;
 			}
+			break;
+		case 'J':
+			pAvsJsonFilePath = optarg;
 			break;
 		case 'A':
 			pAvsCalibFilePath = optarg;
@@ -978,6 +985,9 @@ int main(int argc, char *argv[]) {
 	ctx->avs.fDistance = fStitchDistance;
 	ctx->avs.pLdchMeshData = (RK_U16 **)gModeTest->pLdchMeshData;
 	/* GrpAttr setting */
+#ifdef RV1126B
+	ctx->avs.stAvsGrpAttr.jsonPath = pAvsJsonFilePath;
+#endif
 	ctx->avs.stAvsGrpAttr.enMode = 0; /* 0: blend 1: no blend */
 	ctx->avs.stAvsGrpAttr.u32PipeNum = s32CamNum;
 	ctx->avs.stAvsGrpAttr.stGainAttr.enMode = AVS_GAIN_MODE_AUTO;

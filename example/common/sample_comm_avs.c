@@ -38,6 +38,7 @@ RK_S32 SAMPLE_COMM_AVS_CreateGrp(SAMPLE_AVS_CTX_S *ctx) {
 		return s32Ret;
 	}
 
+#ifndef RV1126B
 	if (ctx->eGetLdchMode == RK_GET_LDCH_BY_BUFF) {
 		AVS_FINAL_LUT_S pstFinalLut;
 		MB_EXT_CONFIG_S stMbExtConfig;
@@ -85,6 +86,7 @@ RK_S32 SAMPLE_COMM_AVS_CreateGrp(SAMPLE_AVS_CTX_S *ctx) {
 		}
 	}
 	RK_LOGE("-----------------RK_MPI_AVS_GetFinalLut");
+#endif
 	return s32Ret;
 }
 
@@ -186,6 +188,7 @@ RK_S32 SAMPLE_COMM_AVS_DestroyGrp(SAMPLE_AVS_CTX_S *ctx) {
 		return s32Ret;
 	}
 
+#ifndef RV1126B
 	if (ctx->eGetLdchMode == RK_GET_LDCH_BY_BUFF) {
 		for (RK_S32 i = 0; i < ctx->stAvsGrpAttr.u32PipeNum; i++) {
 			if (ctx->pLdchMeshData[i] != RK_NULL) {
@@ -194,6 +197,7 @@ RK_S32 SAMPLE_COMM_AVS_DestroyGrp(SAMPLE_AVS_CTX_S *ctx) {
 			}
 		}
 	}
+#endif
 #if defined(RV1106) || defined(RV1103B) || defined(RV1126B)
 	RK_MPI_SYS_WaitFreeMB();
 #endif
