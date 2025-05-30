@@ -55,6 +55,7 @@ static FILE *venc0_file;
 static FILE *venc1_file;
 static bool quit = false;
 static RK_S32 g_s32FrameCnt = -1;
+static RK_CHAR *pAvsJsonFilePath = NULL;
 static void sigterm_handler(int sig) {
 	fprintf(stderr, "signal %d\n", sig);
 	quit = true;
@@ -379,14 +380,19 @@ int test_avs_init(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height, RK_U32 u32
 	AVS_CHN_ATTR_S stAvsChnAttr[AVS_MAX_CHN_NUM];
 	RK_CHAR *pAvsCalibFilePath = "/oem/usr/share/avs_calib/calib_file.xml";
 
+#ifndef RV1126B
 	if (!u32Mode) {
 		if (access(pAvsCalibFilePath, F_OK)) {
 			RK_LOGE("%s not exist!", pAvsCalibFilePath);
 			return s32Ret;
 		}
 	}
+#endif
 
 	memset(&stAvsGrpAttr, 0, sizeof(stAvsGrpAttr));
+#ifdef RV1126B
+	stAvsGrpAttr.jsonPath = pAvsJsonFilePath;
+#endif
 	stAvsGrpAttr.enMode = u32Mode; // 0: blend 1: no blend
 	stAvsGrpAttr.u32PipeNum = 2;
 	stAvsGrpAttr.stGainAttr.enMode = AVS_GAIN_MODE_AUTO;
@@ -482,7 +488,7 @@ int test_avs_exit(RK_S32 s32GrpId) {
 	return 0;
 }
 
-static RK_CHAR optstr[] = "?::a::I:W:H:w:h:m:c:e:o:O:";
+static RK_CHAR optstr[] = "?::a::I:W:H:w:h:m:J:c:e:o:O:";
 
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
@@ -500,6 +506,7 @@ static void print_usage(const RK_CHAR *name) {
 	printf("\t-w | --avs_width: AVS width, Default:3840\n");
 	printf("\t-h | --avs_height: AVS height, Default:1080\n");
 	printf("\t-m | --avs_mode: AVS mode, Default:2(hor non blend). 0(hor blend, need /oem/usr/share/avs_calib/calib_file.xml)\n");
+	printf("\t-J | --json_file_path: input file path of rkAlgAvsJson.json Default: NULL\n");
 	printf("\t-c | --frame_cnt: frame number of output, Default:-1\n");
 	printf("\t-e | --encode: encode type, Default:h264, Value:h264, h265, mjpeg\n");
 	printf("\t-o: output chn0 path, Default:NULL\n");
@@ -548,6 +555,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'm':
 			u32Mode = atoi(optarg);
+			break;
+		case 'J':
+			pAvsJsonFilePath = optarg;
 			break;
 		case 'c':
 			g_s32FrameCnt = atoi(optarg);

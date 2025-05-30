@@ -523,6 +523,9 @@ simple_vi_bind_avs_bind_venc -W 1280 -H 720 -w 2560 -h 720 -m 2 -e h264 -o /tmp/
 checkmd5sum /tmp/venc0.h264
 checkmd5sum /tmp/venc1.h264
 
+simple_vi_bind_avs_bind_venc -W 1920 -H 1080 -w 3840 -h 1088 -m 0 -e h264 -o /tmp/venc0.h264 -J /oem/usr/share/avs_json/rkAlgAvsJson2.json -c 100
+checkmd5sum /tmp/venc0.h264
+
 simple_vdec_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
 sleep 2
 simple_vdec_bind_vpss_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
