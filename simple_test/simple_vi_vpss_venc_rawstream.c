@@ -399,7 +399,6 @@ static void *send_raw_frame(void *arg) {
 	stMbPoolCfg.u32MBCnt = pstViCfg->u32PipeMbCnt;
 	stMbPoolCfg.enAllocType = MB_ALLOC_TYPE_DMA;
 	stMbPoolCfg.bPreAlloc = RK_TRUE;
-	stMbPoolCfg.enDmaType = MB_DMA_TYPE_CMA;
 	mbPool = RK_MPI_MB_CreatePool(&stMbPoolCfg);
 	if (mbPool == MB_INVALID_POOLID)
 		printf("RK_MPI_MB_CreatePool[%d, %d] failure\n", pstViCfg->u32PipeId, pstViCfg->u32ChnId);
