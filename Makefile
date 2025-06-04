@@ -42,6 +42,7 @@ ifeq ($(COMPILE_FOR_BUILDROOT),y)
 else
 	$(CMD_DBG)make -C $(CURRENT_DIR)/simple_test/ -j$(RK_MEDIA_JOBS)
 	$(CMD_DBG)make -C $(CURRENT_DIR)/example/ -j$(RK_MEDIA_JOBS)
+	$(CMD_DBG)make -C $(CURRENT_DIR)/venc_server/ -j$(RK_MEDIA_JOBS)
 endif
 endif
 	$(CMD_DBG)echo "build $(PKG_NAME) done";
@@ -50,9 +51,12 @@ example-build:
 
 simple_test-build:
 
+venc_server-build:
+
 clean:
 	$(CMD_DBG)make -C $(CURRENT_DIR)/example/ clean
 	$(CMD_DBG)make -C $(CURRENT_DIR)/simple_test/ clean
+	$(CMD_DBG)make -C $(CURRENT_DIR)/venc_server/ clean
 
 help:
 	$(CMD_DBG)echo "help message:"
