@@ -244,13 +244,10 @@ int rockiva_init() {
 	memset(&initParams, 0, sizeof(initParams));
 	memset(&globalParams, 0, sizeof(globalParams));
 
-	snprintf(globalParams.modelPath, ROCKIVA_PATH_LENGTH, "/usr/lib/");
+	snprintf(globalParams.modelPath, ROCKIVA_PATH_LENGTH, "/oem/usr/lib/");
 	globalParams.coreMask = 0x04;
 	globalParams.logLevel = ROCKIVA_LOG_ERROR;
-	globalParams.detModel |= ROCKIVA_OBJECT_TYPE_FACE;
-	globalParams.detModel |= ROCKIVA_OBJECT_TYPE_PERSON;
-	globalParams.detModel |= ROCKIVA_OBJECT_TYPE_NON_VEHICLE;
-	globalParams.detModel |= ROCKIVA_OBJECT_TYPE_VEHICLE;
+	globalParams.detModel |= ROCKIVA_DET_MODEL_PFP;
 	globalParams.imageInfo.width = 720;
 	globalParams.imageInfo.height = 576;
 	globalParams.imageInfo.format = ROCKIVA_IMAGE_FORMAT_YUV420SP_NV12;
