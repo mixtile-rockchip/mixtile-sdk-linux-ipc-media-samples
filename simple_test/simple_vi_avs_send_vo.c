@@ -22,7 +22,6 @@
 // Function declarations
 static void signal_handler(int sig);
 static RK_BOOL check_device_exists(const char *dev_name);
-int vi_dev_init();
 int vi_chn_init(int channelId, const char *video_dev, int width, int height);
 static RK_S32 vi_poll_event(RK_S32 timeoutMsec, RK_S32 fd);
 static void save_frame_to_file(VIDEO_FRAME_INFO_S *frame, int channel_idx);
@@ -41,8 +40,8 @@ static void print_usage(const RK_CHAR *name);
 static volatile RK_BOOL quit = RK_FALSE; // Using volatile for visibility across threads
 static int u32Width = 1920;
 static int u32Height = 1080;
-static int s32DevId = 0;    // VI device ID
-static int s32PipeId = 0;   // VI pipe ID
+//The virtual channel no longer requires VI dev initialization. Instead, use VI_MAX_PHY_PIPE_NUM as the pipe for the channel.
+static int s32PipeId = VI_MAX_PHY_PIPE_NUM;   // VI pipe ID ,
 #ifdef RV1126B
 static int VoLayer = 0;     // VO layer
 static int VoDev = 0;       // VO device
@@ -112,53 +111,6 @@ static RK_BOOL check_device_exists(const char *dev_name) {
 	return RK_FALSE;
 }
 
-// Initialize VI device
-int vi_dev_init() {
-	printf("Initializing VI device %d\n", s32DevId);
-	int ret = 0;
-	VI_DEV_ATTR_S stDevAttr;
-	VI_DEV_BIND_PIPE_S stBindPipe;
-
-	memset(&stDevAttr, 0, sizeof(stDevAttr));
-	memset(&stBindPipe, 0, sizeof(stBindPipe));
-
-	// Get device attributes
-	ret = RK_MPI_VI_GetDevAttr(s32DevId, &stDevAttr);
-	if (ret == RK_ERR_VI_NOT_CONFIG) {
-		// Configure device attributes
-		ret = RK_MPI_VI_SetDevAttr(s32DevId, &stDevAttr);
-		if (ret != RK_SUCCESS) {
-			printf("RK_MPI_VI_SetDevAttr failed: %x\n", ret);
-			return -1;
-		}
-	} else {
-		printf("VI device attributes already set\n");
-	}
-
-	// Check if device is enabled
-	ret = RK_MPI_VI_GetDevIsEnable(s32DevId);
-	if (ret != RK_SUCCESS) {
-		// Enable device
-		ret = RK_MPI_VI_EnableDev(s32DevId);
-		if (ret != RK_SUCCESS) {
-			printf("RK_MPI_VI_EnableDev failed: %x\n", ret);
-			return -1;
-		}
-
-		// Bind device and pipe
-		stBindPipe.u32Num = 1;
-		stBindPipe.PipeId[0] = s32PipeId;
-		ret = RK_MPI_VI_SetDevBindPipe(s32DevId, &stBindPipe);
-		if (ret != RK_SUCCESS) {
-			printf("RK_MPI_VI_SetDevBindPipe failed: %x\n", ret);
-			return -1;
-		}
-	} else {
-		printf("VI device already enabled\n");
-	}
-
-	return 0;
-}
 
 // Initialize VI channel
 int vi_chn_init(int channelId, const char *video_dev, int width, int height) {
@@ -176,15 +128,7 @@ int vi_chn_init(int channelId, const char *video_dev, int width, int height) {
 	stChnAttr.stIspOpt.u32BufCount = 8;
 	stChnAttr.stIspOpt.enCaptureType = VI_V4L2_CAPTURE_TYPE_VIDEO_CAPTURE;
 	stChnAttr.stIspOpt.bNoUseLibV4L2 = RK_FALSE;
-
-	// Select appropriate memory type based on device path
-	if (strstr(video_dev, "video12") != NULL) {
-		// For sc450ai sensor, use DMABUF memory type
-		stChnAttr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF;
-	} else {
-		// For other devices, use MMAP memory type
-		stChnAttr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_MMAP;
-	}
+	stChnAttr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_MMAP;
 
 	// Set queue depth
 	stChnAttr.u32Depth = 4;
@@ -327,12 +271,6 @@ static void *GetMediaBufferAVS(void *arg) {
 	       chnInfo[channel_idx].deviceName);
 
 	while (!quit) {
-		// Use polling to wait for data
-		if (vi_poll_event(100, vi_fds[channel_idx]) != 0) {
-			usleep(10000); // 10ms
-			continue;
-		}
-
 		// Get VI frame
 		s32Ret = RK_MPI_VI_GetChnFrame(s32PipeId, channel_idx, &stViFrame, waitTime);
 		if (s32Ret == RK_SUCCESS) {
@@ -775,14 +713,6 @@ int main(int argc, char *argv[]) {
 		return s32Ret;
 	}
 
-	// Initialize VI device
-	ret = vi_dev_init();
-	if (ret != 0) {
-		printf("VI device initialization failed: %d\n", ret);
-		goto __FAILED;
-	}
-	printf("\nInitializing system...\n");
-
 	// Detect all available video devices
 	int active_channels = 0;
 	for (int i = 0; i < MAX_VI_CHN; i++) {
@@ -853,11 +783,13 @@ int main(int argc, char *argv[]) {
 	// Wait for all threads to exit
 	if (avs_thread_id != 0) {
 		pthread_join(avs_thread_id, NULL);
+		avs_thread_id = 0;
 	}
 
 	for (int i = 0; i < MAX_VI_CHN; i++) {
 		if (thread_ids[i] != 0) {
 			pthread_join(thread_ids[i], NULL);
+			thread_ids[i] = 0;
 		}
 	}
 
@@ -870,16 +802,21 @@ int main(int argc, char *argv[]) {
 			close(vi_fds[i]);
 			s32Ret = RK_MPI_VI_DisableChn(s32PipeId, i);
 			printf("Closing VI channel %d: %x\n", i, s32Ret);
+			vi_fds[i] = -1;
 		}
 	}
 
 	// Close VO
 	vo_deinit(VoLayer, VoDev, VoChn);
 
-	// Close VI device
-	s32Ret = RK_MPI_VI_DisableDev(s32DevId);
-	printf("Closing VI device: %x\n", s32Ret);
+	// Cleanup system
+	RK_MPI_SYS_Exit();
 
+	// Reset saved frame counters for next cycle
+	for (int i = 0; i < MAX_VI_CHN; i++) {
+		saved_frames[i] = 0;
+	}
+	avs_saved_frames = 0;
 	ret = 0;
 
 __FAILED:
