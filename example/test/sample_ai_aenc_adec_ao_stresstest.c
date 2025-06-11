@@ -612,6 +612,7 @@ void* vqeThread(void * ptr) {
     AI_VQE_CONFIG_S stAiVqeConfig;
     RK_S32 result;
 
+    memset(&stAiVqeConfig, 0, sizeof(stAiVqeConfig));
     //When it is necessary to configure module switches separately, this interface needs to be called.
     //By default, it can be ignored.
     while (!quit && params->s32VqeDynamicCount-- > 0) {
@@ -621,17 +622,17 @@ void* vqeThread(void * ptr) {
                 __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
         }
 
-		if (params->s32VqeGapMs != 16 && params->s32VqeGapMs != 10) {
-			RK_LOGE("Invalid gap: %d, just supports 16ms or 10ms for AI VQE", params->s32VqeGapMs);
-		}
+        result = RK_MPI_AI_GetVqeAttr(params->s32DevId, params->s32ChnIndex, &stAiVqeConfig);
+        if (result != RK_SUCCESS) {
+            RK_LOGE("%s: RK_MPI_AI_GetVqeAttr(%d,%d) failed with %#x",
+                __FUNCTION__, params->s32DevId, params->s32ChnIndex, result);
+        }
 
-		stAiVqeConfig.s32WorkSampleRate = params->s32SampleRate;
-		stAiVqeConfig.s32FrameSample = params->s32SampleRate * params->s32VqeGapMs / 1000;
-		result = RK_MPI_AI_SetVqeAttr(params->s32DevId, params->s32ChnIndex, 0, 0, &stAiVqeConfig);
-		if (result != RK_SUCCESS) {
-			RK_LOGE("%s: SetVqeAttr(%d,%d) failed with %#x", __FUNCTION__, params->s32DevId,
-					params->s32ChnIndex, result);
-		}
+        result = RK_MPI_AI_SetVqeAttr(params->s32DevId, params->s32ChnIndex, 0, 0, &stAiVqeConfig);
+        if (result != RK_SUCCESS) {
+            RK_LOGE("%s: SetVqeAttr(%d,%d) failed with %#x", __FUNCTION__, params->s32DevId,
+            params->s32ChnIndex, result);
+        }
 
         result = RK_MPI_AI_EnableVqe(params->s32DevId, params->s32ChnIndex);
         if (result != RK_SUCCESS) {
