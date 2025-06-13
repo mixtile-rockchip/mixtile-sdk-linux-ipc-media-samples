@@ -520,11 +520,11 @@ static RK_S32 hdrMode_stressTest(RK_S32 s32CamId, rk_aiq_working_mode_t WDRMode,
 	RK_S32 s32Ret = RK_FAILURE;
 	static rk_aiq_working_mode_t eNowHdrMode = RK_AIQ_WORKING_MODE_NORMAL;
 
+	RK_MPI_VI_PauseChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
+
 	RK_MPI_VI_PauseChn(ctx->vi[0].u32PipeId, ctx->vi[0].s32ChnId);
 
 	RK_MPI_VI_PauseChn(ctx->vi[1].u32PipeId, ctx->vi[1].s32ChnId);
-
-	RK_MPI_VI_PauseChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
 
 	SAMPLE_COMM_ISP_Stop(s32CamId);
 
@@ -542,11 +542,11 @@ static RK_S32 hdrMode_stressTest(RK_S32 s32CamId, rk_aiq_working_mode_t WDRMode,
 		return s32Ret;
 	}
 
+	RK_MPI_VI_ResumeChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
+
 	RK_MPI_VI_ResumeChn(ctx->vi[0].u32PipeId, ctx->vi[0].s32ChnId);
 
 	RK_MPI_VI_ResumeChn(ctx->vi[1].u32PipeId, ctx->vi[1].s32ChnId);
-
-	RK_MPI_VI_ResumeChn(ctx->vi[2].u32PipeId, ctx->vi[2].s32ChnId);
 
 	RK_LOGE("------------switch to %d(normal:0 HDR2:16)", eNowHdrMode);
 
