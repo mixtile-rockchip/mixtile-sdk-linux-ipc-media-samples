@@ -25,19 +25,18 @@ static void sigterm_handler(int sig) {
 
 static FILE *ao_file;
 
-RK_S32 init_ao_vqe(RK_S32 vqeEnable) {
+RK_S32 init_ao_vqe(RK_S32 vqeEnable, RK_CHAR *pVqeCfgPath) {
     RK_S32 ret = RK_SUCCESS;
 	AO_VQE_CONFIG_S vqe_config;
-	char *pVqeCfgPath = NULL;
-	if (vqeEnable == 1)
-		pVqeCfgPath = "/oem/usr/share/vqefiles/config_aoagc.json";//agc
-	else
-		pVqeCfgPath = "/oem/usr/share/vqefiles/config_aovqe.json";//anr howl
-
 	memset(&vqe_config, 0, sizeof(AO_VQE_CONFIG_S));
 	if (pVqeCfgPath != RK_NULL) {
 		vqe_config.enCfgMode = AIO_VQE_CONFIG_LOAD_FILE;
-		memcpy(vqe_config.aCfgFile, pVqeCfgPath, strlen(pVqeCfgPath));
+		if (strlen(pVqeCfgPath) < sizeof(vqe_config.aCfgFile) - 1)
+			memcpy(vqe_config.aCfgFile, pVqeCfgPath, strlen(pVqeCfgPath));
+		else {
+			RK_LOGE("ao copy vqe json fail, aoChn = %d, strlen json = %d, max len = %d", 0, strlen(pVqeCfgPath), sizeof(vqe_config.aCfgFile));
+			return -1;
+		}
 	}
 
 	RK_LOGD("enCfgMode = %d", vqe_config.enCfgMode);
@@ -74,7 +73,8 @@ RK_S32 ao_set_other(RK_S32 s32SetVolume) {
 }
 
 RK_S32 open_device_ao(RK_S32 s32DeviceSampleRate, RK_S32 s32InputSampleRate,
-                      RK_S32 channel, RK_S32 u32FrameCnt, RK_S32 vqeEnable) {
+                      RK_S32 channel, RK_S32 u32FrameCnt, RK_S32 vqeEnable,
+					  RK_CHAR *pVqeCfgPath) {
 	printf("\n=======%s=======\n", __func__);
 	RK_S32 result = 0;
 	AUDIO_DEV aoDevId = 0;
@@ -132,8 +132,13 @@ RK_S32 open_device_ao(RK_S32 s32DeviceSampleRate, RK_S32 s32InputSampleRate,
 	else
 		RK_MPI_AO_SetTrackMode(aoDevId, AUDIO_TRACK_NORMAL);
 
-	if (vqeEnable)
-		init_ao_vqe(vqeEnable);
+	if (vqeEnable) {
+		if (init_ao_vqe(vqeEnable, pVqeCfgPath)) {
+			RK_LOGE("ao enable vqe fail, aoChn = %d, reason = %x", aoChn, result);
+			return -1;
+		}
+	}
+
 	/*==============================================================================*/
 	result = RK_MPI_AO_EnableChn(aoDevId, aoChn);
 	if (result != 0) {
@@ -155,7 +160,7 @@ RK_S32 open_device_ao(RK_S32 s32DeviceSampleRate, RK_S32 s32InputSampleRate,
 	return RK_SUCCESS;
 }
 
-static RK_CHAR optstr[] = "?::d:r:i:t:R:c:v:";
+static RK_CHAR optstr[] = "?::d:r:i:t:R:c:v:j:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s -r 16000 -R 16000 -i /tmp/16000.pcm\n",
@@ -165,6 +170,7 @@ static void print_usage(const RK_CHAR *name) {
 	printf("\t-i: input path, Default:\"/tmp/16000.pcm\"\n");
 	printf("\t-v: vqe enable, range [0, 2], Default:1. "
 	       "0:disable, 1:only agc, 2: vqe all\n");
+	printf("\t-j: vqe json path, Default:\"/oem/usr/share/vqefiles/config_aovqe.json\"\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -174,6 +180,7 @@ int main(int argc, char *argv[]) {
 	RK_U32 u32FrameCnt = 1024;
 	RK_S32 vqeEnable = 1;
 	RK_CHAR *pInPath = "/tmp/16000.pcm";
+	RK_CHAR *pVqeCfgPath = "/oem/usr/share/vqefiles/config_aovqe.json";
 	int c;
 
 	while ((c = getopt(argc, argv, optstr)) != -1) {
@@ -193,6 +200,9 @@ int main(int argc, char *argv[]) {
 		case 'v':
 			vqeEnable = atoi(optarg);
 			break;
+		case 'j':
+			pVqeCfgPath = optarg;
+			break;
 		case '?':
 		default:
 			print_usage(argv[0]);
@@ -206,6 +216,7 @@ int main(int argc, char *argv[]) {
 	printf("#Frame Count: %d\n", u32FrameCnt);
 	printf("#Input Path: %s\n", pInPath);
 	printf("#Vqe enable: %d\n", vqeEnable);
+	printf("#vqe Json Path: %s\n", pVqeCfgPath);
 
 	if (pInPath) {
 		ao_file = fopen(pInPath, "rb");
@@ -218,7 +229,8 @@ int main(int argc, char *argv[]) {
 	signal(SIGINT, sigterm_handler);
 
 	RK_MPI_SYS_Init();
-	open_device_ao(s32DeviceSampleRate, s32InputSampleRate, u32Channel, u32FrameCnt, vqeEnable);
+	if (open_device_ao(s32DeviceSampleRate, s32InputSampleRate, u32Channel, u32FrameCnt, vqeEnable, pVqeCfgPath))
+		return -1;
 
 	printf("%s initial finish\n", __func__);
 
