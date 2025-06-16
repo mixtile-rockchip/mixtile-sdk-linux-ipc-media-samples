@@ -809,9 +809,6 @@ int main(int argc, char *argv[]) {
 	// Close VO
 	vo_deinit(VoLayer, VoDev, VoChn);
 
-	// Cleanup system
-	RK_MPI_SYS_Exit();
-
 	// Reset saved frame counters for next cycle
 	for (int i = 0; i < MAX_VI_CHN; i++) {
 		saved_frames[i] = 0;
