@@ -32,6 +32,8 @@
 #include "rk_mpi_vo.h"
 #include "rk_mpi_avs.h"
 
+#define RK_ALIGN(x, a) (((x) + (a)-1) & ~((a)-1))
+
 #define CHN1_WIDTH 1280
 #define CHN1_HEIGHT 360
 
@@ -374,7 +376,144 @@ int vi_chn_init(int channelId, int width, int height) {
 	return ret;
 }
 
-int test_avs_init(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height, RK_U32 u32AvsWidth, RK_U32 u32AvsHeight, RK_U32 u32Mode) {
+int test_avs_pipe_attr_set_2(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height) {
+	RK_S32 s32Ret;
+	AVS_PIPE_ATTR_S stAvsPipeAttr[AVS_PIPE_NUM];
+	memset(&stAvsPipeAttr, 0, sizeof(stAvsPipeAttr));
+	for (RK_S32 i = 0; i < 2; i++) {
+		stAvsPipeAttr[i].u32Priority             = i;
+		stAvsPipeAttr[i].stSrcRect.s32X          = 0;
+		stAvsPipeAttr[i].stSrcRect.s32Y          = 0;
+		stAvsPipeAttr[i].stSrcRect.u32Width      = u32Width;
+		stAvsPipeAttr[i].stSrcRect.u32Height     = u32Height;
+		if (0 == i) {
+			stAvsPipeAttr[i].stDstRect.u32Width      = u32Width;
+			stAvsPipeAttr[i].stDstRect.u32Height     = u32Height;
+			stAvsPipeAttr[i].stDstRect.s32X          = 0;
+			stAvsPipeAttr[i].stDstRect.s32Y          = 0;
+		} else {
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width/ 4, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 4, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN(u32Width - stAvsPipeAttr[i].stDstRect.u32Width, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = RK_ALIGN(u32Height - stAvsPipeAttr[i].stDstRect.u32Height, 2);
+		}
+		s32Ret = RK_MPI_AVS_SetPipeAttr(s32GrpId, i, &stAvsPipeAttr[i]);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("avs [%d, %d] RK_MPI_AVS_SetPipeAttr failed: %#x!",
+				s32GrpId, i, s32Ret);
+			return s32Ret;
+		}
+		RK_LOGV("avs [%d, %d] RK_MPI_AVS_SetPipeAttr already.", s32GrpId, i);
+	}
+
+	return 0;
+}
+
+int test_avs_pipe_attr_set_6(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height) {
+	RK_S32 s32Ret;
+	AVS_PIPE_ATTR_S stAvsPipeAttr[AVS_PIPE_NUM];
+	memset(&stAvsPipeAttr, 0, sizeof(stAvsPipeAttr));
+	for (RK_S32 i = 0; i < 6; i++) {
+		stAvsPipeAttr[i].u32Priority             = i;
+		stAvsPipeAttr[i].stSrcRect.s32X          = 0;
+		stAvsPipeAttr[i].stSrcRect.s32Y          = 0;
+		stAvsPipeAttr[i].stSrcRect.u32Width      = u32Width;
+		stAvsPipeAttr[i].stSrcRect.u32Height     = u32Height;
+		if (i < 3) {
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 2, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN(i * u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = 0;
+		} else {
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 2, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN((i - 3) * u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = u32Height / 2;
+		}
+		s32Ret = RK_MPI_AVS_SetPipeAttr(s32GrpId, i, &stAvsPipeAttr[i]);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("avs [%d, %d] RK_MPI_AVS_SetPipeAttr failed: %#x!",
+				s32GrpId, i, s32Ret);
+			return s32Ret;
+		}
+		RK_LOGV("avs [%d, %d] RK_MPI_AVS_SetPipeAttr already.", s32GrpId, i);
+	}
+
+	return 0;
+}
+
+int test_avs_pipe_attr_set_8(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height) {
+	RK_S32 s32Ret;
+	AVS_PIPE_ATTR_S stAvsPipeAttr[AVS_PIPE_NUM];
+	memset(&stAvsPipeAttr, 0, sizeof(stAvsPipeAttr));
+	for (RK_S32 i = 0; i < 8; i++) {
+		stAvsPipeAttr[i].u32Priority             = i;
+		stAvsPipeAttr[i].stSrcRect.s32X          = 0;
+		stAvsPipeAttr[i].stSrcRect.s32Y          = 0;
+		stAvsPipeAttr[i].stSrcRect.u32Width      = u32Width;
+		stAvsPipeAttr[i].stSrcRect.u32Height     = u32Height;
+		if (i < 4) {
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width / 4, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 2, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN(i * u32Width / 4, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = 0;
+		} else {
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width / 4, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 2, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN((i - 4) * u32Width / 4, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = u32Height / 2;
+		}
+		s32Ret = RK_MPI_AVS_SetPipeAttr(s32GrpId, i, &stAvsPipeAttr[i]);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("avs [%d, %d] RK_MPI_AVS_SetPipeAttr failed: %#x!",
+				s32GrpId, i, s32Ret);
+			return s32Ret;
+		}
+		RK_LOGV("avs [%d, %d] RK_MPI_AVS_SetPipeAttr already.", s32GrpId, i);
+	}
+
+	return 0;
+}
+
+int test_avs_pipe_attr_set_9(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height) {
+	RK_S32 s32Ret;
+	AVS_PIPE_ATTR_S stAvsPipeAttr[AVS_PIPE_NUM];
+	memset(&stAvsPipeAttr, 0, sizeof(stAvsPipeAttr));
+	for (RK_S32 i = 0; i < 9; i++) {
+		stAvsPipeAttr[i].u32Priority             = i;
+		stAvsPipeAttr[i].stSrcRect.s32X          = 0;
+		stAvsPipeAttr[i].stSrcRect.s32Y          = 0;
+		stAvsPipeAttr[i].stSrcRect.u32Width      = u32Width;
+		stAvsPipeAttr[i].stSrcRect.u32Height     = u32Height;
+		if (i < 3) {
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 3, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN(i * u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = 0;
+		} else if (i >= 3 && i < 6){
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 3, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN((i - 3) * u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = u32Height / 3;
+        } else {
+			stAvsPipeAttr[i].stDstRect.u32Width      = RK_ALIGN(u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.u32Height     = RK_ALIGN(u32Height / 3, 2);
+			stAvsPipeAttr[i].stDstRect.s32X          = RK_ALIGN((i - 6) * u32Width / 3, 16);
+			stAvsPipeAttr[i].stDstRect.s32Y          = 2 * u32Height / 3;
+        }
+		s32Ret = RK_MPI_AVS_SetPipeAttr(s32GrpId, i, &stAvsPipeAttr[i]);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("avs [%d, %d] RK_MPI_AVS_SetPipeAttr failed: %#x!",
+				s32GrpId, i, s32Ret);
+			return s32Ret;
+		}
+		RK_LOGV("avs [%d, %d] RK_MPI_AVS_SetPipeAttr already.", s32GrpId, i);
+	}
+
+	return 0;
+}
+
+int test_avs_init(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height, RK_U32 u32AvsWidth, RK_U32 u32AvsHeight, RK_U32 u32Mode, RK_S32 u32PipeNum) {
 	RK_S32 s32Ret = RK_FAILURE;
 	AVS_GRP_ATTR_S stAvsGrpAttr;
 	AVS_CHN_ATTR_S stAvsChnAttr[AVS_MAX_CHN_NUM];
@@ -394,7 +533,7 @@ int test_avs_init(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height, RK_U32 u32
 	stAvsGrpAttr.jsonPath = pAvsJsonFilePath;
 #endif
 	stAvsGrpAttr.enMode = u32Mode; // 0: blend 1: no blend
-	stAvsGrpAttr.u32PipeNum = 2;
+	stAvsGrpAttr.u32PipeNum = u32PipeNum;
 	stAvsGrpAttr.stGainAttr.enMode = AVS_GAIN_MODE_AUTO;
 	stAvsGrpAttr.stOutAttr.enPrjMode = AVS_PROJECTION_EQUIRECTANGULAR;
 	stAvsGrpAttr.stOutAttr.stSize.u32Width = u32Width;
@@ -407,11 +546,26 @@ int test_avs_init(RK_S32 s32GrpId, RK_U32 u32Width, RK_U32 u32Height, RK_U32 u32
 	stAvsGrpAttr.stInAttr.stSize.u32Width = u32Width;
 	stAvsGrpAttr.stInAttr.stSize.u32Height = u32Height;
 	stAvsGrpAttr.stOutAttr.fDistance = 5.0;
+	if (AVS_MODE_NOBLEND_OVL == u32Mode)
+                 stAvsGrpAttr.stOutAttr.stOverlayAttr.bBgColor = RK_TRUE;
 
 	s32Ret = RK_MPI_AVS_CreateGrp(s32GrpId, &stAvsGrpAttr);
 	if (s32Ret != RK_SUCCESS) {
 		RK_LOGE("RK_MPI_AVS_CreateGrp failed with %#x!\n", s32Ret);
 		return s32Ret;
+	}
+
+	if (AVS_MODE_NOBLEND_OVL == u32Mode) {
+		if (u32PipeNum == 2)
+			test_avs_pipe_attr_set_2(s32GrpId, u32Width, u32Height);
+		else if (u32PipeNum == 6)
+			test_avs_pipe_attr_set_6(s32GrpId, u32Width, u32Height);
+		else if (u32PipeNum == 8)
+			test_avs_pipe_attr_set_8(s32GrpId, u32Width, u32Height);
+		else if (u32PipeNum == 9)
+			test_avs_pipe_attr_set_9(s32GrpId, u32Width, u32Height);
+		else
+			RK_LOGE("check pipe %d attr setting.", u32PipeNum);
 	}
 
 	memset(&stAvsChnAttr, 0, sizeof(stAvsChnAttr));
@@ -488,11 +642,15 @@ int test_avs_exit(RK_S32 s32GrpId) {
 	return 0;
 }
 
-static RK_CHAR optstr[] = "?::a::I:W:H:w:h:m:J:c:e:o:O:";
+static RK_CHAR optstr[] = "?::a::I:W:H:w:h:m:J:c:e:o:O:p:";
 
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s -W 1920 -H 1080 -w 3840 -h 1080 -m 2 -e h264 -o /tmp/venc0.h264 -O /tmp/venc1.h264\n", name);
+	printf("\t%s -W 1920 -H 1080 -w 1920 -h 1080 -m 4 -e h264 -o /tmp/venc0.h264\n", name);
+	printf("\t%s -W 1920 -H 1080 -w 1920 -h 1080 -m 4 -e h264 -o /tmp/venc0.h264 -p 6\n", name);
+	printf("\t%s -W 1920 -H 1080 -w 1920 -h 1080 -m 4 -e h264 -o /tmp/venc0.h264 -p 8\n", name);
+	printf("\t%s -W 1920 -H 1080 -w 1920 -h 1080 -m 4 -e h264 -o /tmp/venc0.h264 -p 9\n", name);
 	printf("\t-a | --aiq: iq file path, Default:/etc/iqfiles\n");
 #if defined RV1126_RV1109
 	printf("\t-I | --chnid: camera 0 chn id, Default 0. "
@@ -511,6 +669,7 @@ static void print_usage(const RK_CHAR *name) {
 	printf("\t-e | --encode: encode type, Default:h264, Value:h264, h265, mjpeg\n");
 	printf("\t-o: output chn0 path, Default:NULL\n");
 	printf("\t-O: output chn1 path, Default:NULL\n");
+	printf("\t-p: input pipe num, Default:2\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -523,6 +682,7 @@ int main(int argc, char *argv[]) {
 	RK_U32 u32AvsWidth = 3840;
 	RK_U32 u32AvsHeight = 1080;
 	RK_U32 u32Mode = 2;
+	RK_S32 u32PipeNum = 2;
 
 	RK_CHAR *pOutPath = NULL;
 	RK_CHAR *pOut1Path = NULL;
@@ -583,6 +743,9 @@ int main(int argc, char *argv[]) {
 		case 'O':
 			pOut1Path = optarg;
 			break;
+		case 'p':
+			u32PipeNum = atoi(optarg);
+			break;
 		case '?':
 		default:
 			print_usage(argv[0]);
@@ -628,14 +791,14 @@ int main(int argc, char *argv[]) {
 
 	vi_dev_init();
 	vi_chn_init(s32chnlId, u32Width, u32Height);
-	if (test_avs_init(0, u32Width, u32Height, u32AvsWidth, u32AvsHeight, u32Mode))
+	if (test_avs_init(0, u32Width, u32Height, u32AvsWidth, u32AvsHeight, u32Mode, u32PipeNum))
 		goto __FAILED;
 	// venc  init
 	test_venc_init(0, u32AvsWidth, u32AvsHeight, enCodecType);
 	test_venc_init(1, CHN1_WIDTH, CHN1_HEIGHT, enCodecType);
 
 	// bind vi to avs
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < u32PipeNum; i++) {
 		stSrcChn.enModId = RK_ID_VI;
 		stSrcChn.s32DevId = 0;
 		stSrcChn.s32ChnId = s32chnlId;
@@ -697,7 +860,7 @@ __FAILED:
 	}
 
 	// unbind vi to avs
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < u32PipeNum; i++) {
 		stSrcChn.enModId = RK_ID_VI;
 		stSrcChn.s32DevId = 0;
 		stSrcChn.s32ChnId = s32chnlId;
