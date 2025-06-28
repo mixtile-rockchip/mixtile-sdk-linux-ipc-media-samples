@@ -182,6 +182,7 @@ int vi_dev_init(int buf_width, int buf_height) {
 		stDevAttr.stMaxSize.u32Height = buf_height;
 		stDevAttr.enBufType = VI_V4L2_MEMORY_TYPE_DMABUF;
 		stDevAttr.u32BufCount = 2;
+		stDevAttr.enPixFmt = RK_FMT_RGB_BAYER_SBGGR_10BPP;
 		ret = RK_MPI_VI_SetDevAttr(devId, &stDevAttr);
 		if (ret != RK_SUCCESS) {
 			printf("RK_MPI_VI_SetDevAttr %x\n", ret);
