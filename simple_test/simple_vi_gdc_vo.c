@@ -3682,6 +3682,15 @@ static RK_S32 test_vi_bind_gdc_bind_vo_loop(TEST_VI_CTX_S *ctx) {
     }
 
 __FAILED:
+    // unbind gdc to vo
+    stSrcChn.enModId    = RK_ID_GDC;
+    stSrcChn.s32DevId   = 0;
+    stSrcChn.s32ChnId   = ctx->channelId;
+
+    stDestChn.enModId   = RK_ID_VO;
+    stDestChn.s32DevId  = ctx->s32VoLayer;
+    stDestChn.s32ChnId  = 0;
+
     s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
     if (s32Ret != RK_SUCCESS) {
         RK_LOGE("RK_MPI_SYS_UnBind fail %x", s32Ret);
@@ -3718,7 +3727,6 @@ __FAILED:
     // 5. disable one chn
     s32Ret = RK_MPI_VI_DisableChn(ctx->pipeId, ctx->channelId);
     RK_LOGE("RK_MPI_VI_DisableChn %x", s32Ret);
-
 
     // 6.disable dev(will diabled all chn)
     s32Ret = RK_MPI_VI_DisableDev(ctx->devId);
