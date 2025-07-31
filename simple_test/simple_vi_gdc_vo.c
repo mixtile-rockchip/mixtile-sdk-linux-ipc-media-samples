@@ -2886,6 +2886,7 @@ static const char* json_content =
 "        \"delay_num\": 0,\n"
 "        \"ois_mode\": 0,\n"
 "        \"dvs_mode\": 0,\n"
+"        \"imu_mode\": 0,\n"
 "        \"horizon_mode\": 0,\n"
 "        \"use_async\": 1,\n"
 "        \"view_angle\": 0.0,\n"
