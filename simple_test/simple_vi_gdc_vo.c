@@ -3936,7 +3936,7 @@ int main(int argc, char *argv[]) {
     ctx->stChnAttr.stIspOpt.u32BufCount = 3;
     ctx->s32MemType = VI_V4L2_MEMORY_TYPE_DMABUF;
     ctx->stChnAttr.stIspOpt.enCaptureType = VI_V4L2_CAPTURE_TYPE_VIDEO_CAPTURE;
-    ctx->stChnAttr.u32Depth = 2;
+    ctx->stChnAttr.u32Depth = 0;
     ctx->aEntityName = RK_NULL;
     ctx->stChnAttr.enPixelFormat = RK_FMT_YUV420SP;
     ctx->stChnAttr.stFrameRate.s32SrcFrameRate = -1;
