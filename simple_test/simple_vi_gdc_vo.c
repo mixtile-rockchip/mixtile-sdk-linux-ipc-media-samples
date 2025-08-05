@@ -4018,7 +4018,7 @@ int main(int argc, char *argv[]) {
 	printf("#gdc video dst compress mode: %d\n", ctx->s32GdcCompMode);
 
     if (!ctx->width || !ctx->height) {
-        RK_LOGE("ctx->width(%d) or height(%d) = 0",
+        printf("ctx->width(%d) or height(%d) = 0\n",
                 ctx->width, ctx->height);
         goto __FAILED2;
     }
@@ -4032,9 +4032,9 @@ int main(int argc, char *argv[]) {
     ctx->stChnAttr.stIspOpt.enMemoryType = (VI_V4L2_MEMORY_TYPE)ctx->s32MemType;
     signal(SIGINT, sigterm_handler);
 
-    imuFp = fopen("tmp/imu_info.txt", "wb+");
+    imuFp = fopen("/tmp/imu_info.txt", "wb+");
     if (!imuFp) {
-        RK_LOGE("fopen imu file fail!");
+        printf("fopen imu file fail!\n");
         goto __FAILED;
     }
 
@@ -4048,9 +4048,9 @@ int main(int argc, char *argv[]) {
     fclose(imuFp);
     imuFp = NULL;
 
-    viFp = fopen("tmp/vi_info.txt", "wb+");
+    viFp = fopen("/tmp/vi_info.txt", "wb+");
     if (!viFp) {
-        RK_LOGE("fopen vi_info file fail!");
+        printf("fopen vi_info file fail!\n");
         goto __FAILED;
     }
 
@@ -4065,17 +4065,17 @@ int main(int argc, char *argv[]) {
     fclose(viFp);
     viFp = NULL;
     if (setenv("rt_debug_eis_imu_delay", "625", 1) != 0) {
-        RK_LOGE("export delay failed");
+        printf("export delay failed\n");
         return -1;
     }
 
     if (setenv("rt_debug_eis_imu_file", "/tmp/imu_info.txt", 1) != 0) {
-        RK_LOGE("export imu info failed");
+        printf("export imu info failed\n");
         return -1;
     }
 
     if (setenv("rt_debug_eis_vi_info_file", "/tmp/vi_info.txt", 1) != 0) {
-        RK_LOGE("export vi info failed");
+        printf("export vi info failed\n");
         return -1;
     }
 
@@ -4084,21 +4084,21 @@ int main(int argc, char *argv[]) {
         if (ctx->pGdcCfgFile == RK_NULL) {
             FILE* eisFp = fopen("/tmp/rkeis_config.json", "w");
             if (eisFp == NULL) {
-                RK_LOGE("fopen eis json failed");
+                printf("fopen eis json failed\n");
                 return -1;
             }
 
 
             int bytes_written = fwrite(json_content, sizeof(char), strlen(json_content), eisFp);
             if (bytes_written != strlen(json_content)) {
-                RK_LOGE("fwrite eis json failed");
+                printf("fwrite eis json failed\n");
                 fclose(eisFp);
                 return -1;
             }
 
 
             if (fclose(eisFp) != 0) {
-                RK_LOGE("fclose eis json failed");
+                printf("fclose eis json failed\n");
                 return -1;
             }
 
@@ -4107,7 +4107,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (RK_MPI_SYS_Init() != RK_SUCCESS) {
-        RK_LOGE("rk mpi sys init fail!");
+        printf("rk mpi sys init fail!\n");
         goto __FAILED;
     }
 
