@@ -120,6 +120,9 @@ simple_vdec_bind_vpss_bind_vo: simple_vdec_bind_vpss_bind_vo.c
 simple_vdec_bind_vo: simple_vdec_bind_vo.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
 
+simple_vdec: simple_vdec.c
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
+
 simple_vo_send_frame: simple_vo_send_frame.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
 

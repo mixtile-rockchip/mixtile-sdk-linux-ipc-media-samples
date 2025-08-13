@@ -531,6 +531,8 @@ simple_vdec_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
 sleep 2
 simple_vdec_bind_vpss_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
 sleep 2
+simple_vdec -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
+sleep 2
 
 # selfpath channel
 simple_vi_bind_venc_rtsp -I 1 -w 1920 -h 1080&
