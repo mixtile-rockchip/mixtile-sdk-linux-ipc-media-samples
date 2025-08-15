@@ -132,8 +132,8 @@ RK_S32 test_rgn_overlay_process() {
 
 	int u32Width = 128;
 	int u32Height = 128;
-	int s32X = 100;
-	int s32Y = 100;
+	int s32X = 0;
+	int s32Y = 0;
 
 	RK_CHAR *filename = "/data/res/rgn/44";
 
@@ -263,8 +263,8 @@ RK_S32 test_rgn_overlay_process_ex() {
 
 	int u32Width = 128;
 	int u32Height = 128;
-	int s32X = 400;
-	int s32Y = 400;
+	int s32X = 128;
+	int s32Y = 0;
 
 	RK_CHAR *filename = "/data/res/rgn/44";
 
