@@ -110,6 +110,8 @@ endif
 
 ifeq ($(RK_MEDIA_CHIP), rv1126b)
 	$(CMD_DBG)cp simple_cmd_rv1126b.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
+	$(CMD_DBG)cp rk_2_1920x1080.json $(SIMPLE_OUT_DIR)/bin/
+	$(CMD_DBG)cp rk_2_1920x1080.xml $(SIMPLE_OUT_DIR)/bin/
 endif
 
 	$(call MAROC_COPY_PKG_TO_MEDIA_OUTPUT, $(RK_MEDIA_OUTPUT)/bin, $(SIMPLE_OUT_DIR)/bin)
