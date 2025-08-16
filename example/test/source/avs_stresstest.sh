@@ -121,12 +121,12 @@ test_case()
 {
     if [ "$RESTART" = "on" ]; then
         #1. avs_deinit_ubind_test
-        test_cmd sample_avs_stresstest --vi_size $vi_resolution --avs_size $avs_resolution -a /etc/iqfiles/ --vi_chnid $vi_chnid --vi_buffcnt $vi_buff_cnt --mode_test_type 1 --mode_test_loop $test_loop --test_frame_count $frame_count -J /oem/usr/share/avs_json/rkAlgAvsJson2.json
+        test_cmd sample_avs_stresstest --vi_size $vi_resolution --avs_size $avs_resolution -a /etc/iqfiles/ --vi_chnid $vi_chnid --vi_buffcnt $vi_buff_cnt --mode_test_type 1 --mode_test_loop $test_loop --test_frame_count $frame_count -J /oem/usr/share/avs_json/rk_2_1920x1080.json
     fi
 
     if [ "$RESOLUTION" = "on" ]; then
         #2. avs_resolution_test
-        test_cmd sample_avs_stresstest --vi_size $vi_resolution --avs_size $avs_resolution -a /etc/iqfiles/ --vi_chnid $vi_chnid --vi_buffcnt $vi_buff_cnt --mode_test_type 2 --mode_test_loop $test_loop --test_frame_count $frame_count -J /oem/usr/share/avs_json/rkAlgAvsJson2.json
+        test_cmd sample_avs_stresstest --vi_size $vi_resolution --avs_size $avs_resolution -a /etc/iqfiles/ --vi_chnid $vi_chnid --vi_buffcnt $vi_buff_cnt --mode_test_type 2 --mode_test_loop $test_loop --test_frame_count $frame_count -J /oem/usr/share/avs_json/rk_2_1920x1080.json
     fi
 
     sleep 3

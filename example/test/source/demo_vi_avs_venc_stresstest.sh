@@ -138,17 +138,17 @@ test_case()
 {
     if [ "$RESTART" = "on" ]; then
         #1. media_deinit_init test
-        test_cmd sample_demo_vi_avs_venc_stresstest --vi_size $vi_resolution --avs_chn0_size $avs_chn0_resolution --avs_chn1_size $avs_chn1_resolution --chn_id $vi_chnid --vi_chn_buf_cnt $vi_buff_cnt -a /etc/iqfiles/ -e h265cbr -b 4096 -n 2 --test_type 1 --test_loop $test_loop --test_frame $frame_count -J /oem/usr/share/avs_json/rkAlgAvsJson2.json
+        test_cmd sample_demo_vi_avs_venc_stresstest --vi_size $vi_resolution --avs_chn0_size $avs_chn0_resolution --avs_chn1_size $avs_chn1_resolution --chn_id $vi_chnid --vi_chn_buf_cnt $vi_buff_cnt -a /etc/iqfiles/ -e h265cbr -b 4096 -n 2 --test_type 1 --test_loop $test_loop --test_frame $frame_count -J /oem/usr/share/avs_json/rk_2_1920x1080.json
     fi
 
     if [ "$RESOLUTION" = "on" ]; then
         #2. avs_resolution_test
-        test_cmd sample_demo_vi_avs_venc_stresstest --vi_size $vi_resolution --avs_chn0_size $avs_chn0_resolution --avs_chn1_size $avs_chn1_resolution --chn_id $vi_chnid --vi_chn_buf_cnt $vi_buff_cnt -a /etc/iqfiles/ -e h265cbr -b 4096 -n 2 --test_type 2 --test_loop $test_loop --test_frame $frame_count -J /oem/usr/share/avs_json/rkAlgAvsJson2.json
+        test_cmd sample_demo_vi_avs_venc_stresstest --vi_size $vi_resolution --avs_chn0_size $avs_chn0_resolution --avs_chn1_size $avs_chn1_resolution --chn_id $vi_chnid --vi_chn_buf_cnt $vi_buff_cnt -a /etc/iqfiles/ -e h265cbr -b 4096 -n 2 --test_type 2 --test_loop $test_loop --test_frame $frame_count -J /oem/usr/share/avs_json/rk_2_1920x1080.json
     fi
 
     if [ "$ORDINARY" = "on" ]; then
         #3. ordinary stream test
-        test_cmd sample_demo_vi_avs_venc_stresstest --vi_size $vi_resolution --avs_chn0_size $avs_chn0_resolution --avs_chn1_size $avs_chn1_resolution --chn_id $vi_chnid --vi_chn_buf_cnt $vi_buff_cnt -a /etc/iqfiles/ -e h265cbr -b 4096 -n 2 -l $ordinary_stream_test_framecount -J /oem/usr/share/avs_json/rkAlgAvsJson2.json
+        test_cmd sample_demo_vi_avs_venc_stresstest --vi_size $vi_resolution --avs_chn0_size $avs_chn0_resolution --avs_chn1_size $avs_chn1_resolution --chn_id $vi_chnid --vi_chn_buf_cnt $vi_buff_cnt -a /etc/iqfiles/ -e h265cbr -b 4096 -n 2 -l $ordinary_stream_test_framecount -J /oem/usr/share/avs_json/rk_2_1920x1080.json
     fi
 
     sleep 3
