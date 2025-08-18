@@ -479,7 +479,6 @@ int main(int argc, char *argv[]) {
 	RK_MPI_SYS_Init();
 	void *demuxerCfg = NULL;
 	if (code_type == RK_AUDIO_ID_MP3) {
-		u32FrameCnt = 1152;
 		DemuxerInput stDemuxerInput;
 		DemuxerParam tempDemuxerParam;
 		memset(&stDemuxerInput, 0, sizeof(DemuxerInput));
