@@ -194,6 +194,9 @@ simple_vi_vpss_venc_rawstream: simple_vi_vpss_venc_rawstream.c
 simple_vi_avs_send_vo: simple_vi_avs_send_vo.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
 
+simple_multi_ahd_vpss_test: simple_multi_ahd_vpss_test.c
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
+
 $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_chn_sharebuf: $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_chn_sharebuf.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS)
 
