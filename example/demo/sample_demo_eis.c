@@ -40,7 +40,7 @@ static struct {
 	uint32_t display_width;
 	uint32_t display_height;
 	uint32_t display_rotation;
-	uint32_t frame_count;
+	int32_t frame_count;
 	uint32_t loop_count;
 	uint32_t type;
 	uint32_t fps;
@@ -48,6 +48,7 @@ static struct {
 	bool enable_test;
 	bool enable_rkaiq;
 	bool enable_amtd;
+	bool enable_memc;
 	bool enable_vpss;
 } rk_cmd_param;
 
@@ -79,6 +80,7 @@ static const struct option long_options[] = {
     {"enable_amtd", required_argument, RK_NULL, 'e' + 'a'},
     {"enable_test", required_argument, RK_NULL, 'e' + 't'},
     {"enable_vpss", required_argument, RK_NULL, 'e' + 'v'},
+    {"enable_memc", required_argument, RK_NULL, 'e' + 'm'},
     {"help", required_argument, RK_NULL, 'h' + 'p'},
     {RK_NULL, 0, RK_NULL, 0},
 };
@@ -113,6 +115,7 @@ static void print_usage(const char *name) {
 	printf("\t--enable_compress: enable compress format in video, Default:1\n");
 	printf("\t--enable_test: enable test for all mode, Default:0\n");
 	printf("\t--enable_vpss: enable use vpss online mode, Default:1\n");
+	printf("\t--enable_memc: enable memc, this funciton depend on rkaiq, Default:0\n");
 }
 
 static int parse_cmd_args(int argc, const char **argv) {
@@ -124,6 +127,7 @@ static int parse_cmd_args(int argc, const char **argv) {
 	rk_cmd_param.enable_compress = 1;
 	rk_cmd_param.enable_rkaiq = 1;
 	rk_cmd_param.enable_amtd = 1;
+	rk_cmd_param.enable_memc = 0;
 	rk_cmd_param.enable_vpss = 1;
 	rk_cmd_param.display_width = 1080;
 	rk_cmd_param.display_height = 1920;
@@ -217,9 +221,14 @@ static int gdc_aiq_imu_callback(RK_VOID *pUsr, GDC_SENSOR_INFO_S *pInfo) {
 		RK_LOGD("========== bad aiq ctx! ===========\n");
 		return GDC_INFO_CB_SUCCESS;
 	}
-	int ret = rk_aiq_user_api2_amtd_setImuData(g_aiq_ctx, &imu_data);
-	if (ret != 0)
-		RK_LOGD("rk_aiq_user_api2_amtd_setImuData failed %#X\n", ret);
+	if (rk_cmd_param.enable_amtd) {
+		int ret = rk_aiq_user_api2_amtd_setImuData(g_aiq_ctx, &imu_data);
+		if (ret != 0)
+			RK_LOGD("rk_aiq_user_api2_amtd_setImuData failed %#X\n", ret);
+	}
+	if (rk_cmd_param.enable_memc) {
+		rk_aiq_uapi2_setImuData(g_aiq_ctx, &imu_data);
+	}
 	return GDC_INFO_CB_SUCCESS;
 }
 
@@ -257,6 +266,12 @@ static int isp_init(void) {
 		return -1;
 	}
 	g_aiq_ctx = aiq_ctx;
+
+	btnr_api_attrib_t btnr_attr = {};
+	rk_aiq_user_api2_btnr_GetAttrib(aiq_ctx, &btnr_attr);
+	btnr_attr.stAuto.sta.swMemc.sw_btnr_swMemc_en = rk_cmd_param.enable_memc;
+	btnr_attr.stMan.sta.swMemc.sw_btnr_swMemc_en = rk_cmd_param.enable_memc;
+	rk_aiq_user_api2_btnr_SetAttrib(aiq_ctx, &btnr_attr);
 
 	ret = rk_aiq_uapi2_sysctl_prepare(g_aiq_ctx, 0, 0, RK_AIQ_WORKING_MODE_NORMAL);
 	if (ret) {
@@ -590,7 +605,7 @@ static int gdc_init(void) {
 	}
 	RK_LOGI("gdc init success, width %d, height %d", width, height);
 
-	if (rk_cmd_param.enable_amtd) {
+	if (rk_cmd_param.enable_amtd || rk_cmd_param.enable_memc) {
 		width = 720;  // unused
 		height = 480; // unused
 		gdc_attr.stEisAttr.s32DevNo = 1;
@@ -620,7 +635,7 @@ static int gdc_deinit(void) {
 	ret = RK_MPI_GDC_DestroyChn(GDC_MAIN_CHN);
 	if (ret)
 		RK_LOGE("ERROR: destroy GDC main channel error! ret=%#X\n", ret);
-	if (rk_cmd_param.enable_amtd) {
+	if (rk_cmd_param.enable_amtd || rk_cmd_param.enable_memc) {
 		ret = RK_MPI_GDC_DestroyChn(GDC_DUMMY_CHN);
 		if (ret)
 			RK_LOGE("ERROR: destroy GDC dummy channel error! ret=%#X\n", ret);
@@ -838,10 +853,16 @@ int main(int argc, const char **argv) {
 			break;
 		}
 		if (rk_cmd_param.type == TYPE_GDC_VO) {
-			sleep(1);
+			int i = 0;
+			while (!quit) {
+				usleep(33 * 1000);
+				if (rk_cmd_param.frame_count > 0 && ++i > rk_cmd_param.frame_count)
+					break;
+			}
 		} else if (rk_cmd_param.type == TYPE_GDC_VENC) {
-			for (int i = 0; i < rk_cmd_param.frame_count && !quit; i++) {
+			int i = 0;
 			__retry_get_venc_frame:
+			while (!quit) {
 				ret = RK_MPI_VENC_GetStream(VENC_MAIN_CHN, &video_stream, 1000);
 				if (ret) {
 					RK_LOGE("ERROR: get venc stream error! ret=%#X\n", ret);
@@ -851,9 +872,12 @@ int main(int argc, const char **argv) {
 					        video_stream.pstPack->u64PTS);
 					RK_MPI_VENC_ReleaseStream(VENC_MAIN_CHN, &video_stream);
 				}
+				if (rk_cmd_param.frame_count > 0 && ++i > rk_cmd_param.frame_count)
+					break;
 			}
 		} else if (rk_cmd_param.type == TYPE_GDC_GET_FRAME) {
-			for (int i = 0; i < rk_cmd_param.frame_count && !quit; i++) {
+			int i = 0;
+			while (!quit) {
 				VIDEO_FRAME_INFO_S gdc_frame;
 			__retry_get_gdc_frame:
 				ret = RK_MPI_GDC_GetFrame(GDC_MAIN_CHN, &gdc_frame, 1000);
@@ -864,6 +888,8 @@ int main(int argc, const char **argv) {
 					RK_LOGI("get gdc frame %d, pts %lld\n", i, gdc_frame.stVFrame.u64PTS);
 					RK_MPI_GDC_ReleaseFrame(GDC_MAIN_CHN, &gdc_frame);
 				}
+				if (rk_cmd_param.frame_count > 0 && ++i > rk_cmd_param.frame_count)
+					break;
 			}
 		}
 		ret = unbind_pipe();
@@ -907,6 +933,7 @@ int main(int argc, const char **argv) {
 	}
 	system("cat /proc/meminfo > /tmp/eis_after_meminfo.txt");
 	system("cat /proc/vmallocinfo >> /tmp/eis_after_meminfo.txt");
+	fprintf(stderr, "%s: exit stress test\n", __func__);
 	RK_MPI_SYS_Exit();
 	if (video_stream.pstPack)
 		free(video_stream.pstPack);
