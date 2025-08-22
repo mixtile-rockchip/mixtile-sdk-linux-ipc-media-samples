@@ -156,6 +156,8 @@ simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/venc.mjpeg
 checkmd5sum /tmp/venc.mjpeg
 simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
 checkmd5sum /tmp/venc.h264
+simple_vi_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265 -i /dev/video13
+checkmd5sum /tmp/venc.h265
 
 simple_vi_bind_vpss_bind_venc&
 sleep 3

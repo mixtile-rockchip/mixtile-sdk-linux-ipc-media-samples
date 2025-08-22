@@ -29,6 +29,10 @@
 #include "rk_mpi_vo.h"
 #include "rk_mpi_vpss.h"
 
+#ifndef RV1126B
+#define VI_VIR_PIPE_ID 0
+#endif
+
 static FILE *venc0_file;
 static RK_S32 g_s32FrameCnt = -1;
 static bool quit = false;
@@ -134,11 +138,12 @@ static RK_S32 test_venc_init(int chnId, int width, int height, RK_CODEC_ID_E enT
 }
 
 // demo板dev默认都是0，根据不同的channel 来选择不同的vi节点
-int vi_dev_init() {
+int vi_dev_init(int devId) {
 	printf("%s\n", __func__);
 	int ret = 0;
-	int devId = 0;
 	int pipeId = devId;
+	if (pipeId == VI_VIR_PIPE_ID)
+		return 0;
 
 	VI_DEV_ATTR_S stDevAttr;
 	VI_DEV_BIND_PIPE_S stBindPipe;
@@ -180,22 +185,27 @@ int vi_dev_init() {
 	return 0;
 }
 
-int vi_chn_init(int channelId, int width, int height) {
+int vi_chn_init(int channelId, int width, int height, char *name) {
 	int ret;
 	int buf_cnt = 2;
+	int pipeid = 0;
 	// VI init
 	VI_CHN_ATTR_S vi_chn_attr;
 	memset(&vi_chn_attr, 0, sizeof(vi_chn_attr));
 	vi_chn_attr.stIspOpt.u32BufCount = buf_cnt;
 	vi_chn_attr.stIspOpt.enMemoryType =
 	    VI_V4L2_MEMORY_TYPE_DMABUF; // VI_V4L2_MEMORY_TYPE_MMAP;
+	if (name) {
+		strcpy(&vi_chn_attr.stIspOpt.aEntityName, name);
+		pipeid = VI_VIR_PIPE_ID;
+	}
 	vi_chn_attr.stSize.u32Width = width;
 	vi_chn_attr.stSize.u32Height = height;
 	vi_chn_attr.enPixelFormat = RK_FMT_YUV420SP;
 	vi_chn_attr.enCompressMode = COMPRESS_MODE_NONE; // COMPRESS_AFBC_16x16;
 	vi_chn_attr.u32Depth = 0; //0, get fail, 1 - u32BufCount, can get, if bind to other device, must be < u32BufCount
-	ret = RK_MPI_VI_SetChnAttr(0, channelId, &vi_chn_attr);
-	ret |= RK_MPI_VI_EnableChn(0, channelId);
+	ret = RK_MPI_VI_SetChnAttr(pipeid, channelId, &vi_chn_attr);
+	ret |= RK_MPI_VI_EnableChn(pipeid, channelId);
 	if (ret) {
 		printf("ERROR: create VI error! ret=%d\n", ret);
 		return ret;
@@ -204,10 +214,11 @@ int vi_chn_init(int channelId, int width, int height) {
 	return ret;
 }
 
-static RK_CHAR optstr[] = "?::w:h:c:I:e:o:";
+static RK_CHAR optstr[] = "?::w:h:c:I:e:o:i:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s -I 0 -w 1920 -h 1080 -o /tmp/venc.h264\n", name);
+	printf("\t-i | --input: stream device:  Default: NULL\n");
 	printf("\t-w | --width: VI width, Default:1920\n");
 	printf("\t-h | --heght: VI height, Default:1080\n");
 	printf("\t-c | --frame_cnt: frame number of output, Default:-1\n");
@@ -230,11 +241,16 @@ int main(int argc, char *argv[]) {
 	RK_CODEC_ID_E enCodecType = RK_VIDEO_ID_AVC;
 	RK_CHAR *pCodecName = "H264";
 	RK_S32 s32chnlId = 0;
+	RK_S32 s32pipeId = 0;
+	RK_CHAR *streamName = NULL;
 	int c;
 	int ret = -1;
 
 	while ((c = getopt(argc, argv, optstr)) != -1) {
 		switch (c) {
+		case 'i':
+			streamName = optarg;
+			break;
 		case 'w':
 			u32Width = atoi(optarg);
 			break;
@@ -277,6 +293,7 @@ int main(int argc, char *argv[]) {
 	printf("#Output Path: %s\n", pOutPath);
 	printf("#ChannelIdx: %d\n\n", s32chnlId);
 	printf("#Frame Count to save: %d\n", g_s32FrameCnt);
+	printf("#Stream device %s\n", streamName);
 
 	if (pOutPath) {
 		venc0_file = fopen(pOutPath, "w");
@@ -292,8 +309,14 @@ int main(int argc, char *argv[]) {
 		goto __FAILED;
 	}
 
-	vi_dev_init();
-	vi_chn_init(s32chnlId, u32Width, u32Height);
+	if (streamName) {
+		s32pipeId = VI_VIR_PIPE_ID;
+		vi_dev_init(VI_VIR_PIPE_ID);
+		vi_chn_init(s32chnlId, u32Width, u32Height, streamName);
+	} else {
+		vi_dev_init(0);
+		vi_chn_init(s32chnlId, u32Width, u32Height, NULL);
+	}
 
 	// venc  init
 	test_venc_init(0, u32Width, u32Height,
@@ -302,7 +325,7 @@ int main(int argc, char *argv[]) {
 	MPP_CHN_S stSrcChn, stDestChn;
 	// bind vi to venc
 	stSrcChn.enModId = RK_ID_VI;
-	stSrcChn.s32DevId = 0;
+	stSrcChn.s32DevId = s32pipeId;
 	stSrcChn.s32ChnId = s32chnlId;
 
 	stDestChn.enModId = RK_ID_VENC;
@@ -311,7 +334,9 @@ int main(int argc, char *argv[]) {
 	printf("====RK_MPI_SYS_Bind vi0 to venc0====\n");
 	s32Ret = RK_MPI_SYS_Bind(&stSrcChn, &stDestChn);
 	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("bind 0 ch venc failed");
+		RK_LOGE("src[%d, %d, %d]bind dst[%d, %d, %d] failed",
+			stSrcChn.enModId, stSrcChn.s32DevId, stSrcChn.s32ChnId,
+			stDestChn.enModId, stDestChn.s32DevId, stDestChn.s32ChnId);
 		goto __FAILED;
 	}
 
