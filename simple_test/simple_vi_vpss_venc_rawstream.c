@@ -576,7 +576,6 @@ static void *get_venc_stream(void *arg) {
 		}
 
 		totalCount++;
-		printf("lmx---totalCount %d %d\n", pstVencCfg->u32ChnId, totalCount);
 		if (totalCount > 30) {
 			(*quit) = true;
 			break;
