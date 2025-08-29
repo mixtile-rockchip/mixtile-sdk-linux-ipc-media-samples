@@ -1119,6 +1119,8 @@ static RK_S32 vo_init(void) {
 		return ret;
 	memset(&VoPubAttr, 0, sizeof(VO_PUB_ATTR_S));
 	memset(&stLayerAttr, 0, sizeof(VO_VIDEO_LAYER_ATTR_S));
+	memset(&stChnAttr, 0, sizeof(VO_CHN_ATTR_S));
+
 	TRACE_BEGIN();
 	stLayerAttr.enPixFormat = RK_FMT_RGB888;
 	stLayerAttr.enCompressMode

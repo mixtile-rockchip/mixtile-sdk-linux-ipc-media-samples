@@ -2991,6 +2991,7 @@ static RK_S32 create_vo(TEST_VI_CTX_S *ctx, RK_U32 u32Ch) {
 
     memset(&VoPubAttr, 0, sizeof(VO_PUB_ATTR_S));
     memset(&stLayerAttr, 0, sizeof(VO_VIDEO_LAYER_ATTR_S));
+    memset(&stChnAttr, 0, sizeof(VO_CHN_ATTR_S));
 
     stLayerAttr.enPixFormat = LAYER_FMT;
     stLayerAttr.stDispRect.s32X = DISP_X;
