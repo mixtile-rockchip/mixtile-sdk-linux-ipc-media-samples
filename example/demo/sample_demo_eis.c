@@ -40,6 +40,7 @@ static struct {
 	uint32_t display_width;
 	uint32_t display_height;
 	uint32_t display_rotation;
+	uint32_t iio_device_idx;
 	int32_t frame_count;
 	uint32_t loop_count;
 	uint32_t type;
@@ -64,25 +65,26 @@ enum {
 
 static char optstr[] = "?::w:h:c:l:t:p:W:H:r:R:P:f:";
 static const struct option long_options[] = {
-    {"video_width", required_argument, RK_NULL, 'w'},
-    {"height_height", required_argument, RK_NULL, 'h'},
-    {"display_width", required_argument, RK_NULL, 'W'},
-    {"display_height", required_argument, RK_NULL, 'H'},
-    {"display_rotation", required_argument, RK_NULL, 'R'},
-    {"frame_count", required_argument, RK_NULL, 'c'},
-    {"loop_count", required_argument, RK_NULL, 'l'},
-    {"type", required_argument, RK_NULL, 't'},
-    {"fps", required_argument, RK_NULL, 'f'},
-    {"eis_video_config_file", required_argument, RK_NULL, 'p'},
-    {"eis_display_config_file", required_argument, RK_NULL, 'P'},
-    {"enable_compress", required_argument, RK_NULL, 'e' + 'c'},
-    {"enable_rkaiq", required_argument, RK_NULL, 'e' + 'r'},
-    {"enable_amtd", required_argument, RK_NULL, 'e' + 'a'},
-    {"enable_test", required_argument, RK_NULL, 'e' + 't'},
-    {"enable_vpss", required_argument, RK_NULL, 'e' + 'v'},
-    {"enable_memc", required_argument, RK_NULL, 'e' + 'm'},
-    {"help", required_argument, RK_NULL, 'h' + 'p'},
-    {RK_NULL, 0, RK_NULL, 0},
+	{"video_width", required_argument, RK_NULL, 'w'},
+	{"video_height", required_argument, RK_NULL, 'h'},
+	{"display_width", required_argument, RK_NULL, 'W'},
+	{"display_height", required_argument, RK_NULL, 'H'},
+	{"display_rotation", required_argument, RK_NULL, 'R'},
+	{"frame_count", required_argument, RK_NULL, 'c'},
+	{"loop_count", required_argument, RK_NULL, 'l'},
+	{"type", required_argument, RK_NULL, 't'},
+	{"fps", required_argument, RK_NULL, 'f'},
+	{"eis_video_config_file", required_argument, RK_NULL, 'p'},
+	{"eis_display_config_file", required_argument, RK_NULL, 'P'},
+	{"enable_compress", required_argument, RK_NULL, 'e' + 'c'},
+	{"enable_rkaiq", required_argument, RK_NULL, 'e' + 'r'},
+	{"enable_amtd", required_argument, RK_NULL, 'e' + 'a'},
+	{"enable_test", required_argument, RK_NULL, 'e' + 't'},
+	{"enable_vpss", required_argument, RK_NULL, 'e' + 'v'},
+	{"enable_memc", required_argument, RK_NULL, 'e' + 'm'},
+	{"iio_device_idx", required_argument, RK_NULL, 'i' + 'd' + 'd'},
+	{"help", required_argument, RK_NULL, 'h' + 'p'},
+	{RK_NULL, 0, RK_NULL, 0},
 };
 
 static void sigterm_handler(int sig) {
@@ -99,23 +101,24 @@ static void print_usage(const char *name) {
 	printf("\t-H | --display_height: video height, Default:1920\n");
 	printf("\t-w | --fps: video fps, Default:30\n");
 	printf("\t-r | --display_rotation: display rotation, "
-	       "\n\t\t0: roation 0, 1: roation 90, 2: roation 180, 3: roation 270"
-	       "\n\t\tDefault:1\n");
+		   "\n\t\t0: roation 0, 1: roation 90, 2: roation 180, 3: roation 270"
+		   "\n\t\tDefault:1\n");
 	printf("\t-c | --frame_count: frame number of output, Default:100\n");
 	printf("\t-l | --loop_count: test loop count\n");
 	printf("\t-t | --type: type, 0: vi bind gdc bind vo"
-	       "\n\t\t1: vi bind gdc bind venc"
-	       "\n\t\t2: vi bind gdc, get/release gdc frame\n");
+		   "\n\t\t1: vi bind gdc bind venc"
+		   "\n\t\t2: vi bind gdc, get/release gdc frame\n");
 	printf("  \t-p | --eis_video_config_file: eis config file path, "
-	       "Default:/oem/usr/share/rkeis_config_normal_3840x2160_3840x2160_30fps.json\n");
+		   "Default:/oem/usr/share/rkeis_config_normal_3840x2160_3840x2160_30fps.json\n");
 	printf("  \t-P | --eis_display_config_file: eis config file path, "
-	       "Default:/oem/usr/share/rkeis_config_normal_1920x1080_1920x1080_30fps.json\n");
+		   "Default:/oem/usr/share/rkeis_config_normal_1920x1080_1920x1080_30fps.json\n");
 	printf("\t--enable_rkaiq: enable rkaiq, Default:1\n");
 	printf("\t--enable_amtd: enable amtd, this funciton depend on rkaiq, Default:1\n");
 	printf("\t--enable_compress: enable compress format in video, Default:1\n");
 	printf("\t--enable_test: enable test for all mode, Default:0\n");
 	printf("\t--enable_vpss: enable use vpss online mode, Default:1\n");
 	printf("\t--enable_memc: enable memc, this funciton depend on rkaiq, Default:0\n");
+	printf("\t--iio_device_idx: imu device index in path /sys/bus/iio/devices/, Default:1\n");
 }
 
 static int parse_cmd_args(int argc, const char **argv) {
@@ -134,10 +137,11 @@ static int parse_cmd_args(int argc, const char **argv) {
 	rk_cmd_param.display_rotation = ROTATION_90;
 	rk_cmd_param.type = TYPE_GDC_VENC;
 	rk_cmd_param.fps = 30;
+	rk_cmd_param.iio_device_idx = 1;
 	rk_cmd_param.eis_video_config_file =
-	    "/oem/usr/share/rkeis_config_normal_3840x2160_3840x2160_30fps.json";
+		"/oem/usr/share/rkeis_config_normal_3840x2160_3840x2160_30fps.json";
 	rk_cmd_param.eis_display_config_file =
-	    "/oem/usr/share/rkeis_config_normal_1920x1080_1920x1080_30fps.json";
+		"/oem/usr/share/rkeis_config_normal_1920x1080_1920x1080_30fps.json";
 	while ((c = getopt_long(argc, argv, optstr, long_options, RK_NULL)) != -1) {
 		switch (c) {
 		case 'w':
@@ -185,8 +189,14 @@ static int parse_cmd_args(int argc, const char **argv) {
 		case 'e' + 'a':
 			rk_cmd_param.enable_amtd = atoi(optarg);
 			break;
+		case 'e' + 'm':
+			rk_cmd_param.enable_memc = atoi(optarg);
+			break;
 		case 'e' + 'v':
 			rk_cmd_param.enable_vpss = atoi(optarg);
+			break;
+		case 'i' + 'd' + 'd':
+			rk_cmd_param.iio_device_idx = atoi(optarg);
 			break;
 		case 'e' + 'h':
 		default:
@@ -200,10 +210,10 @@ static int parse_cmd_args(int argc, const char **argv) {
 
 static int gdc_aiq_imu_callback(RK_VOID *pUsr, GDC_SENSOR_INFO_S *pInfo) {
 	RK_LOGV("time stamp = %lld, temp is %lf,"
-	        "gyro data is %lf %lf %lf, acc data is %lf %lf %lf",
-	        pInfo->s64Timestamp, pInfo->dTemp, pInfo->dGyroData[0], pInfo->dGyroData[1],
-	        pInfo->dGyroData[2], pInfo->dAccData[0], pInfo->dAccData[1],
-	        pInfo->dAccData[2]);
+			"gyro data is %lf %lf %lf, acc data is %lf %lf %lf",
+			pInfo->s64Timestamp, pInfo->dTemp, pInfo->dGyroData[0], pInfo->dGyroData[1],
+			pInfo->dGyroData[2], pInfo->dAccData[0], pInfo->dAccData[1],
+			pInfo->dAccData[2]);
 	AiqImuData_t imu_data = {};
 	if (pInfo == NULL) {
 		RK_LOGE("========== bad imu info! ===========\n");
@@ -249,18 +259,18 @@ static int isp_init(void) {
 	rk_aiq_uapi2_sysctl_enumStaticMetasByPhyId(cam_id, &aiq_static_info);
 	if (aiq_static_info.sensor_info.phyId == -1) {
 		RK_LOGI("WARN: aiq_static_info.sensor_info.phyId is %d\n",
-		        aiq_static_info.sensor_info.phyId);
+				aiq_static_info.sensor_info.phyId);
 	}
 
 	RK_LOGI("ID: %d, sensor_name is %s, iqfiles is %s\n", cam_id,
-	        aiq_static_info.sensor_info.sensor_name, iq_file_dir);
+			aiq_static_info.sensor_info.sensor_name, iq_file_dir);
 	ret = rk_aiq_uapi2_sysctl_preInit_scene(aiq_static_info.sensor_info.sensor_name,
-	                                        "normal", "day");
+											"normal", "day");
 	if (ret < 0)
 		RK_LOGE("%s: failed to set scene\n", aiq_static_info.sensor_info.sensor_name);
 
 	aiq_ctx = rk_aiq_uapi2_sysctl_init(aiq_static_info.sensor_info.sensor_name,
-	                                   iq_file_dir, NULL, NULL);
+									   iq_file_dir, NULL, NULL);
 	if (aiq_ctx == NULL) {
 		RK_LOGE("rk_aiq_uapi2_sysctl_init failed!\n");
 		return -1;
@@ -370,10 +380,10 @@ static int vi_dev_init(void) {
 		RK_LOGE("RK_MPI_VI_GetModParam fail:%#X\n", ret);
 
 	RK_LOGI("vi mod:%d mirror:%d ext_chn_mode:%d ext_chn1_mode:%d"
-	        "ext_chn2_mode:%d ext_chn3_mode:%d\n",
-	        vi_mod_param.enViModType, vi_mod_param.stExtChnParam.mirrorCmsc,
-	        vi_mod_param.stExtChnParam.extChn[0], vi_mod_param.stExtChnParam.extChn[1],
-	        vi_mod_param.stExtChnParam.extChn[2], vi_mod_param.stExtChnParam.extChn[3]);
+			"ext_chn2_mode:%d ext_chn3_mode:%d\n",
+			vi_mod_param.enViModType, vi_mod_param.stExtChnParam.mirrorCmsc,
+			vi_mod_param.stExtChnParam.extChn[0], vi_mod_param.stExtChnParam.extChn[1],
+			vi_mod_param.stExtChnParam.extChn[2], vi_mod_param.stExtChnParam.extChn[3]);
 	RK_LOGI("vi device init success\n");
 	return ret;
 }
@@ -393,7 +403,7 @@ static int vi_chn_init(void) {
 
 	if (rk_cmd_param.type == TYPE_GDC_VO) {
 		if (rk_cmd_param.display_rotation == ROTATION_90 ||
-		    rk_cmd_param.display_rotation == ROTATION_270) {
+			rk_cmd_param.display_rotation == ROTATION_270) {
 			width = rk_cmd_param.display_height;
 			height = rk_cmd_param.display_width;
 		} else {
@@ -486,7 +496,7 @@ static int vo_init(void) {
 	vo_layer_attr.stImageSize.u32Width = vo_width;
 	vo_layer_attr.stImageSize.u32Height = vo_height;
 	RK_LOGI("vo_layer_attr W=%d, H=%d\n", vo_layer_attr.stDispRect.u32Width,
-	        vo_layer_attr.stDispRect.u32Height);
+			vo_layer_attr.stDispRect.u32Height);
 
 	vo_layer_attr.u32DispFrmRt = 30;
 	vo_layer_attr.enPixFormat = RK_FMT_YUV420SP;
@@ -531,6 +541,7 @@ static int vo_init(void) {
 		RK_LOGE("create %d layer %d ch vo failed!\n", vo_layer, vo_chn_id);
 		return ret;
 	}
+	RK_MPI_VO_SetLayerFlush(vo_layer);
 	RK_LOGI("vo init success\n");
 	return ret;
 }
@@ -566,7 +577,7 @@ static int gdc_init(void) {
 	GDC_CHN_ATTR_S gdc_attr = {0};
 	if (rk_cmd_param.type == TYPE_GDC_VO) {
 		if (rk_cmd_param.display_rotation == ROTATION_90 ||
-		    rk_cmd_param.display_rotation == ROTATION_270) {
+			rk_cmd_param.display_rotation == ROTATION_270) {
 			width = rk_cmd_param.display_height;
 			height = rk_cmd_param.display_width;
 		} else {
@@ -581,7 +592,7 @@ static int gdc_init(void) {
 	gdc_attr.u32MaxOutQueue = 4;
 	gdc_attr.s32DstWidth = width;
 	gdc_attr.s32DstHeight = height;
-	gdc_attr.stEisAttr.s32DevNo = 1;
+	gdc_attr.stEisAttr.s32DevNo = rk_cmd_param.iio_device_idx;
 	if (rk_cmd_param.enable_compress && rk_cmd_param.type != TYPE_GDC_VO) {
 		gdc_attr.enDstCompMode = COMPRESS_RFBC_64x4;
 		gdc_attr.enDstPixelFormat = RK_FMT_YUV420SP;
@@ -594,10 +605,10 @@ static int gdc_init(void) {
 	memset(gdc_attr.cfgFile, 0, sizeof(gdc_attr.cfgFile));
 	if (rk_cmd_param.type == TYPE_GDC_VO)
 		memcpy(gdc_attr.cfgFile, rk_cmd_param.eis_display_config_file,
-		       strlen(rk_cmd_param.eis_display_config_file));
+			strlen(rk_cmd_param.eis_display_config_file));
 	else
 		memcpy(gdc_attr.cfgFile, rk_cmd_param.eis_video_config_file,
-		       strlen(rk_cmd_param.eis_video_config_file));
+			strlen(rk_cmd_param.eis_video_config_file));
 	ret = RK_MPI_GDC_CreateChn(GDC_MAIN_CHN, &gdc_attr);
 	if (ret) {
 		RK_LOGE("ERROR: create GDC display channel error! ret=%#X\n", ret);
@@ -608,7 +619,7 @@ static int gdc_init(void) {
 	if (rk_cmd_param.enable_amtd || rk_cmd_param.enable_memc) {
 		width = 720;  // unused
 		height = 480; // unused
-		gdc_attr.stEisAttr.s32DevNo = 1;
+		gdc_attr.stEisAttr.s32DevNo = rk_cmd_param.iio_device_idx;
 		gdc_attr.u32MaxInQueue = 1;
 		gdc_attr.u32MaxOutQueue = 1;
 		gdc_attr.s32DstWidth = width;
@@ -627,6 +638,8 @@ static int gdc_init(void) {
 		}
 		RK_LOGI("gdc dummy init success, width %d, height %d", width, height);
 	}
+	// INFO: Wait for IMU data ready, do it in gdc is better?
+	usleep(100 * 1000);
 	return ret;
 }
 
@@ -869,7 +882,7 @@ int main(int argc, const char **argv) {
 					goto __retry_get_venc_frame;
 				} else {
 					RK_LOGI("get venc stream %d, pts %lld\n", i,
-					        video_stream.pstPack->u64PTS);
+							video_stream.pstPack->u64PTS);
 					RK_MPI_VENC_ReleaseStream(VENC_MAIN_CHN, &video_stream);
 				}
 				if (rk_cmd_param.frame_count > 0 && ++i > rk_cmd_param.frame_count)
@@ -877,9 +890,9 @@ int main(int argc, const char **argv) {
 			}
 		} else if (rk_cmd_param.type == TYPE_GDC_GET_FRAME) {
 			int i = 0;
+			__retry_get_gdc_frame:
 			while (!quit) {
 				VIDEO_FRAME_INFO_S gdc_frame;
-			__retry_get_gdc_frame:
 				ret = RK_MPI_GDC_GetFrame(GDC_MAIN_CHN, &gdc_frame, 1000);
 				if (ret) {
 					RK_LOGE("ERROR: get gdc frame error! ret=%#X\n", ret);
@@ -928,8 +941,8 @@ int main(int argc, const char **argv) {
 			break;
 		}
 		RK_LOGE(
-		    "=========================== loop %d success ============================\n",
-		    loop);
+			"=========================== loop %d success ============================\n",
+			loop);
 	}
 	system("cat /proc/meminfo > /tmp/eis_after_meminfo.txt");
 	system("cat /proc/vmallocinfo >> /tmp/eis_after_meminfo.txt");
