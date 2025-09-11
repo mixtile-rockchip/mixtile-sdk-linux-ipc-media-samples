@@ -434,6 +434,17 @@ int main(int argc, char *argv[]) {
 
 	s32Ret = RK_MPI_VI_DisableDev(0);
 	printf("RK_MPI_VI_DisableDev %x\n", s32Ret);
+
+	s32Ret = RK_MPI_VENC_StopRecvFrame(0);
+	if (s32Ret != RK_SUCCESS) {
+		return s32Ret;
+	}
+
+	s32Ret = RK_MPI_VENC_DestroyChn(0);
+	if (s32Ret != RK_SUCCESS) {
+		RK_LOGE("RK_MPI_VDEC_DestroyChn fail %x", s32Ret);
+	}
+
 	ret = 0;
 __FAILED:
 	printf("test running exit:%d\n", s32Ret);
