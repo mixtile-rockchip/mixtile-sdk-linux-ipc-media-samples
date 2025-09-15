@@ -72,38 +72,57 @@ else
 	rm -rf $__dump_path/core* || true
 fi
 
-while true
-do
-    counter=$(( counter - 1 ))
-	echo ""
-	echo ""
-	echo "----------------------------------------"
-	echo "$0 counter [$counter]"
-	if [ -n "$has_sdcard" ];then
-		logdir=$has_sdcard/kill_pid/log_$counter
-	fi
-	echo "----------------------------------------"
-	echo ""
-    rkipc_pid=$(ps |grep rkipc|grep -v grep |awk '{print $1}')
-    kill -9 "$rkipc_pid"
-    while true
-    do
-        ps|grep rkipc |grep -v grep
-        if [ $? -ne 0 ]; then
-            echo "kill -9 rkipc exit, run once: count = $counter"
-			dump_log $counter $logdir
-            break
-        else
-            sleep 1
-            echo "rkipc active"
-        fi
-    done
-	__chk_cma_free
-	if [ $counter -lt 1 ];then
-		echo "test done"
-		break
-	fi
-    rkipc -a /oem/usr/share/iqfiles &
-    sleep 5
-	echo ""
-done
+test_func() {
+	kill_opt="$1"
+	while true
+	do
+		counter=$(( counter - 1 ))
+		echo ""
+		echo ""
+		echo "----------------------------------------"
+		echo "$0 counter [$counter]"
+		if [ -n "$has_sdcard" ];then
+			logdir=$has_sdcard/kill_pid/log_$counter
+		fi
+		if [ -n "$_DUMP_DATA_PART_" ];then
+			logdir=$_DUMP_DATA_PART_/kill_pid/log_$counter
+		fi
+		echo "----------------------------------------"
+		echo ""
+		rkipc_pid=$(ps |grep rkipc|grep -v grep |awk '{print $1}')
+		if [ "$kill_opt" = "FORCE" ];then
+			kill -9 "$rkipc_pid"
+		else
+			kill "$rkipc_pid"
+		fi
+		while true
+		do
+			ps|grep rkipc |grep -v grep
+			if [ $? -ne 0 ]; then
+				echo "kill [$kill_opt] done exit, run once: count = $counter"
+				dump_log $counter $logdir
+				break
+			else
+				sleep 1
+				echo "rkipc active"
+			fi
+		done
+		__chk_cma_free
+		if [ $counter -lt 1 ];then
+			echo "test done"
+			break
+		fi
+		rkipc -a /oem/usr/share/iqfiles &
+		sleep 5
+		echo ""
+	done
+}
+
+if [ "$1" = "1" ];then
+	test_func FORCE
+elif [ "$1" = "2" ];then
+	test_func
+else
+	test_func
+	test_func FORCE
+fi
