@@ -80,6 +80,7 @@ Data Storage:
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stddef.h>
 
 #include "rk_debug.h"
 #include "rk_defines.h"
@@ -93,9 +94,9 @@ Data Storage:
 // Maximum supported channel definitions
 #define MAX_VI_CHN 8     // 支持8路
 #define MAX_VPSS_GRP 8   // 支持8组
-#define MAX_VO_CHN 8     // 支持8路显示
 
 static volatile RK_BOOL g_quit = RK_FALSE;
+static RK_BOOL g_enable_switch = RK_FALSE; // 是否启用VO切换功能
 
 // VI input resolution
 static RK_U32 g_in_w = 1920;
@@ -105,8 +106,29 @@ static RK_U32 g_in_h = 1080;
 static RK_U32 g_disp_w = 1080;
 static RK_U32 g_disp_h = 1920;
 
+// VO切换相关状态
+typedef enum {
+    VO_MODE_MULTI = 0,  // 多分屏模式
+    VO_MODE_SINGLE = 1  // 单分屏模式
+} VO_DISPLAY_MODE_E;
+
+// ===================================================================
+// Grid layout calculation functions
+// ===================================================================
+typedef struct {
+	RK_U32 rows;        // Number of rows
+	RK_U32 columns;     // Number of columns
+	RK_U32 winWidth;    // Width of each window
+	RK_U32 winHeight;   // Height of each window
+} GRID_LAYOUT_S;
+
+static VO_DISPLAY_MODE_E g_vo_mode = VO_MODE_MULTI;
+static int g_single_chn = 0;      // 当前单屏显示的通道
+static int g_active_channels = 0; // 活跃通道数
+static GRID_LAYOUT_S g_original_layout; // 保存原始网格布局
+
 // Use virtual pipe: consistent with simple_vi_avs_send_vo.c
-static int s32PipeId = VI_MAX_PHY_PIPE_NUM; // VI pipe ID (virtual)
+static int s32PipeId = VI_MAX_PHY_PIPE_NUM; // VI pipe ID (virtual) VI_MAX_PHY_PIPE_NUM
 
 #ifdef RV1126B
 static int g_VoLayer = 0;
@@ -135,10 +157,10 @@ static VI_CHN_INFO g_chnInfo[MAX_VI_CHN] = {
     {1, "/dev/video2", false, 1},
     {2, "/dev/video3", false, 2},
     {3, "/dev/video4", false, 3},
-    {4, "/dev/video5", false, 4},
-    {5, "/dev/video6", false, 5},
-    {6, "/dev/video7", false, 6},
-    {7, "/dev/video8", false, 7},
+    {4, "/dev/video11", false, 4},
+    {5, "/dev/video12", false, 5},
+    {6, "/dev/video13", false, 6},
+    {7, "/dev/video14", false, 7},
 };
 
 // VPSS thread context
@@ -159,7 +181,10 @@ typedef struct venc_ctx_s {
 
 static void sig_handler(int sig) {
 	(void)sig;
-	g_quit = RK_TRUE;
+	if (sig == SIGINT || sig == SIGTERM) {
+		printf("Received exit signal %d, shutting down...\n", sig);
+		g_quit = RK_TRUE;
+	}
 }
 
 static RK_BOOL check_device_exists(const char *dev_name) {
@@ -185,16 +210,6 @@ static int save_yuv_one(const char *path, const VIDEO_FRAME_INFO_S *f) {
 	fclose(fp);
 	return (w == len) ? 0 : -1;
 }
-
-// ===================================================================
-// Grid layout calculation functions
-// ===================================================================
-typedef struct {
-	RK_U32 rows;        // Number of rows
-	RK_U32 columns;     // Number of columns
-	RK_U32 winWidth;    // Width of each window
-	RK_U32 winHeight;   // Height of each window
-} GRID_LAYOUT_S;
 
 /**
  * Calculate grid layout for multi-channel video
@@ -288,6 +303,118 @@ static void calculate_window_position(int channelIndex, const GRID_LAYOUT_S *lay
 	*y = (channelIndex / layout->columns) * layout->winHeight;
 }
 
+// VO动态切换函数
+static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn, int numChannels) {
+	RK_S32 ret = RK_SUCCESS;
+	VO_CHN_ATTR_S stChnAttr;
+
+	printf("VO switching from %s to %s mode, target channel: %d\n",
+	       (g_vo_mode == VO_MODE_MULTI) ? "MULTI" : "SINGLE",
+	       (newMode == VO_MODE_MULTI) ? "MULTI" : "SINGLE", targetChn);
+
+	// 暂停合成器以避免闪烁
+	ret = RK_MPI_VO_PauseComposer(VoLayer);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to pause composer: 0x%x\n", ret);
+		return ret;
+	}
+
+	if (newMode == VO_MODE_SINGLE) {
+		// 切换到单屏模式
+		memset(&stChnAttr, 0, sizeof(VO_CHN_ATTR_S));
+		ret = RK_MPI_VO_GetChnAttr(VoLayer, targetChn, &stChnAttr);
+		if (ret != RK_SUCCESS) {
+			printf("Failed to get channel %d attr: 0x%x\n", targetChn, ret);
+			RK_MPI_VO_ResumeComposer(VoLayer);
+			return ret;
+		}
+
+		// 设置目标通道为全屏显示，最高优先级，确保旋转设置正确
+		stChnAttr.u32Priority = 10;  // 最高优先级
+		stChnAttr.stRect.s32X = 0;
+		stChnAttr.stRect.s32Y = 0;
+		stChnAttr.stRect.u32Width = g_disp_w;
+		stChnAttr.stRect.u32Height = g_disp_h;
+		stChnAttr.u32FgAlpha = 255;
+		stChnAttr.u32BgAlpha = 0;
+		// 重新设置正确的旋转，与初始化时保持一致
+		stChnAttr.enRotation = (g_disp_w == 1080 && g_disp_h == 1920) ? ROTATION_270 : ROTATION_0;
+		printf("Single mode: Channel %d rotation set to %d (display %dx%d)\n",
+		       targetChn, stChnAttr.enRotation, g_disp_w, g_disp_h);
+
+		ret = RK_MPI_VO_SetChnAttr(VoLayer, targetChn, &stChnAttr);
+		if (ret != RK_SUCCESS) {
+			printf("Failed to set channel %d attr: 0x%x\n", targetChn, ret);
+			RK_MPI_VO_ResumeComposer(VoLayer);
+			return ret;
+		}
+
+		// 隐藏其他通道
+		for (int i = 0; i < numChannels; i++) {
+			if (i != targetChn) {
+				ret = RK_MPI_VO_HideChn(VoLayer, i);
+				if (ret != RK_SUCCESS) {
+					printf("Failed to hide channel %d: 0x%x\n", i, ret);
+				}
+			}
+		}
+
+		printf("Switched to single screen mode: channel %d full screen\n", targetChn);
+
+	} else {
+		// 切换到多分屏模式 - 使用保存的原始布局
+		for (int i = 0; i < numChannels; i++) {
+			RK_U32 winX, winY;
+			calculate_window_position(i, &g_original_layout, &winX, &winY);
+
+			memset(&stChnAttr, 0, sizeof(VO_CHN_ATTR_S));
+			ret = RK_MPI_VO_GetChnAttr(VoLayer, i, &stChnAttr);
+			if (ret != RK_SUCCESS) {
+				printf("Failed to get channel %d attr: 0x%x\n", i, ret);
+				continue;
+			}
+
+			// 恢复为网格布局，优先级与通道ID相同，确保旋转设置正确
+			stChnAttr.u32Priority = i;  // 恢复原始优先级
+			stChnAttr.stRect.s32X = winX;
+			stChnAttr.stRect.s32Y = winY;
+			stChnAttr.stRect.u32Width = g_original_layout.winWidth;
+			stChnAttr.stRect.u32Height = g_original_layout.winHeight;
+			stChnAttr.u32FgAlpha = 255;
+			stChnAttr.u32BgAlpha = 0;
+			// 重新设置正确的旋转，与初始化时保持一致
+			stChnAttr.enRotation = (g_disp_w == 1080 && g_disp_h == 1920) ? ROTATION_270 : ROTATION_0;
+			printf("Multi mode: Channel %d rotation set to %d (display %dx%d)\n",
+			       i, stChnAttr.enRotation, g_disp_w, g_disp_h);
+
+			ret = RK_MPI_VO_SetChnAttr(VoLayer, i, &stChnAttr);
+			if (ret != RK_SUCCESS) {
+				printf("Failed to set channel %d attr: 0x%x\n", i, ret);
+				continue;
+			}
+
+			// 显示通道
+			ret = RK_MPI_VO_ShowChn(VoLayer, i);
+			if (ret != RK_SUCCESS) {
+				printf("Failed to show channel %d: 0x%x\n", i, ret);
+			}
+		}
+
+		printf("Switched to multi-screen mode: %dx%d grid\n",
+		       g_original_layout.columns, g_original_layout.rows);
+	}
+
+	// 恢复合成器
+	ret = RK_MPI_VO_ResumeComposer(VoLayer);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to resume composer: 0x%x\n", ret);
+		return ret;
+	}
+
+	g_vo_mode = newMode;
+	return RK_SUCCESS;
+}
+
 // VI channel initialization
 static int vi_chn_init(int channelId, const char *video_dev, int width, int height) {
 	int ret;
@@ -298,7 +425,7 @@ static int vi_chn_init(int channelId, const char *video_dev, int width, int heig
 	stChnAttr.stIspOpt.u32BufCount = 8;
 	stChnAttr.stIspOpt.enCaptureType = VI_V4L2_CAPTURE_TYPE_VIDEO_CAPTURE;
 	stChnAttr.stIspOpt.bNoUseLibV4L2 = RK_FALSE;
-	stChnAttr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_MMAP;
+	stChnAttr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF;
 	stChnAttr.u32Depth = 4;
 	stChnAttr.enPixelFormat = RK_FMT_YUV420SP;
 	stChnAttr.stSize.u32Width = width;
@@ -352,6 +479,9 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 		return -1;
 	}
 
+	// 保存原始布局供动态切换使用
+	g_original_layout = layout;
+
 	// Configure each VO channel
 	for (int i = 0; i < numChannels; i++) {
 		RK_U32 winX, winY;
@@ -363,10 +493,11 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 		stChnAttr.stRect.u32Height = layout.winHeight;
 		stChnAttr.u32FgAlpha = 255;
 		stChnAttr.u32BgAlpha = 0;
+		stChnAttr.u32Priority = i;  // 设置优先级与通道ID相同，便于后续切换
 		stChnAttr.enRotation = (Width == 1080 && Height == 1920) ? ROTATION_270 : ROTATION_0;
 
-		printf("VO Channel %d: position(%d,%d), size(%dx%d)\n",
-		       i, winX, winY, layout.winWidth, layout.winHeight);
+		printf("VO Channel %d: position(%d,%d), size(%dx%d), rotation=%d\n",
+		       i, winX, winY, layout.winWidth, layout.winHeight, stChnAttr.enRotation);
 
 		RK_MPI_VO_SetChnAttr(VoLayer, i, &stChnAttr);
 		RK_MPI_VO_EnableChn(VoLayer, i);
@@ -537,13 +668,45 @@ static void *venc_stream_thread(void *arg) {
 	return NULL;
 }
 
+// VO模式切换控制线程
+static void *vo_switch_thread(void *arg) {
+	int *numChannels = (int *)arg;
+	int switch_interval = 5; // 切换间隔(秒)
+
+	printf("VO switch thread started, will switch every %d seconds\n", switch_interval);
+	printf("Current mode: %s\n", (g_vo_mode == VO_MODE_MULTI) ? "MULTI" : "SINGLE");
+
+	while (!g_quit) {
+		// 等待切换间隔
+		for (int i = 0; i < switch_interval * 10 && !g_quit; i++) {
+			usleep(100000); // 100ms
+		}
+
+		if (g_quit) break;
+
+		// 执行自动切换
+		if (g_vo_mode == VO_MODE_MULTI) {
+			// 从多屏切换到单屏，轮循显示通道
+			g_single_chn = (g_single_chn + 1) % (*numChannels);
+			vo_switch_mode(g_VoLayer, VO_MODE_SINGLE, g_single_chn, *numChannels);
+		} else {
+			// 从单屏切换回多屏
+			vo_switch_mode(g_VoLayer, VO_MODE_MULTI, 0, *numChannels);
+		}
+	}
+
+	printf("VO switch thread exiting\n");
+	return NULL;
+}
+
 static void print_usage(const char *n) {
-	printf("usage: %s [-w in_w] [-h in_h] [-W vo_w] [-H vo_h] [-n num_channels]\n", n);
+	printf("usage: %s [-w in_w] [-h in_h] [-W vo_w] [-H vo_h] [-n num_channels] [-s switch_mode]\n", n);
 	printf("  -w: VI input width (default: 1920)\n");
 	printf("  -h: VI input height (default: 1080)\n");
 	printf("  -W: VO display width (default: 1080)\n");
 	printf("  -H: VO display height (default: 1920)\n");
 	printf("  -n: Number of VI/VPSS channels (1-8, default: 4)\n");
+	printf("  -s: Enable VO dynamic switch (0=disabled, 1=enabled, default: 0)\n");
 	printf("\nSupported grid layouts:\n");
 	printf("  1 channel  -> 1x1 grid (full screen)\n");
 	printf("  2 channels -> 1x2 grid (side by side)\n");
@@ -551,17 +714,18 @@ static void print_usage(const char *n) {
 	printf("  5-6 channels -> 2x3 grid\n");
 	printf("  7-8 channels -> 2x4 grid\n");
 	printf("\nExamples:\n");
-	printf("  %s -n 1   # Single channel full screen\n", n);
-	printf("  %s -n 2   # Dual channel side by side\n", n);
-	printf("  %s -n 4   # Quad view (2x2 grid)\n", n);
-	printf("  %s -n 8   # Eight channels (2x4 grid)\n", n);
+	printf("  %s -n 1                           # Single channel static display\n", n);
+	printf("  %s -n 2 -s 1                      # Dual channel with dynamic switch\n", n);
+	printf("  %s -n 4 -s 1                      # Quad view with automatic switch test\n", n);
+	printf("  %s -w 1920 -h 1080 -W 1080 -H 1920 -n 4 -s 1  # Full parameter example\n", n);
+	printf("  %s -n 8                           # Eight channels static display\n", n);
 }
 
 int main(int argc, char *argv[]) {
 	int c;
 	int num_channels = 4;  // Default 4 channels
 
-	while ((c = getopt(argc, argv, "w:h:W:H:n:?")) != -1) {
+	while ((c = getopt(argc, argv, "w:h:W:H:n:s:?")) != -1) {
 		switch (c) {
 		case 'w':
 			g_in_w = atoi(optarg);
@@ -581,6 +745,10 @@ int main(int argc, char *argv[]) {
 				printf("Invalid channel number. Range: 1-%d\n", MAX_VI_CHN);
 				return -1;
 			}
+			break;
+		case 's':
+			g_enable_switch = (atoi(optarg) == 1) ? RK_TRUE : RK_FALSE;
+			printf("VO switch mode %s\n", g_enable_switch ? "ENABLED" : "DISABLED");
 			break;
 		case '?':
 		default:
@@ -609,6 +777,8 @@ int main(int argc, char *argv[]) {
 		printf("No VI devices found!\n");
 		goto cleanup;
 	}
+
+	g_active_channels = active;  // 保存活跃通道数
 
 	// 初始化VI通道
 	for (int i = 0; i < num_channels; ++i) {
@@ -715,8 +885,19 @@ int main(int argc, char *argv[]) {
 		pthread_create(&vpssThreads[i], NULL, vpss_ch2_thread, &vpssCtx[i]);
 	}
 
-	printf("System initialized, displaying %dx%d grid (%d channels). Press Ctrl+C to exit.\n",
+	printf("System initialized, displaying %dx%d grid (%d channels)\n",
 	       voLayout.columns, voLayout.rows, active);
+
+	// 启动VO切换控制线程(仅在启用时)
+	pthread_t voSwitchThread;
+
+	if (g_enable_switch) {
+		pthread_create(&voSwitchThread, NULL, vo_switch_thread, &active);
+		printf("VO Dynamic Switch Mode - automatic switching every 5 seconds\n");
+	} else {
+		printf("VO Static Display Mode (use -s 1 to enable switching)\n");
+	}
+	printf("Press Ctrl+C to quit\n");
 
 	while (!g_quit)
 		sleep(1);
@@ -735,6 +916,11 @@ int main(int argc, char *argv[]) {
 
 		RK_MPI_SYS_UnBind(&vpss_vo, &vo);
 		RK_MPI_SYS_UnBind(&vi, &vpss);
+	}
+
+	// Wait for control threads to exit
+	if (g_enable_switch) {
+		pthread_join(voSwitchThread, NULL);
 	}
 
 	// Wait for threads to exit
