@@ -1864,11 +1864,12 @@ static RK_S32 media_deinit(void) {
 		/* venc[2] deinit and Destroy*/
 		gModeTest->bIfVencThreadQuit[2] = RK_TRUE;
 		pthread_join(ctx->venc[2].getStreamThread, RK_NULL);
-		SAMPLE_COMM_VENC_DestroyChn(&ctx->venc[2]);
 
 		/* vi_venc thread quit*/
 		gModeTest->bIfViThreadQuit = RK_TRUE;
 		pthread_join(gModeTest->vi_venc_thread_id, RK_NULL);
+
+		SAMPLE_COMM_VENC_DestroyChn(&ctx->venc[2]);
 
 		/* tde deinit*/
 		SAMPLE_COMM_TDE_Destroy(&ctx->tde);
