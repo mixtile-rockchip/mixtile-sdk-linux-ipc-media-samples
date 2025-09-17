@@ -56,6 +56,57 @@ RK_U64 TEST_COMM_GetNowUs() {
 	return (RK_U64)time.tv_sec * 1000000 + (RK_U64)time.tv_nsec / 1000; /* microseconds */
 }
 
+static void *OsdUpdate(void *arg) {
+	(void)arg;
+	RGN_HANDLE RgnHandle = 0;
+	RK_S32 s32Ret = RK_SUCCESS;
+	printf("========%s========\n", __func__);
+	while (!quit) {
+		usleep(100 * 1000);
+		RK_S64 s64ShowBmpStart = TEST_COMM_GetNowUs();
+		RGN_CANVAS_INFO_S stCanvasInfo;
+		memset(&stCanvasInfo, 0, sizeof(RGN_CANVAS_INFO_S));
+
+		s32Ret = RK_MPI_RGN_GetCanvasInfo(RgnHandle, &stCanvasInfo);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("RK_MPI_RGN_GetCanvasInfo failed with %#x!", s32Ret);
+			return RK_FAILURE;
+		}
+		memset((void *)stCanvasInfo.u64VirAddr, 0xff,
+						stCanvasInfo.u32VirWidth * stCanvasInfo.u32VirHeight >> 2);
+		s32Ret = RK_MPI_RGN_UpdateCanvas(RgnHandle);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("RK_MPI_RGN_UpdateCanvas failed with %#x!", s32Ret);
+			return RK_FAILURE;
+		}
+		RK_S64 s64ShowBmpEnd = TEST_COMM_GetNowUs();
+		RK_LOGI("Handle:%d, space time %lld us, update canvas success!", RgnHandle, s64ShowBmpEnd - s64ShowBmpStart);
+
+#ifndef RV1103B
+		RgnHandle = 1;
+		s64ShowBmpStart = TEST_COMM_GetNowUs();
+		memset(&stCanvasInfo, 0, sizeof(RGN_CANVAS_INFO_S));
+
+		s32Ret = RK_MPI_RGN_GetCanvasInfo(RgnHandle, &stCanvasInfo);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("RK_MPI_RGN_GetCanvasInfo failed with %#x!", s32Ret);
+			return RK_FAILURE;
+		}
+		memset((void *)stCanvasInfo.u64VirAddr, 0xff,
+						stCanvasInfo.u32VirWidth * stCanvasInfo.u32VirHeight >> 2);
+		s32Ret = RK_MPI_RGN_UpdateCanvas(RgnHandle);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("RK_MPI_RGN_UpdateCanvas failed with %#x!", s32Ret);
+			return RK_FAILURE;
+		}
+		s64ShowBmpEnd = TEST_COMM_GetNowUs();
+		RK_LOGI("Handle:%d, space time %lld us, update canvas success!", RgnHandle, s64ShowBmpEnd - s64ShowBmpStart);
+#endif
+
+	}
+	return NULL;
+}
+
 static void *GetMediaBuffer0(void *arg) {
 	(void)arg;
 	printf("========%s========\n", __func__);
@@ -152,6 +203,7 @@ RK_S32 test_rgn_overlay_process() {
 	stRgnAttr.unAttr.stOverlay.stSize.u32Width = u32Width;
 	stRgnAttr.unAttr.stOverlay.stSize.u32Height = u32Height;
 	stRgnAttr.unAttr.stOverlay.u32ClutNum = 0;
+	stRgnAttr.unAttr.stOverlay.u32CanvasNum = 1;
 
 	s32Ret = RK_MPI_RGN_Create(RgnHandle, &stRgnAttr);
 	if (RK_SUCCESS != s32Ret) {
@@ -223,32 +275,6 @@ RK_S32 test_rgn_overlay_process() {
 	RK_S64 s64ShowBmpEnd = TEST_COMM_GetNowUs();
 	RK_LOGI("Handle:%d, space time %lld us, load bmp success!", RgnHandle,
 	        s64ShowBmpEnd - s64ShowBmpStart);
-
-//另一种刷osd的方式
-#if 0
-	/*********************************************
-	step 4: use update canvas interface
-	*********************************************/
-	s64ShowBmpStart = TEST_COMM_GetNowUs();
-
-	RGN_CANVAS_INFO_S stCanvasInfo;
-	memset(&stCanvasInfo, 0, sizeof(RGN_CANVAS_INFO_S));
-
-	s32Ret = RK_MPI_RGN_GetCanvasInfo(RgnHandle, &stCanvasInfo);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("RK_MPI_RGN_GetCanvasInfo failed with %#x!", s32Ret);
-		return RK_FAILURE;
-	}
-	memset(reinterpret_cast<void *>(stCanvasInfo.u64VirAddr), 0xff,
-					stCanvasInfo.u32VirWidth * stCanvasInfo.u32VirHeight >> 2);
-	s32Ret = RK_MPI_RGN_UpdateCanvas(RgnHandle);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("RK_MPI_RGN_UpdateCanvas failed with %#x!", s32Ret);
-		return RK_FAILURE;
-	}
-	s64ShowBmpEnd = TEST_COMM_GetNowUs();
-	RK_LOGI("Handle:%d, space time %lld us, update canvas success!", RgnHandle, s64ShowBmpEnd - s64ShowBmpStart);
-#endif
 
 	return 0;
 }
@@ -354,33 +380,6 @@ RK_S32 test_rgn_overlay_process_ex() {
 	RK_S64 s64ShowBmpEnd = TEST_COMM_GetNowUs();
 	RK_LOGI("Handle:%d, space time %lld us, load bmp success!", RgnHandle,
 	        s64ShowBmpEnd - s64ShowBmpStart);
-
-//另一种刷osd的方式
-#if 0
-	/*********************************************
-	step 4: use update canvas interface
-	*********************************************/
-	s64ShowBmpStart = TEST_COMM_GetNowUs();
-
-	RGN_CANVAS_INFO_S stCanvasInfo;
-	memset(&stCanvasInfo, 0, sizeof(RGN_CANVAS_INFO_S));
-
-	s32Ret = RK_MPI_RGN_GetCanvasInfo(RgnHandle, &stCanvasInfo);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("RK_MPI_RGN_GetCanvasInfo failed with %#x!", s32Ret);
-		return RK_FAILURE;
-	}
-	memset(reinterpret_cast<void *>(stCanvasInfo.u64VirAddr), 0xff,
-					stCanvasInfo.u32VirWidth * stCanvasInfo.u32VirHeight >> 2);
-	s32Ret = RK_MPI_RGN_UpdateCanvas(RgnHandle);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("RK_MPI_RGN_UpdateCanvas failed with %#x!", s32Ret);
-		return RK_FAILURE;
-	}
-	s64ShowBmpEnd = TEST_COMM_GetNowUs();
-	RK_LOGI("Handle:%d, space time %lld us, update canvas success!", RgnHandle, s64ShowBmpEnd - s64ShowBmpStart);
-#endif
-
 	return 0;
 }
 
@@ -615,10 +614,14 @@ int main(int argc, char *argv[]) {
 	pthread_t main_thread;
 	pthread_create(&main_thread, NULL, GetMediaBuffer0, NULL);
 
+	pthread_t osd_thread;
+	pthread_create(&osd_thread, NULL, OsdUpdate, NULL);
+
 	while (!quit) {
 		usleep(50000);
 	}
 	pthread_join(main_thread, NULL);
+	pthread_join(osd_thread, NULL);
 
 	s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
 	if (s32Ret != RK_SUCCESS) {
