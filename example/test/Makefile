@@ -70,6 +70,7 @@ ifeq ($(RK_MEDIA_CHIP), rv1126b)
 	sed -i 's/avs_chn0_resolution=3840x1080/avs_chn0_resolution=3840x1088/' $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_multi_cam_stresstest.sh
 	sed -i 's/avs_chn1_resolution=1920x544/avs_chn1_resolution=1920x576/' $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_multi_cam_stresstest.sh
 	sed -i 's/test_mod="RESTART=on RESOLUTION=on ORDINARY=on"/test_mod="RESTART=on RESOLUTION=off ORDINARY=on"/' $(SAMPLE_OUT_DIR)/install_to_userdata/rv1126b_multi_cam_stresstest.sh
+	sed -i 's/^test_dev_type_vpss=n/test_dev_type_vpss=y/' $(SAMPLE_OUT_DIR)/install_to_userdata/vpss_stresstest.sh
 endif
 ifeq ($(RK_MEDIA_CHIP), rv1103b)
 	$(CMD_DBG)cp   -f   source/thunderboot-stresstest.sh        $(SAMPLE_OUT_DIR)/install_to_userdata
@@ -94,6 +95,11 @@ ifeq ($(RK_MEDIA_CHIP), rk3576)
 	$(CMD_DBG)cp   -f   source/h264_1280x720             		$(SAMPLE_OUT_DIR)/install_to_userdata
 	$(CMD_DBG)cp   -f   source/h265_1280x720             		$(SAMPLE_OUT_DIR)/install_to_userdata
 	$(CMD_DBG)cp   -f   source/mjpeg_1280x720             		$(SAMPLE_OUT_DIR)/install_to_userdata
+	sed -i 's/^test_dev_type_vpss=n/test_dev_type_vpss=y/' $(SAMPLE_OUT_DIR)/install_to_userdata/vpss_stresstest.sh
+	sed -i 's/^test_dev_type_gpu=n/test_dev_type_gpu=y/' $(SAMPLE_OUT_DIR)/install_to_userdata/vpss_stresstest.sh
+endif
+ifeq ($(RK_MEDIA_CHIP), rk3588)
+	sed -i 's/^test_dev_type_gpu=n/test_dev_type_gpu=y/' $(SAMPLE_OUT_DIR)/install_to_userdata/vpss_stresstest.sh
 endif
 
 clean:

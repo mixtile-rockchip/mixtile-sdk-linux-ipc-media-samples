@@ -79,14 +79,20 @@ fi
 
 test_case()
 {
+	if [ "$1" = "0" -o "$1" = "1" -o "$1" = "2" -o "$1" = "3" ]; then
+		options="--dev_type $1"
+	else
+		options=""
+	fi
+
     if [ "$RESTART" = "on" ]; then
         #1. vpss_deinit_ubind_test
-        test_cmd sample_vpss_stresstest --vi_size 1920x1080 --vpss_size 1920x1080 -a /etc/iqfiles/ --mode_test_type 1 --mode_test_loop $test_loop --test_frame_count $frame_count
+        test_cmd sample_vpss_stresstest --vi_size 1920x1080 --vpss_size 1920x1080 -a /etc/iqfiles/ --mode_test_type 1 --mode_test_loop $test_loop --test_frame_count $frame_count $options
     fi
 
     if [ "$RESOLUTION" = "on" ]; then
         #2. vpss_resolution_test
-        test_cmd sample_vpss_stresstest --vi_size 1920x1080 --vpss_size 1920x1080 -a /etc/iqfiles/ --mode_test_type 2 --mode_test_loop $test_loop --test_frame_count $frame_count
+        test_cmd sample_vpss_stresstest --vi_size 1920x1080 --vpss_size 1920x1080 -a /etc/iqfiles/ --mode_test_type 2 --mode_test_loop $test_loop --test_frame_count $frame_count $options
     fi
 
     sleep 3
@@ -96,5 +102,26 @@ test_case()
 }
 
 test_case
+
+######## vpss's dev type
+# 0: gpu
+# 1: rga
+# 2: isp
+# 3: vpss
+test_dev_type_gpu=n
+test_dev_type_isp=n
+test_dev_type_vpss=n
+
+if [ "$test_dev_type_gpu" = "y" ]; then
+	test_case 0
+fi
+
+if [ "$test_dev_type_isp" = "y" ]; then
+	test_case 2
+fi
+
+if [ "$test_dev_type_vpss" = "y" ]; then
+	test_case 3
+fi
 
 exit 0
