@@ -80,7 +80,7 @@ static void sigterm_handler(int sig) {
 	program_normal_exit(__func__, __LINE__);
 }
 
-static RK_CHAR optstr[] = "?::a::v:p:l:o:f:m:t:c:s:";
+static RK_CHAR optstr[] = "?::a::v:p:l:o:f:m:t:c:s:d:";
 static const struct option long_options[] = {
     {"aiq", optional_argument, NULL, 'a'},
     {"vi_size", required_argument, NULL, 'v' + 's'},
@@ -92,6 +92,7 @@ static const struct option long_options[] = {
     {"mode_test_loop", required_argument, NULL, 't' + 'l'},
     {"test_frame_count", required_argument, NULL, 'c'},
     {"help", optional_argument, NULL, '?'},
+    {"dev_type", required_argument, NULL, 'd' + 't'},
     {NULL, 0, NULL, 0},
 };
 
@@ -115,6 +116,12 @@ static void print_usage(const RK_CHAR *name) {
 	       "2: vpss_resolution_switch_test. 3: hardware vpss_deinit_ubind_test"
 		   "4: hardware vpss_resolution_switch_test. Default: 0\n");
 	printf("\t--vi_size : set vi resolution WidthxHeight, default: 1920x1080\n");
+	printf("\t--dev_type : set vpss's dev type.\n");
+	printf("\t              0: gpu\n");
+	printf("\t              1: rga   (default) \n");
+	printf("\t              2: isp\n");
+	printf("\t              3: vpss\n");
+	printf("\t              \n");
 	printf("\t--vpss_size : set vpss resolution WidthxHeight, default: 1920x1080\n");
 	printf("\t--mode_test_loop : module test loop, default: -1\n");
 	printf("\t--test_frame_count : set the venc reveive frame count for every test "
@@ -478,6 +485,7 @@ int main(int argc, char *argv[]) {
 	RK_S32 s32loopCnt = -1;
 	MPP_CHN_S stSrcChn, stDestChn;
 	pthread_t modeTest_thread_id = 0;
+	VIDEO_PROC_DEV_TYPE_E devtype = VIDEO_PROC_DEV_RGA;
 
 	if (argc < 2) {
 		print_usage(argv[0]);
@@ -540,6 +548,14 @@ int main(int argc, char *argv[]) {
 		case 't' + 'l':
 			gModeTest->s32ModuleTestLoop = atoi(optarg);
 			break;
+		case 'd' + 't':
+			devtype = atoi(optarg);
+			if (devtype < VIDEO_PROC_DEV_GPU || devtype >= VIDEO_PROC_DEV_BUTT) {
+				printf ( "invalid devtype\n" );
+				print_usage(argv[0]);
+				return 1;
+			}
+			break;
 		case 'c':
 			gModeTest->u32TestFrameCount = atoi(optarg);
 			break;
@@ -595,7 +611,7 @@ int main(int argc, char *argv[]) {
 	ctx->vpss.s32loopCount = s32loopCnt;
 	ctx->vpss.dstFilePath = pOutPath;
 	/* RGA_device: VIDEO_PROC_DEV_RGA */
-	ctx->vpss.enVProcDevType = VIDEO_PROC_DEV_RGA;
+	ctx->vpss.enVProcDevType = devtype;
 #if defined(RK3576)
 	if (gModeTest->s32ModuleTestType == 3 || gModeTest->s32ModuleTestType == 4) {
 		ctx->vpss.enVProcDevType = VIDEO_PROC_DEV_VPSS;
