@@ -11,6 +11,86 @@
 
 /*
 ====================================================================
+8-Channel VI to VPSS Data Flow Architecture:
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video0  │───▶│                VPSS Group 0                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch0) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch0
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video1  │───▶│                VPSS Group 1                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch1) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch1
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video2  │───▶│                VPSS Group 2                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch2) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch2
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video3  │───▶│                VPSS Group 3                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch3) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch3
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video11 │───▶│                VPSS Group 4                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch4) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch4
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video12 │───▶│                VPSS Group 5                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch5) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch5
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video13 │───▶│                VPSS Group 6                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch6) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch6
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+┌─────────┐    ┌─────────────────────────────────────────────────────┐
+│ video14 │───▶│                VPSS Group 7                        │─┬─▶ VENC main (1920x1080)
+│(VI Ch7) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
+               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch7
+               │ └─────────┴─────────┴─────────┴─────────┘          │
+               └─────────────────────────────────────────────────────┘
+
+Hardware Mapping: 2x TP2815 AHD Decoders
+- TP2815#0: video0-3  (I2C3-0x44) -> VI Ch0-3 -> VPSS Group 0-3
+- TP2815#1: video11-14 (I2C4-0x44) -> VI Ch4-7 -> VPSS Group 4-7
+
+Multi-Screen Display Grid Layout:
+┌─────────┬─────────┬─────────┬─────────┐
+│   Ch0   │   Ch1   │   Ch2   │   Ch3   │  ← TP2815#0
+│(VPSS0)  │(VPSS1)  │(VPSS2)  │(VPSS3)  │
+├─────────┼─────────┼─────────┼─────────┤
+│   Ch4   │   Ch5   │   Ch6   │   Ch7   │  ← TP2815#1
+│(VPSS4)  │(VPSS5)  │(VPSS6)  │(VPSS7)  │
+└─────────┴─────────┴─────────┴─────────┘
+
+====================================================================
 VPSS Channel Function Assignment:
 VPSS Group 0: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO0)
 VPSS Group 1: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO1)
@@ -91,94 +171,112 @@ Data Storage:
 #include "rk_mpi_vo.h"
 #include "rk_mpi_vpss.h"
 
+/* ====================================================================
+ * Configuration and Global Variables
+ * ====================================================================*/
+
 // Maximum supported channel definitions
-#define MAX_VI_CHN 8     // 支持8路
-#define MAX_VPSS_GRP 8   // 支持8组
+#define MAX_VI_CHN 8     // Support up to 8 VI channels
+#define MAX_VPSS_GRP 8   // Support up to 8 VPSS groups
 
-static volatile RK_BOOL g_quit = RK_FALSE;
-static RK_BOOL g_enable_switch = RK_FALSE; // 是否启用VO切换功能
+// Global control flags
+static volatile RK_BOOL g_quit = RK_FALSE;           // Application exit flag
+static RK_BOOL g_enable_switch = RK_FALSE;           // Enable VO dynamic switching
 
-// VI input resolution
-static RK_U32 g_in_w = 1920;
-static RK_U32 g_in_h = 1080;
+// VI input resolution configuration
+static RK_U32 g_in_w = 1920;    // VI input width
+static RK_U32 g_in_h = 1080;    // VI input height
 
-// VO total display resolution (default portrait 1080x1920)
-static RK_U32 g_disp_w = 1080;
-static RK_U32 g_disp_h = 1920;
+// VO display resolution configuration (default portrait 1080x1920)
+static RK_U32 g_disp_w = 1080;  // VO display width
+static RK_U32 g_disp_h = 1920;  // VO display height
 
-// VO切换相关状态
+// VO display mode enumeration
 typedef enum {
-    VO_MODE_MULTI = 0,  // 多分屏模式
-    VO_MODE_SINGLE = 1  // 单分屏模式
+    VO_MODE_MULTI = 0,   // Multi-screen grid mode
+    VO_MODE_SINGLE = 1   // Single full-screen mode
 } VO_DISPLAY_MODE_E;
 
-// ===================================================================
-// Grid layout calculation functions
-// ===================================================================
+// Grid layout structure for multi-channel display
 typedef struct {
-	RK_U32 rows;        // Number of rows
-	RK_U32 columns;     // Number of columns
+	RK_U32 rows;        // Number of rows in grid
+	RK_U32 columns;     // Number of columns in grid
 	RK_U32 winWidth;    // Width of each window
 	RK_U32 winHeight;   // Height of each window
 } GRID_LAYOUT_S;
 
-static VO_DISPLAY_MODE_E g_vo_mode = VO_MODE_MULTI;
-static int g_single_chn = 0;      // 当前单屏显示的通道
-static int g_active_channels = 0; // 活跃通道数
-static GRID_LAYOUT_S g_original_layout; // 保存原始网格布局
+// VO switching state variables
+static VO_DISPLAY_MODE_E g_vo_mode = VO_MODE_MULTI;  // Current VO display mode
+static int g_single_chn = 0;                        // Current single-screen channel index
+static int g_active_channels = 0;                   // Number of active VI channels
+static GRID_LAYOUT_S g_original_layout;             // Saved original grid layout
 
-// Use virtual pipe: consistent with simple_vi_avs_send_vo.c
-static int s32PipeId = VI_MAX_PHY_PIPE_NUM; // VI pipe ID (virtual) VI_MAX_PHY_PIPE_NUM
+// VI pipe configuration (use virtual pipe for compatibility)
+static int s32PipeId = VI_MAX_PHY_PIPE_NUM;         // VI virtual pipe ID
 
+// VO device configuration (platform dependent)
 #ifdef RV1126B
-static int g_VoLayer = 0;
-static int g_VoDev = 0;
-static int g_IntfType = VO_INTF_MIPI;
+static int g_VoLayer = 0;           // VO layer ID for RV1126B
+static int g_VoDev = 0;             // VO device ID for RV1126B
+static int g_IntfType = VO_INTF_MIPI; // VO interface type for RV1126B
 #elif defined(RV1106_RV1103)
-static int g_VoLayer = 0;
-static int g_VoDev = 0;
-static int g_IntfType = VO_INTF_DEFAULT;
+static int g_VoLayer = 0;           // VO layer ID for RV1106/RV1103
+static int g_VoDev = 0;             // VO device ID for RV1106/RV1103
+static int g_IntfType = VO_INTF_DEFAULT; // VO interface type for RV1106/RV1103
 #else
-static int g_VoLayer = 5;
-static int g_VoDev = 1;
-static int g_IntfType = VO_INTF_MIPI;
+static int g_VoLayer = 5;           // VO layer ID for other platforms
+static int g_VoDev = 1;             // VO device ID for other platforms
+static int g_IntfType = VO_INTF_MIPI; // VO interface type for other platforms
 #endif
 
-// Multi-channel device information structure
+/* ====================================================================
+ * Data Structures
+ * ====================================================================*/
+
+// VI channel information structure
 typedef struct {
-	int chnId;
-	char deviceName[64];
-	bool isActive;
-	int vpssGrp;  // Corresponding VPSS group number
+	int chnId;              // VI channel ID
+	char deviceName[64];    // VI device name (e.g., /dev/video0)
+	bool isActive;          // Whether this channel is active
+	int vpssGrp;            // Corresponding VPSS group number
 } VI_CHN_INFO;
 
+// VI channel mapping for 2x TP2815 AHD decoders
 static VI_CHN_INFO g_chnInfo[MAX_VI_CHN] = {
-    {0, "/dev/video1", false, 0},
-    {1, "/dev/video2", false, 1},
-    {2, "/dev/video3", false, 2},
-    {3, "/dev/video4", false, 3},
-    {4, "/dev/video11", false, 4},
-    {5, "/dev/video12", false, 5},
-    {6, "/dev/video13", false, 6},
-    {7, "/dev/video14", false, 7},
+    {0, "/dev/video1", false, 0},   // TP2815#0 Channel 0
+    {1, "/dev/video2", false, 1},   // TP2815#0 Channel 1
+    {2, "/dev/video3", false, 2},   // TP2815#0 Channel 2
+    {3, "/dev/video4", false, 3},   // TP2815#0 Channel 3
+    {4, "/dev/video11", false, 4},  // TP2815#1 Channel 0
+    {5, "/dev/video12", false, 5},  // TP2815#1 Channel 1
+    {6, "/dev/video13", false, 6},  // TP2815#1 Channel 2
+    {7, "/dev/video14", false, 7},  // TP2815#1 Channel 3
 };
 
-// VPSS thread context
+// VPSS thread context structure
 typedef struct {
-	RK_S32 grp;
-	RK_S32 chn;
-	volatile RK_BOOL *pQuit;
+	RK_S32 grp;                     // VPSS group ID
+	RK_S32 chn;                     // VPSS channel ID
+	volatile RK_BOOL *pQuit;        // Pointer to quit flag
 } vpss_thread_ctx_t;
 
-// VENC context
+// VENC context structure
 typedef struct venc_ctx_s {
-	int chn;
-	int grp;  // Corresponding VPSS group
-	FILE *fp;
-	char out_path[256];
-	volatile RK_BOOL *pQuit;
+	int chn;                        // VENC channel ID
+	int grp;                        // Corresponding VPSS group
+	FILE *fp;                       // Output file pointer
+	char out_path[256];             // Output file path
+	volatile RK_BOOL *pQuit;        // Pointer to quit flag
 } venc_ctx_t;
 
+/* ====================================================================
+ * Utility Functions
+ * ====================================================================*/
+
+/**
+ * Signal handler for graceful shutdown
+ * @param sig: Signal number (SIGINT or SIGTERM)
+ */
 static void sig_handler(int sig) {
 	(void)sig;
 	if (sig == SIGINT || sig == SIGTERM) {
@@ -187,15 +285,29 @@ static void sig_handler(int sig) {
 	}
 }
 
+/**
+ * Check if a device file exists
+ * @param dev_name: Device file path (e.g., "/dev/video0")
+ * @return: RK_TRUE if device exists, RK_FALSE otherwise
+ */
 static RK_BOOL check_device_exists(const char *dev_name) {
 	struct stat st;
 	return (stat(dev_name, &st) == 0) ? RK_TRUE : RK_FALSE;
 }
 
+/**
+ * Ensure output data directory exists
+ */
 static void ensure_data_dir(void) {
 	system("mkdir -p /data/simple_multi_ahd_vpss_test >/dev/null 2>&1");
 }
 
+/**
+ * Save one YUV frame to file
+ * @param path: Output file path
+ * @param f: Video frame info structure
+ * @return: 0 on success, -1 on failure
+ */
 static int save_yuv_one(const char *path, const VIDEO_FRAME_INFO_S *f) {
 	if (!f || !f->stVFrame.pMbBlk)
 		return -1;
@@ -210,6 +322,10 @@ static int save_yuv_one(const char *path, const VIDEO_FRAME_INFO_S *f) {
 	fclose(fp);
 	return (w == len) ? 0 : -1;
 }
+
+/* ====================================================================
+ * Grid Layout Functions
+ * ====================================================================*/
 
 /**
  * Calculate grid layout for multi-channel video
@@ -303,7 +419,22 @@ static void calculate_window_position(int channelIndex, const GRID_LAYOUT_S *lay
 	*y = (channelIndex / layout->columns) * layout->winHeight;
 }
 
-// VO动态切换函数
+/* ====================================================================
+ * VO Dynamic Switching Functions
+ * ====================================================================*/
+
+/**
+ * VO dynamic switching function - High-performance switching without destruction
+ *
+ * Core optimization: Only modify VO channel attributes, no VO/VPSS destruction
+ * APIs used: PauseComposer + SetChnAttr + HideChn/ShowChn + ResumeComposer
+ *
+ * @param VoLayer: VO layer ID
+ * @param newMode: Target display mode (multi-screen/single-screen)
+ * @param targetChn: Target channel for single-screen mode
+ * @param numChannels: Total number of channels
+ * @return: 0 on success, non-zero on failure
+ */
 static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn, int numChannels) {
 	RK_S32 ret = RK_SUCCESS;
 	VO_CHN_ATTR_S stChnAttr;
@@ -311,33 +442,35 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 	printf("VO switching from %s to %s mode, target channel: %d\n",
 	       (g_vo_mode == VO_MODE_MULTI) ? "MULTI" : "SINGLE",
 	       (newMode == VO_MODE_MULTI) ? "MULTI" : "SINGLE", targetChn);
-
-	// 暂停合成器以避免闪烁
+#ifdef RV1126B
+	// Step 1: Pause composer to avoid flickering during switch
 	ret = RK_MPI_VO_PauseComposer(VoLayer);
 	if (ret != RK_SUCCESS) {
 		printf("Failed to pause composer: 0x%x\n", ret);
 		return ret;
 	}
-
+#endif
 	if (newMode == VO_MODE_SINGLE) {
-		// 切换到单屏模式
+		// Step 2a: Switch to single-screen mode
 		memset(&stChnAttr, 0, sizeof(VO_CHN_ATTR_S));
 		ret = RK_MPI_VO_GetChnAttr(VoLayer, targetChn, &stChnAttr);
 		if (ret != RK_SUCCESS) {
 			printf("Failed to get channel %d attr: 0x%x\n", targetChn, ret);
+#ifdef RV1126B
 			RK_MPI_VO_ResumeComposer(VoLayer);
+#endif
 			return ret;
 		}
 
-		// 设置目标通道为全屏显示，最高优先级，确保旋转设置正确
-		stChnAttr.u32Priority = 10;  // 最高优先级
-		stChnAttr.stRect.s32X = 0;
+		// Configure target channel for full-screen display
+		stChnAttr.u32Priority = 10;             // Highest priority to ensure foreground
+		stChnAttr.stRect.s32X = 0;              // Full-screen position
 		stChnAttr.stRect.s32Y = 0;
-		stChnAttr.stRect.u32Width = g_disp_w;
+		stChnAttr.stRect.u32Width = g_disp_w;   // Full-screen size
 		stChnAttr.stRect.u32Height = g_disp_h;
-		stChnAttr.u32FgAlpha = 255;
+		stChnAttr.u32FgAlpha = 255;             // Fully opaque
 		stChnAttr.u32BgAlpha = 0;
-		// 重新设置正确的旋转，与初始化时保持一致
+		// Critical fix: Explicitly set correct rotation angle
 		stChnAttr.enRotation = (g_disp_w == 1080 && g_disp_h == 1920) ? ROTATION_270 : ROTATION_0;
 		printf("Single mode: Channel %d rotation set to %d (display %dx%d)\n",
 		       targetChn, stChnAttr.enRotation, g_disp_w, g_disp_h);
@@ -345,11 +478,13 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 		ret = RK_MPI_VO_SetChnAttr(VoLayer, targetChn, &stChnAttr);
 		if (ret != RK_SUCCESS) {
 			printf("Failed to set channel %d attr: 0x%x\n", targetChn, ret);
+#ifdef RV1126B
 			RK_MPI_VO_ResumeComposer(VoLayer);
+#endif
 			return ret;
 		}
 
-		// 隐藏其他通道
+		// Hide all other channels, only show target channel
 		for (int i = 0; i < numChannels; i++) {
 			if (i != targetChn) {
 				ret = RK_MPI_VO_HideChn(VoLayer, i);
@@ -362,7 +497,7 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 		printf("Switched to single screen mode: channel %d full screen\n", targetChn);
 
 	} else {
-		// 切换到多分屏模式 - 使用保存的原始布局
+		// Step 2b: Switch to multi-screen mode - restore grid layout
 		for (int i = 0; i < numChannels; i++) {
 			RK_U32 winX, winY;
 			calculate_window_position(i, &g_original_layout, &winX, &winY);
@@ -374,15 +509,15 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 				continue;
 			}
 
-			// 恢复为网格布局，优先级与通道ID相同，确保旋转设置正确
-			stChnAttr.u32Priority = i;  // 恢复原始优先级
-			stChnAttr.stRect.s32X = winX;
+			// Restore each channel to grid layout
+			stChnAttr.u32Priority = i;                          // Restore original priority
+			stChnAttr.stRect.s32X = winX;                       // Grid position
 			stChnAttr.stRect.s32Y = winY;
-			stChnAttr.stRect.u32Width = g_original_layout.winWidth;
+			stChnAttr.stRect.u32Width = g_original_layout.winWidth;   // Grid size
 			stChnAttr.stRect.u32Height = g_original_layout.winHeight;
-			stChnAttr.u32FgAlpha = 255;
+			stChnAttr.u32FgAlpha = 255;                         // Fully opaque
 			stChnAttr.u32BgAlpha = 0;
-			// 重新设置正确的旋转，与初始化时保持一致
+			// Critical fix: Explicitly set correct rotation angle
 			stChnAttr.enRotation = (g_disp_w == 1080 && g_disp_h == 1920) ? ROTATION_270 : ROTATION_0;
 			printf("Multi mode: Channel %d rotation set to %d (display %dx%d)\n",
 			       i, stChnAttr.enRotation, g_disp_w, g_disp_h);
@@ -393,7 +528,7 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 				continue;
 			}
 
-			// 显示通道
+			// Show all channels
 			ret = RK_MPI_VO_ShowChn(VoLayer, i);
 			if (ret != RK_SUCCESS) {
 				printf("Failed to show channel %d: 0x%x\n", i, ret);
@@ -403,19 +538,31 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 		printf("Switched to multi-screen mode: %dx%d grid\n",
 		       g_original_layout.columns, g_original_layout.rows);
 	}
-
-	// 恢复合成器
+#ifdef RV1126B
+	// Step 3: Resume composer to complete the switch
 	ret = RK_MPI_VO_ResumeComposer(VoLayer);
 	if (ret != RK_SUCCESS) {
 		printf("Failed to resume composer: 0x%x\n", ret);
 		return ret;
 	}
-
+#endif
+	// Update global state
 	g_vo_mode = newMode;
 	return RK_SUCCESS;
 }
 
-// VI channel initialization
+/* ====================================================================
+ * VI/VO/VPSS Initialization Functions
+ * ====================================================================*/
+
+/**
+ * Initialize VI channel
+ * @param channelId: VI channel ID
+ * @param video_dev: Video device path (e.g., "/dev/video0")
+ * @param width: Input video width
+ * @param height: Input video height
+ * @return: 0 on success, non-zero on failure
+ */
 static int vi_chn_init(int channelId, const char *video_dev, int width, int height) {
 	int ret;
 	VI_CHN_ATTR_S stChnAttr;
@@ -440,7 +587,18 @@ static int vi_chn_init(int channelId, const char *video_dev, int width, int heig
 	return ret;
 }
 
-// VO initialization - Support multi-channel grid display (1/2/4/8 channels)
+/**
+ * Initialize VO (Video Output) with multi-channel grid display support
+ * Supports 1-8 channels with automatic grid layout calculation
+ *
+ * @param VoLayer: VO layer ID
+ * @param VoDev: VO device ID
+ * @param Width: Display width
+ * @param Height: Display height
+ * @param IntfType: Interface type (MIPI/HDMI/etc.)
+ * @param numChannels: Number of channels (1-8)
+ * @return: 0 on success, non-zero on failure
+ */
 static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, int numChannels) {
 	int ret = RK_SUCCESS;
 	VO_PUB_ATTR_S stVoPubAttr;
@@ -479,7 +637,7 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 		return -1;
 	}
 
-	// 保存原始布局供动态切换使用
+	// Save original layout for dynamic switching
 	g_original_layout = layout;
 
 	// Configure each VO channel
@@ -493,7 +651,7 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 		stChnAttr.stRect.u32Height = layout.winHeight;
 		stChnAttr.u32FgAlpha = 255;
 		stChnAttr.u32BgAlpha = 0;
-		stChnAttr.u32Priority = i;  // 设置优先级与通道ID相同，便于后续切换
+		stChnAttr.u32Priority = i;  // Set priority same as channel ID for easy switching
 		stChnAttr.enRotation = (Width == 1080 && Height == 1920) ? ROTATION_270 : ROTATION_0;
 
 		printf("VO Channel %d: position(%d,%d), size(%dx%d), rotation=%d\n",
@@ -506,7 +664,21 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 	return 0;
 }
 
-// VPSS group initialization
+/**
+ * Initialize VPSS group with 4 channels
+ * Channel allocation:
+ * - ch0: Main stream encoding (original resolution)
+ * - ch1: Sub stream encoding (704x576)
+ * - ch2: Frame saving (original resolution)
+ * - ch3: VO display (grid layout size)
+ *
+ * @param grp: VPSS group ID
+ * @param inW: Input width
+ * @param inH: Input height
+ * @param voW: VO display width per channel
+ * @param voH: VO display height per channel
+ * @return: 0 on success, non-zero on failure
+ */
 static int vpss_group_init(int grp, int inW, int inH, int voW, int voH) {
 	int ret;
 	VPSS_GRP_ATTR_S g;
@@ -567,7 +739,17 @@ static int vpss_group_init(int grp, int inW, int inH, int voW, int voH) {
 	return RK_MPI_VPSS_StartGrp(grp);
 }
 
-// VPSS ch2 data acquisition thread
+/* ====================================================================
+ * Thread Functions
+ * ====================================================================*/
+
+/**
+ * VPSS channel 2 data acquisition thread
+ * This thread gets frames from VPSS channel 2 and saves one frame per channel
+ *
+ * @param arg: Pointer to vpss_thread_ctx_t structure
+ * @return: NULL
+ */
 static void *vpss_ch2_thread(void *arg) {
 	vpss_thread_ctx_t *ctx = (vpss_thread_ctx_t *)arg;
 	RK_S32 grp = ctx->grp;
@@ -608,7 +790,17 @@ static void *vpss_ch2_thread(void *arg) {
 	return NULL;
 }
 
-// VENC encoder creation
+/**
+ * Create and start VENC encoder
+ * @param chn: VENC channel ID
+ * @param grp: Corresponding VPSS group
+ * @param w: Video width
+ * @param h: Video height
+ * @param type: Codec type (H264/H265)
+ * @param ctx: VENC context structure
+ * @param quitFlag: Pointer to quit flag
+ * @return: 0 on success, -1 on failure
+ */
 static int venc_create_start(int chn, int grp, int w, int h, RK_CODEC_ID_E type, venc_ctx_t *ctx,
                              volatile RK_BOOL *quitFlag) {
 	VENC_CHN_ATTR_S a;
@@ -644,7 +836,13 @@ static int venc_create_start(int chn, int grp, int w, int h, RK_CODEC_ID_E type,
 	return (ctx->fp ? 0 : -1);
 }
 
-// VENC stream retrieval thread
+/**
+ * VENC stream retrieval thread
+ * This thread continuously gets encoded streams from VENC and writes to file
+ *
+ * @param arg: Pointer to venc_ctx_t structure
+ * @return: NULL
+ */
 static void *venc_stream_thread(void *arg) {
 	venc_ctx_t *c = (venc_ctx_t *)arg;
 	VENC_STREAM_S s;
@@ -668,29 +866,35 @@ static void *venc_stream_thread(void *arg) {
 	return NULL;
 }
 
-// VO模式切换控制线程
+/**
+ * VO mode switching control thread
+ * This thread automatically switches between multi-screen and single-screen modes
+ *
+ * @param arg: Pointer to number of channels
+ * @return: NULL
+ */
 static void *vo_switch_thread(void *arg) {
 	int *numChannels = (int *)arg;
-	int switch_interval = 5; // 切换间隔(秒)
+	int switch_interval = 5; // Switch interval in seconds
 
 	printf("VO switch thread started, will switch every %d seconds\n", switch_interval);
 	printf("Current mode: %s\n", (g_vo_mode == VO_MODE_MULTI) ? "MULTI" : "SINGLE");
 
 	while (!g_quit) {
-		// 等待切换间隔
+		// Wait for switch interval
 		for (int i = 0; i < switch_interval * 10 && !g_quit; i++) {
 			usleep(100000); // 100ms
 		}
 
 		if (g_quit) break;
 
-		// 执行自动切换
+		// Execute automatic switching
 		if (g_vo_mode == VO_MODE_MULTI) {
-			// 从多屏切换到单屏，轮循显示通道
+			// Switch from multi-screen to single-screen, cycle through channels
 			g_single_chn = (g_single_chn + 1) % (*numChannels);
 			vo_switch_mode(g_VoLayer, VO_MODE_SINGLE, g_single_chn, *numChannels);
 		} else {
-			// 从单屏切换回多屏
+			// Switch from single-screen back to multi-screen
 			vo_switch_mode(g_VoLayer, VO_MODE_MULTI, 0, *numChannels);
 		}
 	}
@@ -699,6 +903,10 @@ static void *vo_switch_thread(void *arg) {
 	return NULL;
 }
 
+/**
+ * Print program usage information
+ * @param n: Program name
+ */
 static void print_usage(const char *n) {
 	printf("usage: %s [-w in_w] [-h in_h] [-W vo_w] [-H vo_h] [-n num_channels] [-s switch_mode]\n", n);
 	printf("  -w: VI input width (default: 1920)\n");
@@ -721,6 +929,21 @@ static void print_usage(const char *n) {
 	printf("  %s -n 8                           # Eight channels static display\n", n);
 }
 
+/**
+ * Main function - Multi-channel AHD VPSS test program
+ *
+ * Features:
+ * - Support 1-8 VI channels with 2x TP2815 AHD decoders
+ * - Each VI channel binds to one VPSS group for processing
+ * - VPSS channels: ch0(main encode), ch1(sub encode), ch2(save), ch3(VO display)
+ * - Dynamic VO switching between multi-screen grid and single-screen modes
+ * - Automatic grid layout calculation based on channel count
+ * - Support portrait mode with 270° rotation
+ *
+ * @param argc: Command line argument count
+ * @param argv: Command line argument array
+ * @return: 0 on success, -1 on failure
+ */
 int main(int argc, char *argv[]) {
 	int c;
 	int num_channels = 4;  // Default 4 channels
@@ -778,9 +1001,9 @@ int main(int argc, char *argv[]) {
 		goto cleanup;
 	}
 
-	g_active_channels = active;  // 保存活跃通道数
+	g_active_channels = active;  // Save active channel count
 
-	// 初始化VI通道
+	// Initialize VI channels
 	for (int i = 0; i < num_channels; ++i) {
 		if (g_chnInfo[i].isActive) {
 			if (vi_chn_init(i, g_chnInfo[i].deviceName, g_in_w, g_in_h) != RK_SUCCESS) {
@@ -828,7 +1051,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Create encoders and bind
-	venc_ctx_t vencCtx[MAX_VPSS_GRP * 2]; // 每组2个编码器（主/子）
+	venc_ctx_t vencCtx[MAX_VPSS_GRP * 2]; // 2 encoders per group (main/sub)
 	pthread_t vencThreads[MAX_VPSS_GRP * 2];
 	int venc_count = 0;
 
@@ -888,7 +1111,7 @@ int main(int argc, char *argv[]) {
 	printf("System initialized, displaying %dx%d grid (%d channels)\n",
 	       voLayout.columns, voLayout.rows, active);
 
-	// 启动VO切换控制线程(仅在启用时)
+	// Start VO switching control thread (only when enabled)
 	pthread_t voSwitchThread;
 
 	if (g_enable_switch) {
