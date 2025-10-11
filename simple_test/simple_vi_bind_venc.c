@@ -30,7 +30,7 @@
 #include "rk_mpi_vpss.h"
 
 #ifndef RV1126B
-#define VI_VIR_PIPE_ID 0
+#define VI_VIR_PIPE_ID -1
 #endif
 
 static FILE *venc0_file;
