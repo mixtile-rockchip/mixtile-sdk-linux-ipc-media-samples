@@ -204,6 +204,8 @@ RK_S32 SAMPLE_COMM_VENC_CreateChn(SAMPLE_VENC_CTX_S *ctx) {
 		}
 	}
 
+	RK_MPI_VENC_SetChnRotation(ctx->s32ChnId, ROTATION_0);
+
 	stRecvParam.s32RecvPicNum = -1;
 	s32Ret = RK_MPI_VENC_StartRecvFrame(ctx->s32ChnId, &stRecvParam);
 	if (s32Ret != RK_SUCCESS) {
