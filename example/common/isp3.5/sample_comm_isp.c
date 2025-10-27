@@ -20,6 +20,9 @@ extern "C" {
 #include "sample_comm.h"
 #include "sample_comm_isp.h"
 
+#ifndef SAMPLE_MULIT_CAMGROUP_FPS
+#define	SAMPLE_MULIT_CAMGROUP_FPS 15
+#endif
 #define MAX_AIQ_CTX 8
 static rk_aiq_sys_ctx_t *g_aiq_ctx[MAX_AIQ_CTX];
 static rk_aiq_camgroup_ctx_t *g_aiq_camgroup_ctx[MAX_AIQ_CTX];
@@ -199,6 +202,8 @@ RK_S32 SAMPLE_COMM_ISP_CamGroup_Init(RK_S32 CamGroupId, rk_aiq_working_mode_t WD
 	if (OpenLdch) {
 		SAMPLE_COMM_ISP_CamGroup_setMeshToLdch(CamGroupId, OpenLdch, (uint16_t **)LdchMesh);
 	}
+
+	SAMPLE_COMM_ISP_CamGroup_SetFrameRate(CamGroupId, SAMPLE_MULIT_CAMGROUP_FPS);
 
 	ret = rk_aiq_uapi2_camgroup_prepare(g_aiq_camgroup_ctx[CamGroupId], WDRMode);
 
