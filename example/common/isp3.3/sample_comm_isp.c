@@ -20,6 +20,9 @@ extern "C" {
 #include "sample_comm.h"
 #include "sample_comm_isp.h"
 
+#ifndef SAMPLE_MULIT_CAMGROUP_FPS
+#define	SAMPLE_MULIT_CAMGROUP_FPS 15
+#endif
 #define MAX_AIQ_CTX 8
 static rk_aiq_sys_ctx_t *g_aiq_ctx[MAX_AIQ_CTX];
 static rk_aiq_camgroup_ctx_t *g_aiq_camgroup_ctx[MAX_AIQ_CTX];
@@ -240,6 +243,8 @@ RK_S32 SAMPLE_COMM_ISP_CamGroup_Init(RK_S32 CamGroupId, rk_aiq_working_mode_t WD
 		SAMPLE_COMM_ISP_CamGroup_setMeshToLdch(CamGroupId, OpenLdch, (uint16_t **)LdchMesh);
 	}
 
+	SAMPLE_COMM_ISP_CamGroup_SetFrameRate(CamGroupId, SAMPLE_MULIT_CAMGROUP_FPS);
+
 	ret = rk_aiq_uapi2_camgroup_prepare(g_aiq_camgroup_ctx[CamGroupId], WDRMode);
 
 	ret |= rk_aiq_uapi2_camgroup_start(g_aiq_camgroup_ctx[CamGroupId]);
@@ -307,13 +312,10 @@ RK_S32 SAMPLE_COMM_ISP_SetFrameRate(RK_S32 CamId, RK_U32 uFps) {
 		return -1;
 	}
 	int ret;
-	ae_api_expSwAttr_t expSwAttr;
-	ret = rk_aiq_user_api2_ae_getExpSwAttr(g_aiq_ctx[CamId], &expSwAttr);
-	if (ret != 0)
-		printf("%s : Cam %d get framerate failed %#X!\n", __func__, CamId, ret);
-	expSwAttr.commCtrl.frmRate.sw_aeT_frmRate_mode = ae_frmRate_fix_mode;
-	expSwAttr.commCtrl.frmRate.sw_aeT_frmRate_val = uFps;
-	ret = rk_aiq_user_api2_ae_setExpSwAttr(g_aiq_ctx[CamId], expSwAttr);
+	frameRateInfo_t info;
+	info.mode = OP_MANUAL;
+	info.fps  = uFps;
+	ret = rk_aiq_uapi2_setFrameRate(g_aiq_ctx[CamId], info);
 	if (ret != 0)
 		printf("%s : Cam %d set framerate %d failed %#X!\n", __func__, CamId, uFps, ret);
 	else
@@ -327,13 +329,10 @@ RK_S32 SAMPLE_COMM_ISP_CamGroup_SetFrameRate(RK_S32 CamId, RK_U32 uFps) {
 		return -1;
 	}
 	int ret;
-	ae_api_expSwAttr_t expSwAttr;
-	ret = rk_aiq_user_api2_ae_getExpSwAttr((rk_aiq_sys_ctx_t *)g_aiq_camgroup_ctx[CamId],
-	                                       &expSwAttr);
-	expSwAttr.commCtrl.frmRate.sw_aeT_frmRate_mode = ae_frmRate_fix_mode;
-	expSwAttr.commCtrl.frmRate.sw_aeT_frmRate_val = uFps;
-	ret = rk_aiq_user_api2_ae_setExpSwAttr((rk_aiq_sys_ctx_t *)g_aiq_camgroup_ctx[CamId],
-	                                       expSwAttr);
+	frameRateInfo_t info;
+	info.mode = OP_MANUAL;
+	info.fps  = uFps;
+	ret = rk_aiq_uapi2_setFrameRate((rk_aiq_sys_ctx_t *)g_aiq_camgroup_ctx[CamId], info);
 	if (ret != 0)
 		printf("%s : Cam Group %d set framerate %d failed %#X!\n", __func__, CamId, uFps, ret);
 	else
