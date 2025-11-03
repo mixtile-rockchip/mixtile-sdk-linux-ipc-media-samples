@@ -1,4 +1,4 @@
-#chip rk3576, rockit c++
+#chip rk3588 rk3576, rockit c++
 logai=6
 simple_ai_bind_aenc&
 sleep 5
@@ -56,8 +56,8 @@ killall simple_ai_get_frame
 checkmd5sum /data/ai.pcm
 
 logao=6
-simple_ao_send_frame -r 8000 -R 8000 -j /oem/usr/share/vqefiles/config_aovqe.json -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
-simple_ao_send_frame -r 16000 -R 8000 -j /oem/usr/share/vqefiles/config_aovqe.json -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
+simple_ao_send_frame -r 8000 -R 8000 -j /usr/vqefiles/config_aovqe.json -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
+simple_ao_send_frame -r 16000 -R 8000 -j /usr/vqefiles/config_aovqe.json -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
 simple_ao_send_frame -r 8000 -R 8000 -v 0 -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
 simple_ao_send_frame -r 16000 -R 8000 -v 0 -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
 
@@ -67,30 +67,30 @@ sleep 1
 killall simple_vi_get_frame
 sleep 1
 simple_vi_get_frame -I 0 -w 1920 -h 1080 -c 10 -o 1
-checkmd5sum /data/test_0.yuv
+checkmd5sum /userdata/test_0.yuv
 simple_vi_get_frame -I 0 -w 320 -h 240 -c 10 -o 1
-checkmd5sum /data/test_0.yuv
+checkmd5sum /userdata/test_0.yuv
 simple_vi_get_frame -I 1 -w 1920 -h 1080 -c 10 -o 1
-checkmd5sum /data/test_1.yuv
+checkmd5sum /userdata/test_1.yuv
 simple_vi_get_frame -I 1 -w 320 -h 240 -c 10 -o 1
-checkmd5sum /data/test_1.yuv
+checkmd5sum /userdata/test_1.yuv
 
 simple_vi_get_frame_rkaiq&
 sleep 1
 killall simple_vi_get_frame_rkaiq
 sleep 1
 simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1
-checkmd5sum /data/test_0.yuv
+checkmd5sum /userdata/test_0.yuv
 simple_vi_get_frame_rkaiq -I 0 -w 320 -h 240 -c 10 -o 1
-checkmd5sum /data/test_0.yuv
+checkmd5sum /userdata/test_0.yuv
 simple_vi_get_frame_rkaiq -I 1 -w 1920 -h 1080 -c 10 -o 1
-checkmd5sum /data/test_1.yuv
+checkmd5sum /userdata/test_1.yuv
 simple_vi_get_frame_rkaiq -I 1 -w 320 -h 240 -c 10 -o 1
-checkmd5sum /data/test_1.yuv
+checkmd5sum /userdata/test_1.yuv
 simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1 -d 1
-checkmd5sum /data/test_0.yuv
+checkmd5sum /userdata/test_0.yuv
 simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1 -m 1
-checkmd5sum /data/test_0.yuv
+checkmd5sum /userdata/test_0.yuv
 
 simple_vi_get_frame_tde -a /etc/iqfiles -w 1920 -h 1080 -l 10 -o /tmp
 checkmd5sum /tmp/tde_out.bin
@@ -135,6 +135,21 @@ rm /tmp/venc_320x240_0.mjpeg
 simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/
 checkmd5sum /tmp/venc_320x240_0.h264
 rm /tmp/venc_320x240_0.h264
+
+simple_vi_bind_venc_osd&
+sleep 3
+killall simple_vi_bind_venc_osd
+sleep 3
+simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
+checkmd5sum /tmp/venc.h264
 
 simple_vi_bind_venc_rtsp&
 sleep 1

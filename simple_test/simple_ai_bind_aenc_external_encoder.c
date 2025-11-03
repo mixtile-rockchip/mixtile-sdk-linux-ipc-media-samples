@@ -22,6 +22,14 @@
 #include "mp3_enc_table2.h"
 #include "aenc_mp3_register.h"
 
+#if defined(RK3576) || defined(RK3588)
+#define CARD_NAME "plughw:1,0"
+#endif 
+
+#ifndef CARD_NAME
+#define CARD_NAME "hw:0,0"
+#endif
+
 static RK_S32 extCodecHandle = -1;
 static RK_U32 mp3InitCnt = 0;
 
@@ -266,7 +274,7 @@ RK_S32 open_device_ai(RK_S32 InputSampleRate, RK_S32 OutputSampleRate,
 		goto __FAILED;
 	}
 #endif
-	sprintf((char *)aiAttr.u8CardName, "%s", "hw:0,0");
+	sprintf((char *)aiAttr.u8CardName, "%s", CARD_NAME);
 
 	// s32DeviceSampleRate 和 OutputSampleRate,OutputSampleRate
 	// 可以使用其他采样率，需要调用重采样函数。默认一样采样率。

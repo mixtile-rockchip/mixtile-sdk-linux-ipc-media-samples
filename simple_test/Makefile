@@ -32,6 +32,16 @@ SIMPLE_VO_LD_FLAGS += -DRV1126B
 SIMPLE_SPECIAL_SRC_DIR := rv1103_rv1106_rv1103b_rv1126b
 endif
 
+ifeq ($(RK_MEDIA_CHIP), rk3576)
+SIMPLE_LD_FLAGS += -DRK3576
+SIMPLE_VO_LD_FLAGS += -DRK3576
+endif
+
+ifeq ($(RK_MEDIA_CHIP), rk3588)
+SIMPLE_LD_FLAGS += -DRK3588
+SIMPLE_VO_LD_FLAGS += -DRK3588
+endif
+
 ifeq ($(RK_MEDIA_CHIP), rv1106)
 SIMPLE_VO_LD_FLAGS = -lrockit_full
 SIMPLE_PKG_CONF_OPTS += -DARCH64=OFF
@@ -105,7 +115,11 @@ simple_build: $(OBJECTS)
 	$(CMD_DBG)cp simple_test.sh simple_cmd.txt $(SIMPLE_OUT_DIR)/bin/
 
 ifeq ($(RK_MEDIA_CHIP), rk3576)
-	$(CMD_DBG)cp simple_cmd_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
+	$(CMD_DBG)cp simple_cmd_rk3588_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
+endif
+
+ifeq ($(RK_MEDIA_CHIP), rk3588)
+	$(CMD_DBG)cp simple_cmd_rk3588_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rv1126b)

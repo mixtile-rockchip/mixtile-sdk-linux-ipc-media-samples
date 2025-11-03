@@ -19,6 +19,14 @@
 #include "mp3dec.h"
 #include "rkdemuxer.h"
 
+#if defined(RK3576) || defined(RK3588)
+#define CARD_NAME "plughw:1,0"
+#endif 
+
+#ifndef CARD_NAME
+#define CARD_NAME "hw:0,0"
+#endif
+
 static bool quit = false;
 static void sigterm_handler(int sig) {
 	fprintf(stderr, "signal %d\n", sig);
@@ -300,7 +308,7 @@ RK_S32 open_device_ao(RK_S32 s32SampleRate, RK_S32 channel, RK_S32 u32FrameCnt) 
 		return RK_FAILURE;
 	}
 #endif
-	sprintf((char *)aoAttr.u8CardName, "%s", "hw:0,0");
+	sprintf((char *)aoAttr.u8CardName, "%s", CARD_NAME);
 
 	aoAttr.soundCard.channels = 2;       // 2
 	aoAttr.soundCard.sampleRate = 48000; // s32SampleRate;       16000

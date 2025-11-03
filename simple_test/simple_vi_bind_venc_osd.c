@@ -63,6 +63,7 @@ static void *OsdUpdate(void *arg) {
 	printf("========%s========\n", __func__);
 	while (!quit) {
 		usleep(100 * 1000);
+		RgnHandle = 0;
 		RK_S64 s64ShowBmpStart = TEST_COMM_GetNowUs();
 		RGN_CANVAS_INFO_S stCanvasInfo;
 		memset(&stCanvasInfo, 0, sizeof(RGN_CANVAS_INFO_S));
@@ -102,7 +103,6 @@ static void *OsdUpdate(void *arg) {
 		s64ShowBmpEnd = TEST_COMM_GetNowUs();
 		RK_LOGI("Handle:%d, space time %lld us, update canvas success!", RgnHandle, s64ShowBmpEnd - s64ShowBmpStart);
 #endif
-
 	}
 	return NULL;
 }
@@ -173,7 +173,7 @@ RK_S32 load_file_osdmem(const RK_CHAR *filename, RK_U8 *pu8Virt, RK_U32 u32Width
 	return RK_SUCCESS;
 }
 
-RK_S32 test_rgn_overlay_process() {
+RK_S32 init_rgn_overlay_process() {
 	printf("========%s========\n", __func__);
 	RK_S32 s32Ret = RK_SUCCESS;
 	RGN_HANDLE RgnHandle = 0;
@@ -279,7 +279,7 @@ RK_S32 test_rgn_overlay_process() {
 	return 0;
 }
 
-RK_S32 test_rgn_overlay_process_ex() {
+RK_S32 init_rgn_overlay_process_ex() {
 	printf("========%s========\n", __func__);
 	RK_S32 s32Ret = RK_SUCCESS;
 	RGN_HANDLE RgnHandle = 1;
@@ -295,8 +295,11 @@ RK_S32 test_rgn_overlay_process_ex() {
 	RK_CHAR *filename = "/data/res/rgn/44";
 
 	MPP_CHN_S stMppChn;
-
+#if defined(RK3588) || defined(RK3576)
+	stMppChn.enModId = RK_ID_VENC;
+#else
 	stMppChn.enModId = RK_ID_VI;
+#endif
 	stMppChn.s32DevId = 0;
 	stMppChn.s32ChnId = 0;
 
@@ -309,6 +312,9 @@ RK_S32 test_rgn_overlay_process_ex() {
 	stRgnAttr.unAttr.stOverlay.stSize.u32Width = u32Width;
 	stRgnAttr.unAttr.stOverlay.stSize.u32Height = u32Height;
 	stRgnAttr.unAttr.stOverlay.u32ClutNum = 0;
+#ifndef RV1106_RV1103
+	stRgnAttr.unAttr.stOverlay.enVProcDev = VIDEO_PROC_DEV_BUTT;
+#endif
 
 	s32Ret = RK_MPI_RGN_Create(RgnHandle, &stRgnAttr);
 	if (RK_SUCCESS != s32Ret) {
@@ -340,6 +346,7 @@ RK_S32 test_rgn_overlay_process_ex() {
 	stRgnChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
 	stRgnChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
 	stRgnChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 100;
+
 	s32Ret = RK_MPI_RGN_AttachToChn(RgnHandle, &stMppChn, &stRgnChnAttr);
 	if (RK_SUCCESS != s32Ret) {
 		RK_LOGE("RK_MPI_RGN_AttachToChn (%d) failed with %#x!", RgnHandle, s32Ret);
@@ -380,6 +387,59 @@ RK_S32 test_rgn_overlay_process_ex() {
 	RK_S64 s64ShowBmpEnd = TEST_COMM_GetNowUs();
 	RK_LOGI("Handle:%d, space time %lld us, load bmp success!", RgnHandle,
 	        s64ShowBmpEnd - s64ShowBmpStart);
+	return 0;
+}
+
+
+RK_S32 deinit_rgn_overlay_process() {
+	printf("========%s========\n", __func__);
+	RK_S32 s32Ret = RK_SUCCESS;
+	RGN_HANDLE RgnHandle = 0;
+	MPP_CHN_S stMppChn;
+	stMppChn.enModId = RK_ID_VENC;
+	stMppChn.s32DevId = 0;
+	stMppChn.s32ChnId = 0;
+
+	s32Ret = RK_MPI_RGN_DetachFromChn(RgnHandle, &stMppChn);
+	if (RK_SUCCESS != s32Ret) {
+		RK_LOGE("RK_MPI_RGN_DetachFromChn (%d) failed with %#x!", RgnHandle, s32Ret);
+		return RK_FAILURE;
+	}
+
+	s32Ret = RK_MPI_RGN_Destroy(RgnHandle);
+	if (RK_SUCCESS != s32Ret) {
+		RK_LOGE("RK_MPI_RGN_Destroy (%d) failed with %#x!", RgnHandle, s32Ret);
+		return RK_FAILURE;
+	}
+
+	return 0;
+}
+
+RK_S32 deinit_rgn_overlay_process_ex() {
+	printf("========%s========\n", __func__);
+	RK_S32 s32Ret = RK_SUCCESS;
+	RGN_HANDLE RgnHandle = 1;
+	MPP_CHN_S stMppChn;
+#if defined(RK3588) || defined(RK3576)
+	stMppChn.enModId = RK_ID_VENC;
+#else
+	stMppChn.enModId = RK_ID_VI;
+#endif
+	stMppChn.s32DevId = 0;
+	stMppChn.s32ChnId = 0;
+
+	s32Ret = RK_MPI_RGN_DetachFromChn(RgnHandle, &stMppChn);
+	if (RK_SUCCESS != s32Ret) {
+		RK_LOGE("RK_MPI_RGN_DetachFromChn (%d) failed with %#x!", RgnHandle, s32Ret);
+		return RK_FAILURE;
+	}
+
+	s32Ret = RK_MPI_RGN_Destroy(RgnHandle);
+	if (RK_SUCCESS != s32Ret) {
+		RK_LOGE("RK_MPI_RGN_Destroy (%d) failed with %#x!", RgnHandle, s32Ret);
+		return RK_FAILURE;
+	}
+
 	return 0;
 }
 
@@ -601,16 +661,22 @@ int main(int argc, char *argv[]) {
 	stDestChn.enModId = RK_ID_VENC;
 	stDestChn.s32DevId = 0;
 	stDestChn.s32ChnId = 0;
+
 	printf("====RK_MPI_SYS_Bind vi0 to venc0====\n");
 	s32Ret = RK_MPI_SYS_Bind(&stSrcChn, &stDestChn);
 	if (s32Ret != RK_SUCCESS) {
 		RK_LOGE("bind 0 ch venc failed");
 		goto __FAILED;
 	}
-	test_rgn_overlay_process();
-#ifndef RV1103B
-	test_rgn_overlay_process_ex();
+
+#ifndef RK3576
+	init_rgn_overlay_process();
 #endif
+
+#ifndef RV1103B
+	init_rgn_overlay_process_ex();
+#endif
+
 	pthread_t main_thread;
 	pthread_create(&main_thread, NULL, GetMediaBuffer0, NULL);
 
@@ -622,6 +688,14 @@ int main(int argc, char *argv[]) {
 	}
 	pthread_join(main_thread, NULL);
 	pthread_join(osd_thread, NULL);
+
+#ifndef RK3576
+	deinit_rgn_overlay_process();
+#endif
+
+#ifndef RV1103B
+	deinit_rgn_overlay_process_ex();
+#endif
 
 	s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
 	if (s32Ret != RK_SUCCESS) {

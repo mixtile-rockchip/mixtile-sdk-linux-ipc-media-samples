@@ -18,6 +18,14 @@
 #include "rk_mpi_mb.h"
 #include "rk_mpi_sys.h"
 
+#if defined(RK3576) || defined(RK3588)
+#define CARD_NAME "plughw:1,0"
+#endif 
+
+#ifndef CARD_NAME
+#define CARD_NAME "hw:0,0"
+#endif
+
 static bool quit = false;
 static void sigterm_handler(int sig) {
 	fprintf(stderr, "signal %d\n", sig);
@@ -214,7 +222,7 @@ RK_S32 open_device_ai(RK_S32 deviceSampleRate, RK_S32 outputSampleRate, RK_S32 u
 	}
 #endif
 
-	sprintf((char *)aiAttr.u8CardName, "%s", "hw:0,0");
+	sprintf((char *)aiAttr.u8CardName, "%s", CARD_NAME);
 
 	// s32DeviceSampleRate和s32SampleRate,s32SampleRate可以使用其他采样率，需要调用重采样函数。默认一样采样率。
 	aiAttr.soundCard.channels = 2;
