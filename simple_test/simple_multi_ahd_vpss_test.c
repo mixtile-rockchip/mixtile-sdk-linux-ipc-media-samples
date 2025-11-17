@@ -2,80 +2,77 @@
 // - 8-channel VI input, each VI channel binds to one VPSS group for 8-grid display
 // - VI part reuses the approach from simple_vi_avs_send_vo.c: using virtual pipe, s32PipeId=VI_MAX_PHY_PIPE_NUM
 // - Save one frame from each VI channel to /data/simple_multi_ahd_vpss_test/
-// - 8 VPSS groups, each group has 4 VPSS channels:
+// - 8 VPSS groups, each group has 5 VPSS channels:
 //   VPSS group i ch0: Same resolution as input, encode and save to /data/simple_multi_ahd_vpss_test/venc_grp{i}_main.h264
 //   VPSS group i ch1: 704x576 encode and save to /data/simple_multi_ahd_vpss_test/venc_grp{i}_sub.h264
 //   VPSS group i ch2: Same resolution as input, save 1 frame to /data/simple_multi_ahd_vpss_test/vpss_grp{i}_ch2_0.yuv
 //   VPSS group i ch3: Quad display size(g_disp_w/2 x g_disp_h/2), bind to VO channel i for display
+//   VPSS group i ch4: Same resolution as input, manual get frame + send to shared JPEG VENC for jpeg capture
 // - Support extension to 8 VI + 8 VPSS + 8-grid display
+// - JPEG capture function: Use single JPEG encoder (channel 16) shared by all channels via manual SendFrame
 
 /*
-====================================================================
-8-Channel VI to VPSS Data Flow Architecture:
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐
+│ video0  │───▶│                   VPSS Group 0                            │─┬─▶ VENC main (1920x1080)
+│(VI Ch0) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0 │ scale1 │ scale2 │ scale3 │ scale4 │            │ ├─▶ Frame save
+               │ │(bypass)│(resize)│(bypass)│(resize)│(bypass)│            │ ├─▶ VO Ch0
+               │ │1920x   │704x576 │1920x   │Grid    │1920x   │            │ └──┐
+               │ │1080    │        │1080    │Size    │1080    │◀─GetFrame──┼────┘ SendFrame to JPEG
+               │ └────────┴────────┴────────┴────────┴────────┘            │
+               └────────────────────────────────────────────────────────────┘
 
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video0  │───▶│                VPSS Group 0                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch0) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch0
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐
+│ video1  │───▶│                   VPSS Group 1                            │─┬─▶ VENC main (1920x1080)
+│(VI Ch1) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │ ├─▶ VENC sub (704x576)
+└─────────┘    │ │ scale0 │ scale1 │ scale2 │ scale3 │ scale4 │            │ ├─▶ Frame save
+               │ │(bypass)│(resize)│(bypass)│(resize)│(bypass)│            │ ├─▶ VO Ch1
+               │ └────────┴────────┴────────┴────────┴────────┘            │ └──┐ SendFrame to JPEG
+               └────────────────────────────────────────────────────────────┘    │
 
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video1  │───▶│                VPSS Group 1                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch1) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch1
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐   │
+│ video2  │───▶│                   VPSS Group 2                            │ (Same structure)
+│(VI Ch2) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │   │
+└─────────┘    │ │  ch0   │  ch1   │  ch2   │  ch3   │  ch4   │            │   │
+               │ └────────┴────────┴────────┴────────┴────────┘            │   │
+               └────────────────────────────────────────────────────────────┘   │
 
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video2  │───▶│                VPSS Group 2                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch2) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch2
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐   │
+│ video3  │───▶│                   VPSS Group 3                            │ (Same structure)
+│(VI Ch3) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │   │
+└─────────┘    │ │  ch0   │  ch1   │  ch2   │  ch3   │  ch4   │            │   │
+               │ └────────┴────────┴────────┴────────┴────────┘            │   │
+               └────────────────────────────────────────────────────────────┘   │
 
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video3  │───▶│                VPSS Group 3                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch3) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch3
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐   │
+│ video11 │───▶│                   VPSS Group 4                            │ (Same structure)
+│(VI Ch4) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │   │
+└─────────┘    │ │  ch0   │  ch1   │  ch2   │  ch3   │  ch4   │            │   │
+               │ └────────┴────────┴────────┴────────┴────────┘            │   │
+               └────────────────────────────────────────────────────────────┘   │
 
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video11 │───▶│                VPSS Group 4                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch4) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch4
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐   │
+│ video12 │───▶│                   VPSS Group 5                            │ (Same structure)
+│(VI Ch5) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │   │
+└─────────┘    │ │  ch0   │  ch1   │  ch2   │  ch3   │  ch4   │            │   │
+               │ └────────┴────────┴────────┴────────┴────────┘            │   │
+               └────────────────────────────────────────────────────────────┘   │
 
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video12 │───▶│                VPSS Group 5                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch5) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch5
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐   │
+│ video13 │───▶│                   VPSS Group 6                            │ (Same structure)
+│(VI Ch6) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │   │
+└─────────┘    │ │  ch0   │  ch1   │  ch2   │  ch3   │  ch4   │            │   │
+               │ └────────┴────────┴────────┴────────┴────────┘            │   │
+               └────────────────────────────────────────────────────────────┘   │
 
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video13 │───▶│                VPSS Group 6                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch6) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch6
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
-
-┌─────────┐    ┌─────────────────────────────────────────────────────┐
-│ video14 │───▶│                VPSS Group 7                        │─┬─▶ VENC main (1920x1080)
-│(VI Ch7) │    │ ┌─────────┬─────────┬─────────┬─────────┐          │ ├─▶ VENC sub (704x576)
-└─────────┘    │ │ scale0  │ scale1  │ scale2  │ scale3  │          │ ├─▶ Frame save
-               │ │(bypass) │(resize) │(bypass) │(resize) │          │ └─▶ VO Ch7
-               │ └─────────┴─────────┴─────────┴─────────┘          │
-               └─────────────────────────────────────────────────────┘
+┌─────────┐    ┌────────────────────────────────────────────────────────────┐   │
+│ video14 │───▶│                   VPSS Group 7                            │ (Same structure)
+│(VI Ch7) │    │ ┌────────┬────────┬────────┬────────┬────────┐            │   │
+└─────────┘    │ │  ch0   │  ch1   │  ch2   │  ch3   │  ch4   │            │   │
+               │ └────────┴────────┴────────┴────────┴────────┘            │   │
+               └────────────────────────────────────────────────────────────┘   │
+                                                                                 │
+               All ch4 channels send frames to shared JPEG VENC (round-robin) ◀─┘
 
 Hardware Mapping: 2x TP2815 AHD Decoders
 - TP2815#0: video0-3  (I2C3-0x44) -> VI Ch0-3 -> VPSS Group 0-3
@@ -92,14 +89,21 @@ Multi-Screen Display Grid Layout:
 
 ====================================================================
 VPSS Channel Function Assignment:
-VPSS Group 0: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO0)
-VPSS Group 1: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO1)
-VPSS Group 2: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO2)
-VPSS Group 3: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO3)
-VPSS Group 4: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO4)
-VPSS Group 5: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO5)
-VPSS Group 6: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO6)
-VPSS Group 7: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO7)
+VPSS Group 0: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO0) ch4(jpeg)
+VPSS Group 1: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO1) ch4(jpeg)
+VPSS Group 2: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO2) ch4(jpeg)
+VPSS Group 3: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO3) ch4(jpeg)
+VPSS Group 4: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO4) ch4(jpeg)
+VPSS Group 5: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO5) ch4(jpeg)
+VPSS Group 6: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO6) ch4(jpeg)
+VPSS Group 7: ch0(main stream) ch1(sub stream) ch2(save) ch3(VO7) ch4(jpeg)
+
+JPEG Capture Workflow (ch4):
+  - ch4: Manual GetChnFrame from VPSS ch4 (u32Depth=2)
+  - SendFrame to shared JPEG VENC channel 16
+  - GetStream from VENC 16 to retrieve JPEG data
+  - Save as jpg file (format: jpeg_ch{channel}_{count}.jpg)
+  - Only one channel captures at a time (mutex protected, round-robin)
 
 Grid Layout Example:
 ┌─────────┬─────────┬─────────┬─────────┐
@@ -143,7 +147,13 @@ Data Storage:
 ├── venc_grp6_main.h264   # VPSS group 6 main stream
 ├── venc_grp6_sub.h264    # VPSS group 6 sub stream
 ├── venc_grp7_main.h264   # VPSS group 7 main stream
-└── venc_grp7_sub.h264    # VPSS group 7 sub stream
+├── venc_grp7_sub.h264    # VPSS group 7 sub stream
+├── jpeg_ch0_0.jpg        # JPEG capture from channel 0 (count 0)
+├── jpeg_ch1_1.jpg        # JPEG capture from channel 1 (count 1)
+├── jpeg_ch2_2.jpg        # JPEG capture from channel 2 (count 2)
+├── jpeg_ch3_3.jpg        # JPEG capture from channel 3 (count 3)
+├── jpeg_ch0_4.jpg        # JPEG capture from channel 0 (count 4, round-robin)
+└── ...                   # More JPEG files (enabled with -p 1)
 
 */
 
@@ -178,10 +188,13 @@ Data Storage:
 // Maximum supported channel definitions
 #define MAX_VI_CHN 8     // Support up to 8 VI channels
 #define MAX_VPSS_GRP 8   // Support up to 8 VPSS groups
+#define VENC_CHN_JPEG 16 // JPEG encoder channel (shared by all channels for jpeg capture)
 
 // Global control flags
 static volatile RK_BOOL g_quit = RK_FALSE;           // Application exit flag
 static RK_BOOL g_enable_switch = RK_FALSE;           // Enable VO dynamic switching
+static RK_BOOL g_enable_snapshot = RK_FALSE;         // Enable JPEG capture function
+static RK_U32 g_snapshot_interval = 5;               // JPEG capture interval in seconds
 
 // VI input resolution configuration
 static RK_U32 g_in_w = 1920;    // VI input width
@@ -213,6 +226,9 @@ static GRID_LAYOUT_S g_original_layout;             // Saved original grid layou
 
 // VI pipe configuration (use virtual pipe for compatibility)
 static int s32PipeId = VI_MAX_PHY_PIPE_NUM;         // VI virtual pipe ID
+
+// JPEG capture related variables
+static pthread_mutex_t g_snapshot_mutex = PTHREAD_MUTEX_INITIALIZER; // Protect JPEG VENC access
 
 // VO device configuration (platform dependent)
 #ifdef RV1126B
@@ -665,12 +681,13 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 }
 
 /**
- * Initialize VPSS group with 4 channels
+ * Initialize VPSS group with 5 channels
  * Channel allocation:
  * - ch0: Main stream encoding (original resolution)
  * - ch1: Sub stream encoding (704x576)
  * - ch2: Frame saving (original resolution)
  * - ch3: VO display (grid layout size)
+ * - ch4: Snapshot (original resolution, dynamically bind to JPEG VENC)
  *
  * @param grp: VPSS group ID
  * @param inW: Input width
@@ -735,6 +752,13 @@ static int vpss_group_init(int grp, int inW, int inH, int voW, int voH) {
 	c.u32Depth = 0;
 	RK_MPI_VPSS_SetChnAttr(grp, 3, &c);
 	RK_MPI_VPSS_EnableChn(grp, 3);
+
+	// ch4: For snapshot, original resolution, u32Depth>0 for manual frame retrieval
+	c.u32Width = inW;
+	c.u32Height = inH;
+	c.u32Depth = 2;  // Need depth > 0 to manually get frames
+	RK_MPI_VPSS_SetChnAttr(grp, 4, &c);
+	RK_MPI_VPSS_EnableChn(grp, 4);
 
 	return RK_MPI_VPSS_StartGrp(grp);
 }
@@ -867,6 +891,180 @@ static void *venc_stream_thread(void *arg) {
 }
 
 /**
+ * Create and initialize JPEG encoder for jpeg capture
+ * @param chn: VENC channel ID
+ * @param w: Image width
+ * @param h: Image height
+ * @return: 0 on success, non-zero on failure
+ */
+static int jpeg_venc_create(int chn, int w, int h) {
+	VENC_CHN_ATTR_S attr;
+	memset(&attr, 0, sizeof(attr));
+
+	attr.stVencAttr.enType = RK_VIDEO_ID_JPEG;
+	attr.stVencAttr.enPixelFormat = RK_FMT_YUV420SP;
+	attr.stVencAttr.u32MaxPicWidth = w;
+	attr.stVencAttr.u32MaxPicHeight = h;
+	attr.stVencAttr.u32PicWidth = w;
+	attr.stVencAttr.u32PicHeight = h;
+	attr.stVencAttr.u32VirWidth = w;
+	attr.stVencAttr.u32VirHeight = h;
+	attr.stVencAttr.u32StreamBufCnt = 2;
+	attr.stVencAttr.u32BufSize = w * h * 3 / 2;
+
+	if (RK_MPI_VENC_CreateChn(chn, &attr) != RK_SUCCESS) {
+		printf("Failed to create JPEG VENC channel %d\n", chn);
+		return -1;
+	}
+
+	// Note: Don't start receiving frames here, will be controlled per capture
+	printf("JPEG VENC channel %d created (resolution: %dx%d)\n", chn, w, h);
+	return 0;
+}
+
+/**
+ * JPEG capture function - capture one JPEG image from specified channel
+ * Uses manual frame retrieval + send frame mode: get frame from VPSS, send to JPEG VENC
+ *
+ * @param vpssGrp: VPSS group ID
+ * @param vpssGrpChn: VPSS channel ID (typically ch4)
+ * @param vencChn: JPEG VENC channel ID
+ * @param savePath: Output JPEG file path
+ * @return: 0 on success, non-zero on failure
+ */
+static int take_snapshot(int vpssGrp, int vpssGrpChn, int vencChn, const char *savePath) {
+	RK_S32 ret;
+	VIDEO_FRAME_INFO_S stFrame;
+	VENC_STREAM_S stream;
+	VENC_RECV_PIC_PARAM_S recvParam;
+	FILE *fp = NULL;
+
+	// Lock mutex to ensure exclusive access to JPEG VENC
+	pthread_mutex_lock(&g_snapshot_mutex);
+
+	// Get one frame from VPSS channel
+	memset(&stFrame, 0, sizeof(stFrame));
+	ret = RK_MPI_VPSS_GetChnFrame(vpssGrp, vpssGrpChn, &stFrame, 1000);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to get frame from VPSS(%d,%d): 0x%x\n", vpssGrp, vpssGrpChn, ret);
+		pthread_mutex_unlock(&g_snapshot_mutex);
+		return -1;
+	}
+
+	// Start receiving only 1 frame for this snapshot
+	memset(&recvParam, 0, sizeof(recvParam));
+	recvParam.s32RecvPicNum = 1;  // Only receive 1 frame
+
+	ret = RK_MPI_VENC_StartRecvFrame(vencChn, &recvParam);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to start recv frame for VENC(%d): 0x%x\n", vencChn, ret);
+		RK_MPI_VPSS_ReleaseChnFrame(vpssGrp, vpssGrpChn, &stFrame);
+		pthread_mutex_unlock(&g_snapshot_mutex);
+		return -1;
+	}
+
+	// Send frame to JPEG VENC
+	ret = RK_MPI_VENC_SendFrame(vencChn, &stFrame, 1000);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to send frame to VENC(%d): 0x%x\n", vencChn, ret);
+		RK_MPI_VENC_StopRecvFrame(vencChn);
+		RK_MPI_VPSS_ReleaseChnFrame(vpssGrp, vpssGrpChn, &stFrame);
+		pthread_mutex_unlock(&g_snapshot_mutex);
+		return -1;
+	}
+
+	// Release VPSS frame immediately after sending
+	RK_MPI_VPSS_ReleaseChnFrame(vpssGrp, vpssGrpChn, &stFrame);
+
+	// Get JPEG stream (wait up to 2 seconds)
+	memset(&stream, 0, sizeof(stream));
+	stream.pstPack = (VENC_PACK_S *)malloc(sizeof(VENC_PACK_S));
+	if (!stream.pstPack) {
+		printf("Failed to allocate memory for VENC stream\n");
+		RK_MPI_VENC_StopRecvFrame(vencChn);
+		pthread_mutex_unlock(&g_snapshot_mutex);
+		return -1;
+	}
+
+	ret = RK_MPI_VENC_GetStream(vencChn, &stream, 2000);
+	if (ret == RK_SUCCESS) {
+		// Save JPEG to file
+		fp = fopen(savePath, "wb");
+		if (fp) {
+			void *data = RK_MPI_MB_Handle2VirAddr(stream.pstPack->pMbBlk);
+			RK_U32 len = stream.pstPack->u32Len;
+			if (data && len > 0) {
+				fwrite(data, 1, len, fp);
+				printf("JPEG saved: %s (size: %u bytes)\n", savePath, len);
+			}
+			fclose(fp);
+		} else {
+			printf("Failed to open file: %s\n", savePath);
+		}
+		RK_MPI_VENC_ReleaseStream(vencChn, &stream);
+	} else {
+		printf("Failed to get JPEG stream from channel %d: 0x%x\n", vencChn, ret);
+	}
+
+	free(stream.pstPack);
+
+	// Stop receiving frames
+	RK_MPI_VENC_StopRecvFrame(vencChn);
+
+	pthread_mutex_unlock(&g_snapshot_mutex);
+
+	return (ret == RK_SUCCESS) ? 0 : -1;
+}
+
+/**
+ * JPEG capture control thread
+ * Periodically triggers JPEG capture for each channel in round-robin fashion
+ * @param arg: Pointer to number of active channels
+ * @return: NULL
+ */
+static void *snapshot_thread(void *arg) {
+	int numChannels = *(int *)arg;
+	int currentChn = 0;
+	char filePath[256];
+	int captureCount = 0;
+
+	printf("JPEG capture thread started, interval: %d seconds, channels: %d\n",
+	       g_snapshot_interval, numChannels);
+
+	while (!g_quit) {
+		// Wait for capture interval
+		for (int i = 0; i < g_snapshot_interval * 10 && !g_quit; i++) {
+			usleep(100000); // 100ms
+		}
+
+		if (g_quit) break;
+
+		// Find next active channel
+		int attempts = 0;
+		while (attempts < numChannels) {
+			if (g_chnInfo[currentChn].isActive) {
+				// Take JPEG capture from current channel
+				snprintf(filePath, sizeof(filePath),
+				         "/data/simple_multi_ahd_vpss_test/jpeg_ch%d_%d.jpg",
+				         currentChn, captureCount);
+
+				printf("Taking JPEG capture: channel %d -> %s\n", currentChn, filePath);
+				take_snapshot(currentChn, 4, VENC_CHN_JPEG, filePath);
+
+				captureCount++;
+				currentChn = (currentChn + 1) % MAX_VI_CHN;
+				break;
+			}
+			currentChn = (currentChn + 1) % MAX_VI_CHN;
+			attempts++;
+		}
+	}
+
+	printf("JPEG capture thread exiting, total captures: %d\n", captureCount);
+	return NULL;
+}
+
+/**
  * VO mode switching control thread
  * This thread automatically switches between multi-screen and single-screen modes
  *
@@ -908,13 +1106,15 @@ static void *vo_switch_thread(void *arg) {
  * @param n: Program name
  */
 static void print_usage(const char *n) {
-	printf("usage: %s [-w in_w] [-h in_h] [-W vo_w] [-H vo_h] [-n num_channels] [-s switch_mode]\n", n);
+	printf("usage: %s [-w in_w] [-h in_h] [-W vo_w] [-H vo_h] [-n num_channels] [-s switch_mode] [-p snapshot_mode] [-i snapshot_interval]\n", n);
 	printf("  -w: VI input width (default: 1920)\n");
 	printf("  -h: VI input height (default: 1080)\n");
 	printf("  -W: VO display width (default: 1080)\n");
 	printf("  -H: VO display height (default: 1920)\n");
 	printf("  -n: Number of VI/VPSS channels (1-8, default: 4)\n");
 	printf("  -s: Enable VO dynamic switch (0=disabled, 1=enabled, default: 0)\n");
+	printf("  -p: Enable JPEG capture function (0=disabled, 1=enabled, default: 0)\n");
+	printf("  -i: JPEG capture interval in seconds (default: 5)\n");
 	printf("\nSupported grid layouts:\n");
 	printf("  1 channel  -> 1x1 grid (full screen)\n");
 	printf("  2 channels -> 1x2 grid (side by side)\n");
@@ -925,8 +1125,9 @@ static void print_usage(const char *n) {
 	printf("  %s -n 1                           # Single channel static display\n", n);
 	printf("  %s -n 2 -s 1                      # Dual channel with dynamic switch\n", n);
 	printf("  %s -n 4 -s 1                      # Quad view with automatic switch test\n", n);
+	printf("  %s -n 4 -p 1 -i 3                 # Quad view with JPEG capture every 3 seconds\n", n);
 	printf("  %s -w 1920 -h 1080 -W 1080 -H 1920 -n 4 -s 1  # Full parameter example\n", n);
-	printf("  %s -n 8                           # Eight channels static display\n", n);
+	printf("  %s -n 8 -p 1                      # Eight channels with JPEG capture\n", n);
 }
 
 /**
@@ -948,7 +1149,7 @@ int main(int argc, char *argv[]) {
 	int c;
 	int num_channels = 4;  // Default 4 channels
 
-	while ((c = getopt(argc, argv, "w:h:W:H:n:s:?")) != -1) {
+	while ((c = getopt(argc, argv, "w:h:W:H:n:s:p:i:?")) != -1) {
 		switch (c) {
 		case 'w':
 			g_in_w = atoi(optarg);
@@ -972,6 +1173,18 @@ int main(int argc, char *argv[]) {
 		case 's':
 			g_enable_switch = (atoi(optarg) == 1) ? RK_TRUE : RK_FALSE;
 			printf("VO switch mode %s\n", g_enable_switch ? "ENABLED" : "DISABLED");
+			break;
+		case 'p':
+			g_enable_snapshot = (atoi(optarg) == 1) ? RK_TRUE : RK_FALSE;
+			printf("JPEG capture mode %s\n", g_enable_snapshot ? "ENABLED" : "DISABLED");
+			break;
+		case 'i':
+			g_snapshot_interval = atoi(optarg);
+			if (g_snapshot_interval < 1) {
+				printf("Invalid JPEG capture interval, using default: 5 seconds\n");
+				g_snapshot_interval = 5;
+			}
+			printf("JPEG capture interval: %d seconds\n", g_snapshot_interval);
 			break;
 		case '?':
 		default:
@@ -1111,6 +1324,19 @@ int main(int argc, char *argv[]) {
 	printf("System initialized, displaying %dx%d grid (%d channels)\n",
 	       voLayout.columns, voLayout.rows, active);
 
+	// Create JPEG encoder for jpeg capture (if enabled)
+	pthread_t snapshotThread;
+	if (g_enable_snapshot) {
+		if (jpeg_venc_create(VENC_CHN_JPEG, g_in_w, g_in_h) == 0) {
+			pthread_create(&snapshotThread, NULL, snapshot_thread, &active);
+			printf("JPEG Capture Mode ENABLED - capturing every %d seconds\n", g_snapshot_interval);
+			printf("JPEG files saved to: /data/simple_multi_ahd_vpss_test/jpeg_chX_N.jpg\n");
+		} else {
+			printf("Failed to create JPEG encoder, jpeg capture disabled\n");
+			g_enable_snapshot = RK_FALSE;
+		}
+	}
+
 	// Start VO switching control thread (only when enabled)
 	pthread_t voSwitchThread;
 
@@ -1146,6 +1372,10 @@ int main(int argc, char *argv[]) {
 		pthread_join(voSwitchThread, NULL);
 	}
 
+	if (g_enable_snapshot) {
+		pthread_join(snapshotThread, NULL);
+	}
+
 	// Wait for threads to exit
 	for (int i = 0; i < venc_count; ++i) {
 		pthread_join(vencThreads[i], NULL);
@@ -1154,6 +1384,13 @@ int main(int argc, char *argv[]) {
 		}
 		RK_MPI_VENC_StopRecvFrame(i);
 		RK_MPI_VENC_DestroyChn(i);
+	}
+
+	// Destroy JPEG encoder
+	if (g_enable_snapshot) {
+		// Note: No need to call StopRecvFrame as it's controlled per snapshot
+		RK_MPI_VENC_DestroyChn(VENC_CHN_JPEG);
+		printf("JPEG encoder destroyed\n");
 	}
 
 	for (int i = 0; i < num_channels; ++i) {
@@ -1175,7 +1412,7 @@ int main(int argc, char *argv[]) {
 	for (int i = 0; i < num_channels; ++i) {
 		if (g_chnInfo[i].isActive) {
 			RK_MPI_VPSS_StopGrp(i);
-			for (int ch = 0; ch < 4; ++ch) {
+			for (int ch = 0; ch < 5; ++ch) {
 				RK_MPI_VPSS_DisableChn(i, ch);
 			}
 			RK_MPI_VPSS_DestroyGrp(i);
