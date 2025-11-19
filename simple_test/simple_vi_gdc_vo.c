@@ -2977,6 +2977,36 @@ static const char* json_content =
 "    }\n"
 "}\n";
 
+static const char* dis_json_content =
+"{\n"
+"    \"version\": \"1.0.0\",\n"
+"    \"AlgoParams\": {\n"
+"        \"src_format\": 0,\n"
+"        \"dst_format\": 0,\n"
+"        \"src_width\": 3840,\n"
+"        \"src_height\": 2160,\n"
+"        \"dst_width\": 3840,\n"
+"        \"dst_height\": 2160,\n"
+"        \"frame_rate\": 30.0,\n"
+"        \"fifo_num\": 0,\n"
+"        \"crop_ratio\": 0.1,\n"
+"        \"affinity_mask\": 6,\n"
+"        \"lens_mode\": 1,\n"
+"        \"src_fx\": 1055.35156,\n"
+"        \"src_fy\": 1051.54065,\n"
+"        \"src_cx\": 944.78729,\n"
+"        \"src_cy\": 572.12195,\n"
+"        \"src_ldc\" :{\n"
+"            \"k1\": -5.94682135e-02,\n"
+"            \"k2\": -2.41034608e-02,\n"
+"            \"p1\": 1.47078466e-02,\n"
+"            \"p2\": -6.27873745e-03,\n"
+"            \"k3\": 0.0,\n"
+"            \"xi\": 0.0\n"
+"        }\n"
+"    }\n"
+"}\n";
+
 static RK_S32 create_vo(TEST_VI_CTX_S *ctx, RK_U32 u32Ch) {
     /* Enable VO */
     VO_PUB_ATTR_S VoPubAttr;
@@ -3443,7 +3473,7 @@ static RK_S32 create_gdc(TEST_VI_CTX_S *ctx, RK_U32 u32Ch) {
         }
 
         stAttr.stEisAttr.s32DevNo = 1;
-    } else {
+    } else if (ctx->bGdcMode == 1) {
         stAttr.enMode = GDC_CHN_MODE_FEC;
         stAttr.stFecAttr.enFecMode = GDC_FEC_UPDATE_MESH_ONLINE;
         stAttr.stFecAttr.dLightCenter[0]  = 1956.3909119999998438;
@@ -3455,6 +3485,30 @@ static RK_S32 create_gdc(TEST_VI_CTX_S *ctx, RK_U32 u32Ch) {
         stAttr.stFecAttr.s32CorrectLevel  = 250;
         stAttr.stFecAttr.enDirection      = GDC_FEC_CORRECT_DIRECTION_XY;
         stAttr.stFecAttr.enStyle          = GDC_FEC_KEEP_ASPECT_RATIO_REDUCE_FOV;
+    } else if (ctx->bGdcMode == 2) {
+        if (ctx->pGdcCfgFile != RK_NULL) {
+            memcpy(stAttr.cfgFile, ctx->pGdcCfgFile, strlen(ctx->pGdcCfgFile));
+        }
+
+        stAttr.enMode = GDC_CHN_MODE_DIS;
+        stAttr.stDisAttr.stCfg.enMode              = DIS_MODE_4_DOF_GME;
+        stAttr.stDisAttr.stCfg.enMotionLevel       = DIS_MOTION_LEVEL_NORMAL;
+        stAttr.stDisAttr.stCfg.u32CropRatio        = 80;
+        stAttr.stDisAttr.stCfg.u32BufNum           = 5;
+        stAttr.stDisAttr.stCfg.u32FrameRate        = 30;
+        stAttr.stDisAttr.stCfg.enPdtType           = DIS_PDT_TYPE_IPC;
+        stAttr.stDisAttr.stCfg.u32GyroOutputRange  = 0;
+        stAttr.stDisAttr.stCfg.bCameraSteady       = RK_FALSE;
+        stAttr.stDisAttr.stCfg.u32GyroDataBitWidth = 0;
+
+        stAttr.stDisAttr.stAttr.bEnable               = RK_TRUE;
+        stAttr.stDisAttr.stAttr.u32MovingSubjectLevel = 0;
+        stAttr.stDisAttr.stAttr.s32RollingShutterCoef = 0;
+        stAttr.stDisAttr.stAttr.u32Timelag            = 33333;
+        stAttr.stDisAttr.stAttr.u32ViewAngle          = 1000;
+        stAttr.stDisAttr.stAttr.bStillCrop            = RK_FALSE;
+        stAttr.stDisAttr.stAttr.u32HorizontalLimit    = 512;
+        stAttr.stDisAttr.stAttr.u32VerticalLimit      = 512;
     }
 
     s32Ret = RK_MPI_GDC_CreateChn(u32Ch, &stAttr);
@@ -4104,6 +4158,30 @@ int main(int argc, char *argv[]) {
             }
 
             ctx->pGdcCfgFile = "/tmp/rkeis_config.json";
+        }
+    } else if (ctx->bGdcMode == 2) {
+        if (ctx->pGdcCfgFile == RK_NULL) {
+            FILE* disFp = fopen("/tmp/rkdis_config.json", "w");
+            if (disFp == NULL) {
+                printf("fopen dis json failed\n");
+                return -1;
+            }
+
+
+            int bytes_written = fwrite(dis_json_content, sizeof(char), strlen(dis_json_content), disFp);
+            if (bytes_written != strlen(dis_json_content)) {
+                printf("fwrite dis json failed\n");
+                fclose(disFp);
+                return -1;
+            }
+
+
+            if (fclose(disFp) != 0) {
+                printf("fclose dis json failed\n");
+                return -1;
+            }
+
+            ctx->pGdcCfgFile = "/tmp/rkdis_config.json";
         }
     }
 
