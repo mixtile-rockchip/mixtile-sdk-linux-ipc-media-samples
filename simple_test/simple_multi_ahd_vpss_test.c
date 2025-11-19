@@ -8,6 +8,8 @@
 //   VPSS group i ch2: Same resolution as input, save 1 frame to /data/simple_multi_ahd_vpss_test/vpss_grp{i}_ch2_0.yuv
 //   VPSS group i ch3: Quad display size(g_disp_w/2 x g_disp_h/2), bind to VO channel i for display
 //   VPSS group i ch4: Same resolution as input, manual get frame + send to shared JPEG VENC for jpeg capture
+// - OSD overlay: Each channel displays "CH0", "CH1", etc. using RGN (OVERLAY_RGN attached to VENC)
+//   OSD appears in VENC streams (main/sub) and JPEG captures (not in VO display)
 // - Support extension to 8 VI + 8 VPSS + 8-grid display
 // - JPEG capture function: Use single JPEG encoder (channel 16) shared by all channels via manual SendFrame
 
@@ -175,6 +177,7 @@ Data Storage:
 #include "rk_debug.h"
 #include "rk_defines.h"
 #include "rk_mpi_mb.h"
+#include "rk_mpi_rgn.h"
 #include "rk_mpi_sys.h"
 #include "rk_mpi_venc.h"
 #include "rk_mpi_vi.h"
@@ -229,6 +232,29 @@ static int s32PipeId = VI_MAX_PHY_PIPE_NUM;         // VI virtual pipe ID
 
 // JPEG capture related variables
 static pthread_mutex_t g_snapshot_mutex = PTHREAD_MUTEX_INITIALIZER; // Protect JPEG VENC access
+
+/* ====================================================================
+ * OSD Configuration
+ * ====================================================================
+ * This section defines parameters for VENC OSD overlay functionality.
+ * Each VENC channel has its own OSD region displaying channel identification.
+ *
+ * Implementation Details:
+ * - Type: OVERLAY_RGN (software overlay for VENC channels)
+ * - Attachment: Direct to VENC channels (RK_ID_VENC)
+ * - Format: ARGB8888 with custom 5x7 dot matrix font
+ * - Content: Channel identification text ("CH0", "CH1", etc.)
+ * - Position: Configurable, default at top-left (10, 10)
+ *
+ * Resource Management:
+ * - Each VENC channel has its own RGN handle (base + channel ID)
+ * - OSD lifecycle is bound to VENC channel lifecycle
+ * - Created immediately after VENC channel creation
+ * - Destroyed after VENC channel stops but before channel destruction
+ */
+#define OSD_RGN_BASE_HANDLE 100  /**< Base RGN handle, incremented per VENC channel (100-115 for 16 channels) */
+#define OSD_TEXT_WIDTH      80   /**< OSD bitmap width in pixels */
+#define OSD_TEXT_HEIGHT     32   /**< OSD bitmap height in pixels */
 
 // VO device configuration (platform dependent)
 #ifdef RV1126B
@@ -337,6 +363,313 @@ static int save_yuv_one(const char *path, const VIDEO_FRAME_INFO_S *f) {
 	size_t w = fwrite(vir, 1, len, fp);
 	fclose(fp);
 	return (w == len) ? 0 : -1;
+}
+
+/* ====================================================================
+ * OSD Functions - Simple 5x7 dot matrix font implementation
+ * ====================================================================*/
+
+// 5x7 dot matrix font data for characters: C, H, 0-9
+// Each character is 5 bytes, representing 5 columns of 7 rows (bits 0-6 used)
+static const unsigned char g_font_5x7[][5] = {
+	// 'C'
+	{0x3E, 0x41, 0x41, 0x41, 0x22},
+	// 'H'
+	{0x7F, 0x08, 0x08, 0x08, 0x7F},
+	// '0'
+	{0x3E, 0x51, 0x49, 0x45, 0x3E},
+	// '1'
+	{0x00, 0x42, 0x7F, 0x40, 0x00},
+	// '2'
+	{0x62, 0x51, 0x49, 0x49, 0x46},
+	// '3'
+	{0x22, 0x41, 0x49, 0x49, 0x36},
+	// '4'
+	{0x18, 0x14, 0x12, 0x7F, 0x10},
+	// '5'
+	{0x27, 0x45, 0x45, 0x45, 0x39},
+	// '6'
+	{0x3C, 0x4A, 0x49, 0x49, 0x30},
+	// '7'
+	{0x01, 0x71, 0x09, 0x05, 0x03},
+	// '8'
+	{0x36, 0x49, 0x49, 0x49, 0x36},
+	// '9'
+	{0x06, 0x49, 0x49, 0x29, 0x1E}
+};
+
+// Font index mapping
+#define FONT_C  0
+#define FONT_H  1
+#define FONT_0  2
+#define FONT_1  3
+#define FONT_2  4
+#define FONT_3  5
+#define FONT_4  6
+#define FONT_5  7
+#define FONT_6  8
+#define FONT_7  9
+#define FONT_8  10
+#define FONT_9  11
+
+/**
+ * Draw a single character on ARGB8888 bitmap
+ * @param bitmap: Pointer to ARGB8888 bitmap buffer
+ * @param width: Bitmap width
+ * @param height: Bitmap height
+ * @param x: X position to draw character
+ * @param y: Y position to draw character
+ * @param font_idx: Font index from g_font_5x7
+ * @param color: ARGB8888 color value (0xAARRGGBB)
+ */
+static void draw_char_5x7(RK_U32 *bitmap, int width, int height, int x, int y, int font_idx, RK_U32 color) {
+	if (font_idx < 0 || font_idx >= (int)(sizeof(g_font_5x7) / sizeof(g_font_5x7[0])))
+		return;
+
+	const unsigned char *font_data = g_font_5x7[font_idx];
+
+	// Draw 5x7 character
+	for (int col = 0; col < 5; col++) {
+		for (int row = 0; row < 7; row++) {
+			if (font_data[col] & (1 << row)) {
+				int px = x + col * 2;  // Scale 2x for better visibility
+				int py = y + row * 2;
+
+				// Draw 2x2 pixel block for each dot
+				for (int dy = 0; dy < 2; dy++) {
+					for (int dx = 0; dx < 2; dx++) {
+						int px_final = px + dx;
+						int py_final = py + dy;
+
+						if (px_final >= 0 && px_final < width && py_final >= 0 && py_final < height) {
+							bitmap[py_final * width + px_final] = color;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Create OSD bitmap with channel text (e.g., "CH0", "CH1", etc.)
+ * @param channel: Channel number (0-7)
+ * @param bitmap: Output ARGB8888 bitmap buffer (actually ABGR format)
+ * @param width: Bitmap width
+ * @param height: Bitmap height
+ * @return: 0 on success, -1 on failure
+ *
+ * Note: RK platform uses ABGR byte order (Alpha-Blue-Green-Red)
+ * Color format: 0xAABBGGRR
+ */
+static int create_channel_osd_bitmap(int channel, RK_U32 *bitmap, int width, int height) {
+	if (!bitmap || channel < 0 || channel > 7)
+		return -1;
+
+	// Clear bitmap with transparent background
+	// Format: 0xAABBGGRR (Alpha-Blue-Green-Red)
+	RK_U32 bg_transparent = 0x00000000;  // Fully transparent
+	for (int i = 0; i < width * height; i++) {
+		bitmap[i] = bg_transparent;
+	}
+
+	// Draw semi-transparent black background box for text area
+	// Background: semi-transparent black (R=00, G=00, B=00, A=C0)
+	// ABGR format: 0xC0000000
+	RK_U32 bg_box = 0xC0000000;
+	int text_area_w = 50;  // Width of text area (3 chars * 12 + margins)
+	int text_area_h = 22;  // Height of text area
+
+	for (int py = 2; py < text_area_h; py++) {
+		for (int px = 2; px < text_area_w; px++) {
+			if (py < height && px < width) {
+				bitmap[py * width + px] = bg_box;
+			}
+		}
+	}
+
+	// Text color: opaque yellow (R=FF, G=FF, B=00, A=FF)
+	// ABGR format: 0xFF00FFFF
+	RK_U32 text_color = 0xFF00FFFF;
+
+	// Draw "CH" at position (4, 4)
+	int x = 4;
+	int y = 4;
+
+	// Draw 'C'
+	draw_char_5x7(bitmap, width, height, x, y, FONT_C, text_color);
+	x += 12;  // 5*2 + 2 spacing
+
+	// Draw 'H'
+	draw_char_5x7(bitmap, width, height, x, y, FONT_H, text_color);
+	x += 12;
+
+	// Draw channel number
+	int font_idx = FONT_0 + channel;
+	draw_char_5x7(bitmap, width, height, x, y, font_idx, text_color);
+
+	printf("OSD: Created text 'CH%d' for channel %d (%dx%d, yellow text on semi-transparent black)\n",
+	       channel, channel, width, height);
+
+	return 0;
+}
+
+/* ====================================================================
+ * VENC OSD Management Functions
+ * ====================================================================
+ * These functions manage OSD overlay for VENC channels.
+ * Each VENC channel gets its own OSD region displaying channel identification.
+ *
+ * Key Features:
+ * - Uses OVERLAY_RGN type (software overlay for VENC)
+ * - Direct attachment to VENC channels (RK_ID_VENC)
+ * - ARGB8888 pixel format for text rendering
+ * - Lifecycle bound to VENC channel (create after VENC, destroy before VENC)
+ *
+ * Usage:
+ * 1. Call venc_create_osd() immediately after RK_MPI_VENC_CreateChn()
+ * 2. Call venc_destroy_osd() after RK_MPI_VENC_StopRecvFrame() but before RK_MPI_VENC_DestroyChn()
+ */
+
+/**
+ * Create and attach OSD to a VENC channel
+ *
+ * This function creates an OSD region with channel identification text (e.g., "CH0", "CH1")
+ * and attaches it directly to the specified VENC channel. The OSD will appear in all
+ * encoded streams from this channel.
+ *
+ * @param venc_chn VENC channel ID (0-15)
+ * @param display_channel Channel number to display in OSD text (0-7)
+ * @return 0 on success, -1 on failure
+ *
+ * @note This function should be called immediately after VENC channel creation
+ * @note Uses OVERLAY_RGN type which is appropriate for VENC software overlay
+ */
+static int venc_create_osd(int venc_chn, int display_channel) {
+	RK_S32 ret;
+	RGN_HANDLE rgnHandle = OSD_RGN_BASE_HANDLE + venc_chn;  // Each VENC channel has unique RGN handle
+	RGN_ATTR_S rgnAttr;
+	RGN_CHN_ATTR_S chnAttr;
+	BITMAP_S bitmap;
+	MPP_CHN_S mppChn;
+
+	printf("Creating OSD for VENC channel %d (display: CH%d)\n", venc_chn, display_channel);
+
+	// Step 1: Create RGN region with OVERLAY_RGN type
+	// OVERLAY_RGN is used for VENC software overlay (not hardware overlay)
+	memset(&rgnAttr, 0, sizeof(rgnAttr));
+	rgnAttr.enType = OVERLAY_RGN;
+	rgnAttr.unAttr.stOverlay.enPixelFmt = RK_FMT_ARGB8888;
+	rgnAttr.unAttr.stOverlay.stSize.u32Width = OSD_TEXT_WIDTH;
+	rgnAttr.unAttr.stOverlay.stSize.u32Height = OSD_TEXT_HEIGHT;
+	rgnAttr.unAttr.stOverlay.u32ClutNum = 0;
+
+	ret = RK_MPI_RGN_Create(rgnHandle, &rgnAttr);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to create RGN handle %d for VENC %d: 0x%x\n", rgnHandle, venc_chn, ret);
+		return -1;
+	}
+
+	// Step 2: Create ARGB8888 bitmap with channel identification text
+	RK_U32 *bitmapData = (RK_U32 *)malloc(OSD_TEXT_WIDTH * OSD_TEXT_HEIGHT * 4);
+	if (!bitmapData) {
+		printf("Failed to allocate bitmap memory\n");
+		RK_MPI_RGN_Destroy(rgnHandle);
+		return -1;
+	}
+
+	create_channel_osd_bitmap(display_channel, bitmapData, OSD_TEXT_WIDTH, OSD_TEXT_HEIGHT);
+
+	// Step 3: Set bitmap data to RGN region
+	memset(&bitmap, 0, sizeof(bitmap));
+	bitmap.enPixelFormat = RK_FMT_ARGB8888;
+	bitmap.u32Width = OSD_TEXT_WIDTH;
+	bitmap.u32Height = OSD_TEXT_HEIGHT;
+	bitmap.pData = bitmapData;
+
+	ret = RK_MPI_RGN_SetBitMap(rgnHandle, &bitmap);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to set bitmap for VENC %d: 0x%x\n", venc_chn, ret);
+		free(bitmapData);
+		RK_MPI_RGN_Destroy(rgnHandle);
+		return -1;
+	}
+
+	free(bitmapData);  // Bitmap data copied to RGN, safe to free
+
+	// Step 4: Attach RGN to VENC channel
+	// Configure channel attributes for overlay display
+	memset(&mppChn, 0, sizeof(mppChn));
+	mppChn.enModId = RK_ID_VENC;
+	mppChn.s32DevId = 0;
+	mppChn.s32ChnId = venc_chn;
+
+	memset(&chnAttr, 0, sizeof(chnAttr));
+	chnAttr.bShow = RK_TRUE;
+	chnAttr.enType = OVERLAY_RGN;
+	chnAttr.unChnAttr.stOverlayChn.stPoint.s32X = 10;  // OSD position: top-left corner
+	chnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = 10;
+	chnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 128;   // Semi-transparent background
+	chnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 128;   // Semi-transparent foreground
+	chnAttr.unChnAttr.stOverlayChn.u32ColorLUT[0] = 0x00;
+	chnAttr.unChnAttr.stOverlayChn.u32ColorLUT[1] = 0xFFFFFF;
+	chnAttr.unChnAttr.stOverlayChn.u32Layer = 0;
+	chnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = RK_FALSE;
+	chnAttr.unChnAttr.stOverlayChn.stQpInfo.s32Qp = RK_FALSE;
+
+	ret = RK_MPI_RGN_AttachToChn(rgnHandle, &mppChn, &chnAttr);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to attach RGN to VENC %d: 0x%x\n", venc_chn, ret);
+		RK_MPI_RGN_Destroy(rgnHandle);
+		return -1;
+	}
+
+	printf("OSD attached to VENC channel %d (CH%d)\n", venc_chn, display_channel);
+	return 0;
+}
+
+/**
+ * Destroy OSD for a VENC channel
+ *
+ * This function detaches the OSD region from the VENC channel and destroys the RGN resource.
+ * It should be called after the VENC channel has stopped receiving frames but before
+ * the channel is destroyed.
+ *
+ * @param venc_chn VENC channel ID (0-15)
+ * @return 0 on success (always returns 0 to allow cleanup to continue)
+ *
+ * @note Call this after RK_MPI_VENC_StopRecvFrame() but before RK_MPI_VENC_DestroyChn()
+ * @note For OVERLAY_RGN, detach and destroy operations are synchronous and immediate
+ */
+static int venc_destroy_osd(int venc_chn) {
+	RGN_HANDLE rgnHandle = OSD_RGN_BASE_HANDLE + venc_chn;
+	MPP_CHN_S mppChn;
+	RK_S32 ret;
+
+	printf("Destroying OSD for VENC channel %d (handle %d)...\n", venc_chn, rgnHandle);
+
+	// Step 1: Detach RGN from VENC channel
+	memset(&mppChn, 0, sizeof(mppChn));
+	mppChn.enModId = RK_ID_VENC;
+	mppChn.s32DevId = 0;
+	mppChn.s32ChnId = venc_chn;
+
+	ret = RK_MPI_RGN_DetachFromChn(rgnHandle, &mppChn);
+	if (ret == RK_SUCCESS) {
+		printf("Detached RGN from VENC channel %d\n", venc_chn);
+	} else {
+		printf("Failed to detach RGN from VENC %d: 0x%x\n", venc_chn, ret);
+	}
+
+	// Step 2: Destroy RGN region
+	ret = RK_MPI_RGN_Destroy(rgnHandle);
+	if (ret != RK_SUCCESS) {
+		printf("Failed to destroy RGN handle %d: 0x%x\n", rgnHandle, ret);
+	} else {
+		printf("OSD destroyed for VENC %d\n", venc_chn);
+	}
+
+	return 0;  // Always return success to allow cleanup to continue
 }
 
 /* ====================================================================
@@ -1282,6 +1615,10 @@ int main(int argc, char *argv[]) {
 		MPP_CHN_S venc_main = {.enModId = RK_ID_VENC, .s32DevId = 0, .s32ChnId = venc_count};
 		RK_MPI_SYS_Bind(&vpss_main, &venc_main);
 		pthread_create(&vencThreads[venc_count], NULL, venc_stream_thread, &vencCtx[venc_count]);
+
+		// Create OSD for main stream (right after VENC created)
+		venc_create_osd(venc_count, i);  // VENC channel, display "CHi"
+
 		venc_count++;
 
 		// Sub stream encoder
@@ -1294,6 +1631,10 @@ int main(int argc, char *argv[]) {
 		MPP_CHN_S venc_sub = {.enModId = RK_ID_VENC, .s32DevId = 0, .s32ChnId = venc_count};
 		RK_MPI_SYS_Bind(&vpss_sub, &venc_sub);
 		pthread_create(&vencThreads[venc_count], NULL, venc_stream_thread, &vencCtx[venc_count]);
+
+		// Create OSD for sub stream (right after VENC created)
+		venc_create_osd(venc_count, i);  // VENC channel, display "CHi"
+
 		venc_count++;
 	}
 
@@ -1353,7 +1694,50 @@ int main(int argc, char *argv[]) {
 
 	printf("Shutting down...\n");
 
-	// Unbind and cleanup
+	// Step 1: Wait for control threads to exit first
+	if (g_enable_switch) {
+		pthread_join(voSwitchThread, NULL);
+		printf("VO switch thread stopped\n");
+	}
+
+	if (g_enable_snapshot) {
+		pthread_join(snapshotThread, NULL);
+		printf("Snapshot thread stopped\n");
+	}
+
+	// Step 2: Wait for VPSS ch2 threads to exit
+	for (int i = 0; i < num_channels; ++i) {
+		if (g_chnInfo[i].isActive) {
+			pthread_join(vpssThreads[i], NULL);
+		}
+	}
+	printf("VPSS threads stopped\n");
+
+	// Step 3: Stop VENC channels before destroying OSD
+	// CRITICAL: Must stop VENC first, otherwise VENC may still be using OSD buffers
+	printf("Stopping VENC (before destroying OSD)...\n");
+	for (int i = 0; i < venc_count; ++i) {
+		RK_MPI_VENC_StopRecvFrame(i);  // Stop receiving frames
+	}
+	// Wait for VENC threads to finish
+	for (int i = 0; i < venc_count; ++i) {
+		pthread_join(vencThreads[i], NULL);
+		if (vencCtx[i].fp) {
+			fclose(vencCtx[i].fp);
+		}
+	}
+	printf("VENC receive stopped, threads joined\n");
+
+	// Step 4: Destroy OSD for all VENC channels (after VENC stopped)
+	// Each VENC channel has its own OSD, safe to destroy now (OVERLAY_RGN, synchronous operation)
+	printf("Destroying OSD for all VENC channels...\n");
+	for (int i = 0; i < venc_count; ++i) {
+		venc_destroy_osd(i);  // Destroy OSD for VENC channel i
+	}
+	printf("All VENC OSD destroyed\n");
+
+	// Step 5: Unbind all connections
+	printf("Unbinding all connections...\n");
 	for (int i = 0; i < num_channels; ++i) {
 		if (!g_chnInfo[i].isActive)
 			continue;
@@ -1367,39 +1751,8 @@ int main(int argc, char *argv[]) {
 		RK_MPI_SYS_UnBind(&vi, &vpss);
 	}
 
-	// Wait for control threads to exit
-	if (g_enable_switch) {
-		pthread_join(voSwitchThread, NULL);
-	}
-
-	if (g_enable_snapshot) {
-		pthread_join(snapshotThread, NULL);
-	}
-
-	// Wait for threads to exit
-	for (int i = 0; i < venc_count; ++i) {
-		pthread_join(vencThreads[i], NULL);
-		if (vencCtx[i].fp) {
-			fclose(vencCtx[i].fp);
-		}
-		RK_MPI_VENC_StopRecvFrame(i);
-		RK_MPI_VENC_DestroyChn(i);
-	}
-
-	// Destroy JPEG encoder
-	if (g_enable_snapshot) {
-		// Note: No need to call StopRecvFrame as it's controlled per snapshot
-		RK_MPI_VENC_DestroyChn(VENC_CHN_JPEG);
-		printf("JPEG encoder destroyed\n");
-	}
-
-	for (int i = 0; i < num_channels; ++i) {
-		if (g_chnInfo[i].isActive) {
-			pthread_join(vpssThreads[i], NULL);
-		}
-	}
-
-	// Close VO
+	// Step 6: Close VO
+	printf("Closing VO...\n");
 	for (int i = 0; i < active; ++i) {
 		RK_MPI_VO_DisableChn(g_VoLayer, i);
 	}
@@ -1407,8 +1760,23 @@ int main(int argc, char *argv[]) {
 	RK_MPI_VO_Disable(g_VoDev);
 	RK_MPI_VO_UnBindLayer(g_VoLayer, g_VoDev);
 	RK_MPI_VO_CloseFd();
+	printf("VO closed\n");
 
-	// Stop and destroy VPSS
+	// Step 7: Destroy VENC channels (already stopped and joined)
+	printf("Destroying VENC channels...\n");
+	for (int i = 0; i < venc_count; ++i) {
+		RK_MPI_VENC_DestroyChn(i);
+	}
+
+	// Destroy JPEG encoder
+	if (g_enable_snapshot) {
+		RK_MPI_VENC_DestroyChn(VENC_CHN_JPEG);
+		printf("JPEG encoder destroyed\n");
+	}
+	printf("VENC channels destroyed\n");
+
+	// Step 8: Stop and destroy VPSS
+	printf("Stopping VPSS...\n");
 	for (int i = 0; i < num_channels; ++i) {
 		if (g_chnInfo[i].isActive) {
 			RK_MPI_VPSS_StopGrp(i);
@@ -1418,13 +1786,17 @@ int main(int argc, char *argv[]) {
 			RK_MPI_VPSS_DestroyGrp(i);
 		}
 	}
+	printf("VPSS stopped\n");
 
-	// Close VI channels
+	// Step 9: Close VI channels
+	printf("Closing VI...\n");
 	for (int i = 0; i < num_channels; ++i) {
 		RK_MPI_VI_DisableChn(s32PipeId, i);
 	}
+	printf("VI closed\n");
 
 cleanup:
+	printf("System cleanup complete\n");
 	RK_MPI_SYS_Exit();
 	return 0;
 }
