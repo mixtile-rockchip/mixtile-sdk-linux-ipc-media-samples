@@ -167,3 +167,7 @@ sleep 1
 checkmd5sum /tmp/test_jpeg0.jpeg
 rm /tmp/test*
 
+simple_vi_bind_venc_rtsp_lowdelay -w 3840 -h 2160 -b 16384 -m 1 -n /dev/video0 -C 2 -W 1920 -H 1080 -c 10
+sleep 1
+killall simple_vi_bind_venc_rtsp_lowdelay
+sleep 1

@@ -185,6 +185,9 @@ simple_vi_bind_venc: simple_vi_bind_venc.c
 simple_vi_bind_venc_rtsp: simple_vi_bind_venc_rtsp.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS) -lrkaiq -lrtsp
 
+simple_vi_bind_venc_rtsp_lowdelay: simple_vi_bind_venc_rtsp_lowdelay.c
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS) -lrkaiq -lrtsp
+
 simple_vi_bind_venc_svc_rtsp: simple_vi_bind_venc_svc_rtsp.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS) -lrkaiq -lrtsp
 
