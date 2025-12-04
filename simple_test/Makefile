@@ -78,6 +78,9 @@ INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/rkaiq/algos
 INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/rkaiq/iq_parser
 INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/rkaiq/iq_parser_v2
 INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/rkaiq/smartIr
+ifneq ($(filter y,$(CONFIG_RK_ISP_IRFPA) $(RK_ENABLE_IRFPA)),)
+INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/rk_irfpa/simple_api
+endif
 
 SIMPLE_CFLAGS += -g -Wall $(INC_FLAGS) $(SIMPLE_PKG_CONF_OPTS) $(RK_MEDIA_CROSS_CFLAGS)
 
@@ -100,6 +103,10 @@ endif
 SOURCES_C     = $(wildcard *.c)
 ifneq ($(SIMPLE_SPECIAL_SRC_DIR),)
 SPEICAL_SOURCES_C = $(wildcard $(strip $(SIMPLE_SPECIAL_SRC_DIR))/*.c)
+endif
+
+ifneq ($(filter y,$(CONFIG_RK_ISP_IRFPA) $(RK_ENABLE_IRFPA)),)
+SPEICAL_SOURCES_C := $(SPEICAL_SOURCES_C) $(wildcard rv1126b/simple_irfpa_vi_bind_venc_rtsp.c)
 endif
 
 OBJECTS       = $(basename $(SOURCES_C)) $(basename $(SPEICAL_SOURCES_C))
@@ -210,6 +217,12 @@ simple_vi_avs_send_vo: simple_vi_avs_send_vo.c
 
 simple_multi_ahd_vpss_test: simple_multi_ahd_vpss_test.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_VO_LD_FLAGS)
+
+rv1126b/simple_irfpa_vi_bind_venc_rtsp: rv1126b/simple_irfpa_vi_bind_venc_rtsp.c
+	$(CMD_DBG)echo "build $@"
+ifneq ($(filter y,$(CONFIG_RK_ISP_IRFPA) $(RK_ENABLE_IRFPA)),)
+	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS) -lrkirfpa -lrtsp
+endif
 
 $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_chn_sharebuf: $(SIMPLE_SPECIAL_SRC_DIR)/simple_vi_bind_venc_chn_sharebuf.c
 	$(CMD_DBG)$(SIMPLE_CC) $^ -o $@ $(SIMPLE_CFLAGS) $(SIMPLE_LD_FLAGS)
