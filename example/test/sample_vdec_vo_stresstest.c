@@ -308,7 +308,7 @@ RK_S32 vo_change_layer_resolution() {
             stRect.s32Y, stRect.u32Width, stRect.u32Height);
 
     #ifdef RV1126B
-    RK_MPI_VO_SetLayerFlush(g_ctx->vo.s32LayerId);
+    RK_MPI_VO_SetLayerCleanMode(g_ctx->vo.s32LayerId, VO_LAYER_CLEAN_MODE_ONCE);
     return RK_MPI_VO_SetLayerDispRect(g_ctx->vo.s32LayerId, &stRect);
     #else
     return 0;

@@ -541,7 +541,7 @@ static int vo_init(void) {
 		RK_LOGE("create %d layer %d ch vo failed!\n", vo_layer, vo_chn_id);
 		return ret;
 	}
-	RK_MPI_VO_SetLayerFlush(vo_layer);
+	RK_MPI_VO_SetLayerCleanMode(vo_layer, VO_LAYER_CLEAN_MODE_ONCE);
 	RK_LOGI("vo init success\n");
 	return ret;
 }
