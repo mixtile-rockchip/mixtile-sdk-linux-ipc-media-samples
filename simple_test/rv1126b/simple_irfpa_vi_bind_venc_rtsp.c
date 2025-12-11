@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 		ctx->cfg.ooc_media = "/dev/media0";
 		ctx->cfg.vicap_media = "/dev/media1";
 		ctx->cfg.isp_media = "/dev/media3";
-		ctx->cfg.iqfile = "/oem/usr/bin/irfpaisp12.json";
+		ctx->cfg.iqfile = "/etc/iqfiles/irfpaisp12.json";
 		ctx->cfg.log_mode = RK_IRFPA_SIMPLE_API_LOG_DEBUG;
 		ctx->cfg.isp_mode = RK_IRFPA_SIMPLE_API_HW_ISP;
 		ret = rk_irfpa_simple_api_init(ctx);
@@ -359,9 +359,11 @@ int main(int argc, char *argv[]) {
 	if (g_rtsplive)
 		rtsp_del_demo(g_rtsplive);
 
-	s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
-	if (s32Ret != RK_SUCCESS) {
-		RK_LOGE("RK_MPI_SYS_UnBind fail %x", s32Ret);
+	if (!get_raw) {
+		s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("RK_MPI_SYS_UnBind fail %x", s32Ret);
+		}
 	}
 
 	s32Ret = RK_MPI_VI_DisableChn(VI_VIR_PIPE_ID, s32chnlId);
