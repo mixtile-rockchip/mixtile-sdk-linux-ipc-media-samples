@@ -3955,7 +3955,7 @@ __FAILED:
 static RK_CHAR optstr[] = "?::w:h:d:c:m:l:f:t:W:L:M:v:V:C:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
-	printf("\t%s simple_vi_gdc_vo -w 3840 -h 2160 -d 0 -c 0 -m 1 -l 50 -t 1 -f /data/rkeis_config.json -M 1\n", name);
+	printf("\t%s -w 3840 -h 2160 -d 0 -c 0 -m 1 -l 50 -t 1 -f /data/rkeis_config.json -M 1\n", name);
 	printf("\t-w: VI width, Default:3840\n");
 	printf("\t-h: VI height, Default:2160\n");
 	printf("\t-d: dev id, Default:0\n");

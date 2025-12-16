@@ -286,7 +286,7 @@ static int vo_get_en_intf_type(int type) {
 static RK_CHAR optstr[] = "?::w:h:I:l:d:t:W:H:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
-	printf("\t%s simple_vi_get_frame_send_vo  -w 1024 -h 600 -I 0 -l 0 -d 0\n", name);
+	printf("\t%s -w 1024 -h 600 -I 0 -l 0 -d 0\n", name);
 	printf("\t-w | --width: VI width, Default:1920\n");
 	printf("\t-h | --heght: VI height, Default:1080\n");
 #if defined RV1126_RV1109
