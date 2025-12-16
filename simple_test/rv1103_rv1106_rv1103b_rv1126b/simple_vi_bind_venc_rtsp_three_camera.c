@@ -240,7 +240,7 @@ int vi_chn_init(int devId,int channelId, int width, int height) {
 	vi_chn_attr.stSize.u32Height = height;
 	vi_chn_attr.enPixelFormat = RK_FMT_YUV420SP;
 	vi_chn_attr.enCompressMode = COMPRESS_MODE_NONE; // COMPRESS_AFBC_16x16;
-	vi_chn_attr.u32Depth = 2;
+	vi_chn_attr.u32Depth = 0;
 	ret = RK_MPI_VI_SetChnAttr(devId, channelId, &vi_chn_attr);
 	if (ret) {
 		printf("ERROR: RK_MPI_VI_SetChnAttr error! ret=0x%x\n", ret);
