@@ -33,10 +33,10 @@
 #define VENC_MAIN_CHN 0
 
 static struct {
-	const char *eis_video_config_file;
-	const char *eis_display_config_file;
-	uint32_t video_width;
-	uint32_t video_height;
+	uint32_t input_width;
+	uint32_t input_height;
+	uint32_t output_width;
+	uint32_t output_height;
 	uint32_t display_width;
 	uint32_t display_height;
 	uint32_t display_rotation;
@@ -65,22 +65,22 @@ enum {
 
 static char optstr[] = "?::w:h:c:l:t:p:W:H:r:R:P:f:";
 static const struct option long_options[] = {
-	{"video_width", required_argument, RK_NULL, 'w'},
-	{"video_height", required_argument, RK_NULL, 'h'},
-	{"display_width", required_argument, RK_NULL, 'W'},
-	{"display_height", required_argument, RK_NULL, 'H'},
+	{"input_width", required_argument, RK_NULL, 'w'},
+	{"input_height", required_argument, RK_NULL, 'h'},
+	{"output_width", required_argument, RK_NULL, 'W'},
+	{"output_height", required_argument, RK_NULL, 'H'},
+	{"display_width", required_argument, RK_NULL, 'd' + 'w'},
+	{"display_height", required_argument, RK_NULL, 'd' + 'h'},
 	{"display_rotation", required_argument, RK_NULL, 'R'},
 	{"frame_count", required_argument, RK_NULL, 'c'},
 	{"loop_count", required_argument, RK_NULL, 'l'},
 	{"type", required_argument, RK_NULL, 't'},
 	{"fps", required_argument, RK_NULL, 'f'},
-	{"eis_video_config_file", required_argument, RK_NULL, 'p'},
-	{"eis_display_config_file", required_argument, RK_NULL, 'P'},
 	{"enable_compress", required_argument, RK_NULL, 'e' + 'c'},
 	{"enable_rkaiq", required_argument, RK_NULL, 'e' + 'r'},
 	{"enable_amtd", required_argument, RK_NULL, 'e' + 'a'},
 	{"enable_test", required_argument, RK_NULL, 'e' + 't'},
-	{"enable_vpss", required_argument, RK_NULL, 'e' + 'v'},
+	{"enable_vpss", required_argument, RK_NULL, 'e' + 'v' + 'p'},
 	{"enable_memc", required_argument, RK_NULL, 'e' + 'm'},
 	{"iio_device_idx", required_argument, RK_NULL, 'i' + 'd' + 'd'},
 	{"help", required_argument, RK_NULL, 'h' + 'p'},
@@ -95,10 +95,12 @@ static void sigterm_handler(int sig) {
 static void print_usage(const char *name) {
 	printf("usage example:\n");
 	printf("\t%s -w 3840 -h 2160\n", name);
-	printf("\t-w | --video_width: video width, Default:3840\n");
-	printf("\t-h | --video_height: video height, Default:2160\n");
-	printf("\t-W | --display_width: video width, Default:1080\n");
-	printf("\t-H | --display_height: video height, Default:1920\n");
+	printf("\t-w | --input_width: gdc input width, Default:3968\n");
+	printf("\t-h | --input_height: gdc input height, Default:2800\n");
+	printf("\t-w | --output_width: gdc output width, Default:3840\n");
+	printf("\t-h | --output_height: gdc output height, Default:2160\n");
+	printf("\t--display_width: video width, Default:1440\n");
+	printf("\t--display_height: video height, Default:1080\n");
 	printf("\t-w | --fps: video fps, Default:30\n");
 	printf("\t-r | --display_rotation: display rotation, "
 		   "\n\t\t0: roation 0, 1: roation 90, 2: roation 180, 3: roation 270"
@@ -108,10 +110,6 @@ static void print_usage(const char *name) {
 	printf("\t-t | --type: type, 0: vi bind gdc bind vo"
 		   "\n\t\t1: vi bind gdc bind venc"
 		   "\n\t\t2: vi bind gdc, get/release gdc frame\n");
-	printf("  \t-p | --eis_video_config_file: eis config file path, "
-		   "Default:/oem/usr/share/rkeis_config_normal_3840x2160_3840x2160_30fps.json\n");
-	printf("  \t-P | --eis_display_config_file: eis config file path, "
-		   "Default:/oem/usr/share/rkeis_config_normal_1920x1080_1920x1080_30fps.json\n");
 	printf("\t--enable_rkaiq: enable rkaiq, Default:1\n");
 	printf("\t--enable_amtd: enable amtd, this funciton depend on rkaiq, Default:1\n");
 	printf("\t--enable_compress: enable compress format in video, Default:1\n");
@@ -123,37 +121,41 @@ static void print_usage(const char *name) {
 
 static int parse_cmd_args(int argc, const char **argv) {
 	int c = 0;
-	rk_cmd_param.video_width = 3840;
-	rk_cmd_param.video_height = 2160;
+	rk_cmd_param.input_width = 3968;
+	rk_cmd_param.input_height = 2800;
+	rk_cmd_param.output_width = 3840;
+	rk_cmd_param.output_height = 2160;
 	rk_cmd_param.frame_count = 100;
 	rk_cmd_param.loop_count = 1;
 	rk_cmd_param.enable_compress = 1;
 	rk_cmd_param.enable_rkaiq = 1;
 	rk_cmd_param.enable_amtd = 1;
-	rk_cmd_param.enable_memc = 0;
+	rk_cmd_param.enable_memc = 1;
 	rk_cmd_param.enable_vpss = 1;
-	rk_cmd_param.display_width = 1080;
-	rk_cmd_param.display_height = 1920;
+	rk_cmd_param.display_width = 1440;
+	rk_cmd_param.display_height = 1080;
 	rk_cmd_param.display_rotation = ROTATION_90;
 	rk_cmd_param.type = TYPE_GDC_VENC;
 	rk_cmd_param.fps = 30;
 	rk_cmd_param.iio_device_idx = 1;
-	rk_cmd_param.eis_video_config_file =
-		"/oem/usr/share/rkeis_config_normal_3840x2160_3840x2160_30fps.json";
-	rk_cmd_param.eis_display_config_file =
-		"/oem/usr/share/rkeis_config_normal_1920x1080_1920x1080_30fps.json";
 	while ((c = getopt_long(argc, argv, optstr, long_options, RK_NULL)) != -1) {
 		switch (c) {
 		case 'w':
-			rk_cmd_param.video_width = atoi(optarg);
+			rk_cmd_param.input_width = atoi(optarg);
 			break;
 		case 'h':
-			rk_cmd_param.video_height = atoi(optarg);
+			rk_cmd_param.input_height = atoi(optarg);
 			break;
 		case 'W':
-			rk_cmd_param.display_width = atoi(optarg);
+			rk_cmd_param.output_width = atoi(optarg);
 			break;
 		case 'H':
+			rk_cmd_param.output_height = atoi(optarg);
+			break;
+		case 'd' + 'w':
+			rk_cmd_param.display_width = atoi(optarg);
+			break;
+		case 'd' + 'h':
 			rk_cmd_param.display_height = atoi(optarg);
 			break;
 		case 'R':
@@ -171,12 +173,6 @@ static int parse_cmd_args(int argc, const char **argv) {
 		case 'f':
 			rk_cmd_param.fps = atoi(optarg);
 			break;
-		case 'p':
-			rk_cmd_param.eis_video_config_file = optarg;
-			break;
-		case 'P':
-			rk_cmd_param.eis_display_config_file = optarg;
-			break;
 		case 'e' + 'c':
 			rk_cmd_param.enable_compress = atoi(optarg);
 			break;
@@ -192,7 +188,7 @@ static int parse_cmd_args(int argc, const char **argv) {
 		case 'e' + 'm':
 			rk_cmd_param.enable_memc = atoi(optarg);
 			break;
-		case 'e' + 'v':
+		case 'e' + 'v' + 'p':
 			rk_cmd_param.enable_vpss = atoi(optarg);
 			break;
 		case 'i' + 'd' + 'd':
@@ -340,6 +336,11 @@ static int vi_dev_init(void) {
 	} else {
 		RK_LOGE("RK_MPI_VI_SetDevAttr already\n");
 	}
+	if (rk_cmd_param.enable_memc) {
+		RK_MPI_VI_CtrlRawStream(false);
+	} else {
+		RK_MPI_VI_CtrlRawStream(true);
+	}
 	// 1.get dev enable status
 	ret = RK_MPI_VI_GetDevIsEnable(VI_DEV);
 	if (ret != RK_SUCCESS) {
@@ -360,30 +361,6 @@ static int vi_dev_init(void) {
 	} else {
 		RK_LOGE("RK_MPI_VI_EnableDev already\n");
 	}
-	// INFO: DO NOT MODIFIED THESE CODE! Just for RV1126B.
-	VI_PARAM_MOD_S vi_mod_param;
-	memset(&vi_mod_param, 0, sizeof(vi_mod_param));
-	vi_mod_param.enViModType = VI_EXT_CHN_MODE;
-	vi_mod_param.stExtChnParam.mirrorCmsc = 0; // 1 is for vpss, 0 is for vi ext
-	vi_mod_param.stExtChnParam.extChn[0] = 0;
-	vi_mod_param.stExtChnParam.extChn[1] = 0;
-	vi_mod_param.stExtChnParam.extChn[2] = 0;
-	vi_mod_param.stExtChnParam.extChn[3] = 0;
-	ret = RK_MPI_VI_SetModParam(&vi_mod_param);
-	if (ret)
-		RK_LOGE("RK_MPI_VI_SetModParam fail:%#X\n", ret);
-
-	memset(&vi_mod_param, 0, sizeof(vi_mod_param));
-	vi_mod_param.enViModType = VI_EXT_CHN_MODE;
-	ret = RK_MPI_VI_GetModParam(&vi_mod_param);
-	if (ret)
-		RK_LOGE("RK_MPI_VI_GetModParam fail:%#X\n", ret);
-
-	RK_LOGI("vi mod:%d mirror:%d ext_chn_mode:%d ext_chn1_mode:%d"
-			"ext_chn2_mode:%d ext_chn3_mode:%d\n",
-			vi_mod_param.enViModType, vi_mod_param.stExtChnParam.mirrorCmsc,
-			vi_mod_param.stExtChnParam.extChn[0], vi_mod_param.stExtChnParam.extChn[1],
-			vi_mod_param.stExtChnParam.extChn[2], vi_mod_param.stExtChnParam.extChn[3]);
 	RK_LOGI("vi device init success\n");
 	return ret;
 }
@@ -402,17 +379,11 @@ static int vi_chn_init(void) {
 	VI_CHN_ATTR_S vi_chn_attr;
 
 	if (rk_cmd_param.type == TYPE_GDC_VO) {
-		if (rk_cmd_param.display_rotation == ROTATION_90 ||
-			rk_cmd_param.display_rotation == ROTATION_270) {
-			width = rk_cmd_param.display_height;
-			height = rk_cmd_param.display_width;
-		} else {
-			width = rk_cmd_param.display_width;
-			height = rk_cmd_param.display_height;
-		}
+		width = rk_cmd_param.display_width;
+		height = rk_cmd_param.display_height;
 	} else {
-		width = rk_cmd_param.video_width;
-		height = rk_cmd_param.video_height;
+		width = rk_cmd_param.input_width;
+		height = rk_cmd_param.input_height;
 	}
 	memset(&vi_chn_attr, 0, sizeof(vi_chn_attr));
 	vi_chn_attr.stIspOpt.u32BufCount = buf_cnt;
@@ -451,13 +422,14 @@ static int vi_chn_deinit(void) {
 
 static int vo_init(void) {
 	int ret = 0;
-	int vo_width = rk_cmd_param.display_width;
-	int vo_height = rk_cmd_param.display_height;
+	int vo_width = 0;
+	int vo_height = 0;
 	int vo_layer = 0;
 	int vo_dev_id = 0;
 	int vo_chn_id = 0;
 	int vo_chn_priority = 0;
 	int vo_rotation = rk_cmd_param.display_rotation;
+	int layer_width = 1080, layer_height = 1920;
 	uint32_t disp_buf_len;
 	const char *intf_type = "MIPI";
 	VO_PUB_ATTR_S vo_pub_attr = {};
@@ -472,6 +444,13 @@ static int vo_init(void) {
 	else {
 		RK_LOGE("unsupport intf type %s\n", intf_type);
 		return RK_FAILURE;
+	}
+	if (vo_rotation == ROTATION_90 || vo_rotation == ROTATION_270) {
+		vo_width = rk_cmd_param.display_height;
+		vo_height = rk_cmd_param.display_width;
+	} else {
+		vo_width = rk_cmd_param.display_width;
+		vo_height = rk_cmd_param.display_height;
 	}
 	vo_pub_attr.enIntfSync = VO_OUTPUT_DEFAULT;
 
@@ -489,8 +468,8 @@ static int vo_init(void) {
 		vo_pub_attr.stSyncInfo.u16Vact = vo_height;
 	}
 
-	vo_layer_attr.stDispRect.s32X = 0;
-	vo_layer_attr.stDispRect.s32Y = 0;
+	vo_layer_attr.stDispRect.s32X = (layer_width - vo_width) / 2;
+	vo_layer_attr.stDispRect.s32Y = (layer_height - vo_height) / 2;
 	vo_layer_attr.stDispRect.u32Width = vo_width;
 	vo_layer_attr.stDispRect.u32Height = vo_height;
 	vo_layer_attr.stImageSize.u32Width = vo_width;
@@ -572,26 +551,21 @@ static int vo_deinit(void) {
 
 static int gdc_init(void) {
 	int ret = 0;
-	int width = 0;
-	int height = 0;
+	int input_width, input_height, output_width, output_height;
 	GDC_CHN_ATTR_S gdc_attr = {0};
 	if (rk_cmd_param.type == TYPE_GDC_VO) {
-		if (rk_cmd_param.display_rotation == ROTATION_90 ||
-			rk_cmd_param.display_rotation == ROTATION_270) {
-			width = rk_cmd_param.display_height;
-			height = rk_cmd_param.display_width;
-		} else {
-			width = rk_cmd_param.display_width;
-			height = rk_cmd_param.display_height;
-		}
+		input_width = output_width = rk_cmd_param.display_width;
+		input_height = output_height = rk_cmd_param.display_height;
 	} else {
-		width = rk_cmd_param.video_width;
-		height = rk_cmd_param.video_height;
+		input_width = rk_cmd_param.input_width;
+		input_height = rk_cmd_param.input_height;
+		output_width = rk_cmd_param.output_width;
+		output_height = rk_cmd_param.output_height;
 	}
 	gdc_attr.u32MaxInQueue = 11;
 	gdc_attr.u32MaxOutQueue = 4;
-	gdc_attr.s32DstWidth = width;
-	gdc_attr.s32DstHeight = height;
+	gdc_attr.s32DstWidth = output_width;
+	gdc_attr.s32DstHeight = output_height;
 	gdc_attr.stEisAttr.s32DevNo = rk_cmd_param.iio_device_idx;
 	if (rk_cmd_param.enable_compress && rk_cmd_param.type != TYPE_GDC_VO) {
 		gdc_attr.enDstCompMode = COMPRESS_RFBC_64x4;
@@ -603,27 +577,23 @@ static int gdc_init(void) {
 	if (rk_cmd_param.type == TYPE_GDC_GET_FRAME)
 		gdc_attr.s32Depth = 1;
 	memset(gdc_attr.cfgFile, 0, sizeof(gdc_attr.cfgFile));
-	if (rk_cmd_param.type == TYPE_GDC_VO)
-		memcpy(gdc_attr.cfgFile, rk_cmd_param.eis_display_config_file,
-			strlen(rk_cmd_param.eis_display_config_file));
-	else
-		memcpy(gdc_attr.cfgFile, rk_cmd_param.eis_video_config_file,
-			strlen(rk_cmd_param.eis_video_config_file));
+	snprintf(gdc_attr.cfgFile, sizeof(gdc_attr.cfgFile)
+			, "/oem/usr/share/rkeis_config_normal_%dx%d_%dx%d_30fps.json"
+			, input_width, input_height, output_width
+			, output_height);
 	ret = RK_MPI_GDC_CreateChn(GDC_MAIN_CHN, &gdc_attr);
 	if (ret) {
 		RK_LOGE("ERROR: create GDC display channel error! ret=%#X\n", ret);
 		return ret;
 	}
-	RK_LOGI("gdc init success, width %d, height %d", width, height);
+	RK_LOGI("gdc init success, width %d, height %d", output_width, output_height);
 
 	if (rk_cmd_param.enable_amtd || rk_cmd_param.enable_memc) {
-		width = 720;  // unused
-		height = 480; // unused
 		gdc_attr.stEisAttr.s32DevNo = rk_cmd_param.iio_device_idx;
 		gdc_attr.u32MaxInQueue = 1;
 		gdc_attr.u32MaxOutQueue = 1;
-		gdc_attr.s32DstWidth = width;
-		gdc_attr.s32DstHeight = height;
+		gdc_attr.s32DstWidth = 480; // unused
+		gdc_attr.s32DstHeight = 320; // unused
 		gdc_attr.enDstPixelFormat = RK_FMT_YUV420SP;
 		gdc_attr.enDstCompMode = COMPRESS_MODE_NONE;
 		memset(gdc_attr.cfgFile, 0, sizeof(gdc_attr.cfgFile));
@@ -636,7 +606,7 @@ static int gdc_init(void) {
 			RK_LOGE("ERROR: create GDC dummy channel error! ret=%#X\n", ret);
 			return ret;
 		}
-		RK_LOGI("gdc dummy init success, width %d, height %d", width, height);
+		RK_LOGI("gdc dummy init success");
 	}
 	// INFO: Wait for IMU data ready, do it in gdc is better?
 	usleep(100 * 1000);
@@ -659,8 +629,8 @@ static int gdc_deinit(void) {
 static int venc_init(void) {
 	VENC_CHN_ATTR_S venc_chn_attr;
 	int ret = 0;
-	int video_width = rk_cmd_param.video_width;
-	int video_height = rk_cmd_param.video_height;
+	int video_width = rk_cmd_param.output_width;
+	int video_height = rk_cmd_param.output_height;
 	memset(&venc_chn_attr, 0, sizeof(venc_chn_attr));
 	if (rk_cmd_param.type != TYPE_GDC_VENC)
 		return 0;
@@ -826,6 +796,7 @@ int main(int argc, const char **argv) {
 		return ret;
 	RK_MPI_SYS_Init();
 	system("cat /proc/meminfo > /tmp/eis_before_meminfo.txt");
+	system("cat /sys/kernel/debug/dma_buf/bufinfo >> /tmp/eis_before_meminfo.txt");
 	system("cat /proc/vmallocinfo >> /tmp/eis_before_meminfo.txt");
 	for (int loop = 0; loop < rk_cmd_param.loop_count && !quit; loop++) {
 		if (rk_cmd_param.enable_test)
@@ -945,6 +916,7 @@ int main(int argc, const char **argv) {
 			loop);
 	}
 	system("cat /proc/meminfo > /tmp/eis_after_meminfo.txt");
+	system("cat /sys/kernel/debug/dma_buf/bufinfo >> /tmp/eis_after_meminfo.txt");
 	system("cat /proc/vmallocinfo >> /tmp/eis_after_meminfo.txt");
 	fprintf(stderr, "%s: exit stress test\n", __func__);
 	RK_MPI_SYS_Exit();
