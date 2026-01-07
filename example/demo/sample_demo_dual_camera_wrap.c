@@ -73,6 +73,7 @@ static void *switch_resolution(void *arg) {
 	VENC_CHN_ATTR_S stAttr;
 	VI_CHN_ATTR_S stChnAttr;
 
+	prctl(PR_SET_NAME, "switch-resolution", 0, 0, 0);
 	MPP_CHN_S stSrcChn, stDestChn;
 	VENC_RECV_PIC_PARAM_S stRecvParam;
 	memset(&stRecvParam, 0, sizeof(VENC_RECV_PIC_PARAM_S));
@@ -243,6 +244,7 @@ static void *venc0_get_stream(void *pArgs) {
 	void *pData = RK_NULL;
 	RK_S32 loopCount = 0;
 
+	prctl(PR_SET_NAME, "venc0-get-stream", 0, 0, 0);
 	while (!quit) {
 		s32Ret = SAMPLE_COMM_VENC_GetStream(ctx, &pData);
 		if (s32Ret == RK_SUCCESS) {
@@ -283,6 +285,8 @@ static void *venc1_get_stream(void *pArgs) {
 	void *pData = RK_NULL;
 	RK_S32 loopCount = 0;
 
+	prctl(PR_SET_NAME, "venc1-get-stream", 0, 0, 0);
+
 	while (!quit) {
 		s32Ret = SAMPLE_COMM_VENC_GetStream(ctx, &pData);
 		if (s32Ret == RK_SUCCESS) {
@@ -322,6 +326,7 @@ static void *venc2_get_stream(void *pArgs) {
 	void *pData = RK_NULL;
 	RK_S32 loopCount = 0;
 
+	prctl(PR_SET_NAME, "venc2-get-stream", 0, 0, 0);
 	while (!quit) {
 		s32Ret = SAMPLE_COMM_VENC_GetStream(ctx, &pData);
 		if (s32Ret == RK_SUCCESS) {
@@ -361,6 +366,7 @@ static void *venc3_get_stream(void *pArgs) {
 	void *pData = RK_NULL;
 	RK_S32 loopCount = 0;
 
+	prctl(PR_SET_NAME, "venc3-get-stream", 0, 0, 0);
 	while (!quit) {
 		s32Ret = SAMPLE_COMM_VENC_GetStream(ctx, &pData);
 		if (s32Ret == RK_SUCCESS) {
@@ -519,6 +525,7 @@ static void *rkipc_get_vi_to_npu(void *arg) {
 	int s32Ret;
 	int32_t loopCount = 0;
 	VIDEO_FRAME_INFO_S stViFrame;
+	prctl(PR_SET_NAME, "vi2npu", 0, 0, 0);
 
 	while (!quit) {
 		s32Ret = RK_MPI_VI_GetChnFrame(0, 1, &stViFrame, 1000);
