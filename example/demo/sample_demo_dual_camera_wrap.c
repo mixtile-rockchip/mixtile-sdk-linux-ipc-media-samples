@@ -24,6 +24,12 @@ extern "C" {
 #include "sample_comm.h"
 #include <stdatomic.h>
 
+typedef struct _rkIvaFrameInfo {
+	VIDEO_FRAME_INFO_S stFrame;
+	RK_S32 s32GrpId;
+	RK_S32 s32ChnId;
+} IvaFrameInfo;
+
 pthread_mutex_t g_rtsp_mutex = PTHREAD_MUTEX_INITIALIZER;
 static rtsp_demo_handle g_rtsplive = NULL;
 static rtsp_session_handle g_rtsp_session_0, g_rtsp_session_1, g_rtsp_session_2,
@@ -417,6 +423,23 @@ void rkba_callback(const RockIvaBaResult *result, const RockIvaExecuteStatus sta
 	}
 }
 
+static void releaseCallback(const RockIvaReleaseFrames *releaseFrames, void *userdata) {
+	/* when iva handle out of the video frame，this func will be called*/
+	RK_S32 s32Ret = RK_SUCCESS;
+	for (RK_S32 i = 0; i < releaseFrames->count; i++) {
+		if (!releaseFrames->frames[i].extData) {
+			RK_LOGE("---------error release frame is null");
+			continue;
+		}
+		IvaFrameInfo *info = (IvaFrameInfo *)releaseFrames->frames[i].extData;
+		s32Ret = RK_MPI_VI_ReleaseChnFrame(info->s32GrpId, info->s32ChnId, &info->stFrame);
+		if (s32Ret != RK_SUCCESS) {
+			RK_LOGE("RK_MPI_VI_ReleaseChnFrame failure:%#X", s32Ret);
+		}
+		free(releaseFrames->frames[i].extData);
+	}
+}
+
 int rockiva_init() {
 	RockIvaRetCode ret;
 	// const char *model_type;
@@ -485,6 +508,11 @@ int rockiva_init() {
 		return -1;
 	}
 	printf("ROCKIVA_BA_Init success\n");
+	ret = ROCKIVA_SetFrameReleaseCallback(rkba_handle, releaseCallback);
+	if (ret != RK_SUCCESS) {
+		RK_LOGE("ROCKIVA_SetFrameReleaseCallback failure:%#X", ret);
+		return -1;
+	}
 	rociva_run_flag = 1;
 
 	return ret;
@@ -499,10 +527,20 @@ int rockiva_deinit() {
 }
 
 int rkipc_rockiva_write_nv12_frame_by_fd(uint16_t width, uint16_t height,
-                                         uint32_t frame_id, int32_t fd) {
+					 uint32_t frame_id, int32_t fd,
+					 void *ext_data) {
 	int ret;
-	if (!rociva_run_flag)
+	if (!rociva_run_flag) {
+		if (ext_data) {
+			IvaFrameInfo *info = (IvaFrameInfo *)ext_data;
+			ret = RK_MPI_VI_ReleaseChnFrame(info->s32GrpId, info->s32ChnId, &info->stFrame);
+			if (ret != RK_SUCCESS) {
+				RK_LOGE("RK_MPI_VI_ReleaseChnFrame failure:%#X", ret);
+			}
+			free(ext_data);
+		}
 		return 0;
+	}
 	RockIvaImage *image = (RockIvaImage *)malloc(sizeof(RockIvaImage));
 	memset(image, 0, sizeof(RockIvaImage));
 	image->info.transformMode = ROCKIVA_IMAGE_TRANSFORM_NONE;
@@ -513,6 +551,7 @@ int rkipc_rockiva_write_nv12_frame_by_fd(uint16_t width, uint16_t height,
 	image->dataAddr = NULL;
 	image->dataPhyAddr = NULL;
 	image->dataFd = fd;
+	image->extData = ext_data;
 	ret = ROCKIVA_PushFrame(rkba_handle, image, NULL);
 	free(image);
 
@@ -536,11 +575,21 @@ static void *rkipc_get_vi_to_npu(void *arg) {
 			// void *data = RK_MPI_MB_Handle2VirAddr(stViFrame.stVFrame.pMbBlk);
 			int32_t fd = RK_MPI_MB_Handle2Fd(stViFrame.stVFrame.pMbBlk);
 
-			rkipc_rockiva_write_nv12_frame_by_fd(
-			    stViFrame.stVFrame.u32Width, stViFrame.stVFrame.u32Height, loopCount, fd);
-			s32Ret = RK_MPI_VI_ReleaseChnFrame(0, 1, &stViFrame);
-			if (s32Ret != RK_SUCCESS)
-				printf("RK_MPI_VI_ReleaseChnFrame fail %x\n", s32Ret);
+			IvaFrameInfo *ivaFrameInfo = NULL;
+			ivaFrameInfo = (IvaFrameInfo *)malloc(sizeof(IvaFrameInfo));
+			if (ivaFrameInfo) {
+				ivaFrameInfo->s32GrpId = 0;
+				ivaFrameInfo->s32ChnId = 1;
+				memcpy(&ivaFrameInfo->stFrame, &stViFrame, sizeof(VIDEO_FRAME_INFO_S));
+
+				rkipc_rockiva_write_nv12_frame_by_fd(stViFrame.stVFrame.u32Width,
+								     stViFrame.stVFrame.u32Height,
+								     loopCount, fd, ivaFrameInfo);
+			} else {
+				s32Ret = RK_MPI_VI_ReleaseChnFrame(0, 1, &stViFrame);
+				if (s32Ret != RK_SUCCESS)
+					printf("RK_MPI_VI_ReleaseChnFrame fail %x\n", s32Ret);
+			}
 			loopCount++;
 		} else {
 			printf("RK_MPI_VI_GetChnFrame timeout %x\n", s32Ret);
