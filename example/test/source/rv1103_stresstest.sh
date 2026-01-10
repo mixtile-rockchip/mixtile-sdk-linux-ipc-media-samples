@@ -154,32 +154,6 @@ demo_vi_venc_stresstest()
 
 }
 
-__check_mem_server()
-{
-	echo ""
-	echo ""
-	echo "[$0] check slab info"
-	grep -E "(Slab|SReclaimable|SUnreclaim)" /proc/meminfo
-
-	slab_total=$(grep "Slab:" /proc/meminfo | awk '{print $2}')
-	sunreclaim=$(grep "SUnreclaim:" /proc/meminfo | awk '{print $2}')
-
-	if [ $slab_total -gt 0 ]; then
-		ratio=$((sunreclaim * 100 / slab_total))
-		echo "Unreclaimable Slab ratio: ${ratio}%"
-
-		if [ $ratio -gt 80 ]; then
-			echo "Warning: Unreclaimable Slab ratio is too high!"
-		fi
-	fi
-	echo ""
-	echo ""
-}
-
-__check_mem_rk_test__=/tmp/__check_mem_rk_test__
-touch $__check_mem_rk_test__
-while [ -f "$__check_mem_rk_test__" ];do __check_mem_server; sleep 10; done &
-
 killall rkipc
 while true
 do
@@ -219,5 +193,3 @@ demo_vi_venc_stresstest "$test_mod"
 #print test result
 cat $test_result_path
 cat /tmp/testLog.txt
-
-rm -f $__check_mem_rk_test__
