@@ -690,6 +690,15 @@ int main(int argc, char *argv[]) {
 			g_exit_result = -1;
 			goto __FAILED2;
 		}
+#ifdef RV1126B
+		if (rk_aiq_uapi2_judgeNeedRawPipeCtrl(g_aiq_ctx[s32CamId])) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 #endif
 	}
 	RK_LOGE("ISP init success");

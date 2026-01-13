@@ -893,6 +893,15 @@ int main(int argc, char *argv[]) {
 			SAMPLE_COMM_ISP_RegMemsSensorIntf(s32CamId, &eis_api);
 		}
 		SAMPLE_COMM_ISP_Run(s32CamId);
+#ifdef RV1126B
+		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 #endif
 	}
 

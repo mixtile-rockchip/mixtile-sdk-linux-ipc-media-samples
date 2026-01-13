@@ -348,6 +348,10 @@ RK_S32 SAMPLE_COMM_ISP_EnablsAiisp(RK_S32 CamId) {
 	return ret;
 }
 
+RK_S32 SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(RK_S32 CamId) {
+	return rk_aiq_uapi2_judgeNeedRawPipeCtrl(g_aiq_ctx[CamId]);
+}
+
 #ifdef __cplusplus
 #if __cplusplus
 }

@@ -425,6 +425,16 @@ static RK_S32 pnMode_stressTest(RK_S32 s32CamId, rk_aiq_working_mode_t WDRMode,
 		return s32Ret;
 	}
 
+#ifdef RV1126B
+	if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
+		RK_MPI_VI_CtrlRawStream(false);
+		printf("raw stream control by rkaiq\n");
+	} else {
+		RK_MPI_VI_CtrlRawStream(true);
+		printf("raw stream control by rockit\n");
+	}
+#endif
+
 	RK_MPI_VI_ResumeChn(ctx->vi.u32PipeId, ctx->vi.s32ChnId);
 
 	RK_LOGE("<--------------PN mode switch success---------->");
@@ -454,6 +464,16 @@ static RK_S32 hdrMode_stressTest(RK_S32 s32CamId, RK_BOOL MultiCam,
 		RK_LOGE("ISP init failure\n");
 		return s32Ret;
 	}
+
+#ifdef RV1126B
+	if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
+		RK_MPI_VI_CtrlRawStream(false);
+		printf("raw stream control by rkaiq\n");
+	} else {
+		RK_MPI_VI_CtrlRawStream(true);
+		printf("raw stream control by rockit\n");
+	}
+#endif
 
 	RK_MPI_VI_ResumeChn(ctx->vi.u32PipeId, ctx->vi.s32ChnId);
 #elif defined(RV1126)
@@ -1175,6 +1195,16 @@ static RK_S32 media_init(RK_CHAR *pIqFileDir, RK_S32 rgn_attach_module) {
 			RK_LOGE("ISP init failure");
 			return s32Ret;
 		}
+
+#ifdef RV1126B
+		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(gModeTest->s32CamId)) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 	}
 
 	if (RK_MPI_SYS_Init() != RK_SUCCESS) {
@@ -1754,6 +1784,16 @@ int main(int argc, char *argv[]) {
 			g_exit_result = RK_FAILURE;
 			goto __FAILED2;
 		}
+
+#ifdef RV1126B
+		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 #endif
 	}
 

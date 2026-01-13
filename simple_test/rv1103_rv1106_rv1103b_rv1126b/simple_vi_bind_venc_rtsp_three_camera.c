@@ -488,6 +488,17 @@ int main(int argc, char *argv[]) {
 		SIMPLE_COMM_ISP_Init(2, RK_AIQ_WORKING_MODE_NORMAL, IS_MULTI_CAM, iq_dir);
 		SIMPLE_COMM_ISP_Run(2);
 		printf("ISP IQ file path: %s\n\n", iq_dir);
+#ifdef RKAIQ
+#ifdef RV1126B
+		if (rk_aiq_uapi2_judgeNeedRawPipeCtrl(g_aiq_ctx[0])) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
+#endif
 	}
 
 	if (encode == 0) {

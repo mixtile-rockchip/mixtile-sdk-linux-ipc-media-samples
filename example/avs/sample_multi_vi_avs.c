@@ -363,6 +363,16 @@ int main(int argc, char *argv[]) {
 					RK_LOGE("ISP init failure camid:%d", i);
 					return RK_FAILURE;
 				}
+
+#ifdef RV1126B
+				if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(i)) {
+					RK_MPI_VI_CtrlRawStream(false);
+					printf("raw stream control by rkaiq\n");
+				} else {
+					RK_MPI_VI_CtrlRawStream(true);
+					printf("raw stream control by rockit\n");
+				}
+#endif
 			}
 		} else {
 #ifdef RKAIQ_GRP

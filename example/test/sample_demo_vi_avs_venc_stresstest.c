@@ -330,6 +330,16 @@ static RK_S32 media_init(g_mode_test *gModeTest) {
 				RK_LOGE("ISP init failure camid:%d", i);
 				return RK_FAILURE;
 			}
+
+#ifdef RV1126B
+			if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(i)) {
+				RK_MPI_VI_CtrlRawStream(false);
+				printf("raw stream control by rkaiq\n");
+			} else {
+				RK_MPI_VI_CtrlRawStream(true);
+				printf("raw stream control by rockit\n");
+			}
+#endif
 		}
 	}
 

@@ -436,6 +436,15 @@ int main(int argc, char *argv[]) {
 		printf("ISP IQ file path: %s\n\n", iq_dir);
 		SIMPLE_COMM_ISP_Init(0, RK_AIQ_WORKING_MODE_NORMAL, 0, iq_dir);
 		SIMPLE_COMM_ISP_Run(0);
+#ifdef RV1126B
+		if (rk_aiq_uapi2_judgeNeedRawPipeCtrl(g_aiq_ctx[0])) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 #endif
 	}
 

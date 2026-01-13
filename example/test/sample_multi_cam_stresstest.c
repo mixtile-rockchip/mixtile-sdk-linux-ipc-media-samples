@@ -1053,6 +1053,16 @@ static RK_S32 isp_init(void) {
 				printf("#ISP cam %d run failed!\n", sensor_idx);
 				return ret;
 			}
+
+#ifdef RV1126B
+			if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(g_aiq_ctx[sensor_idx])) {
+				RK_MPI_VI_CtrlRawStream(false);
+				printf("raw stream control by rkaiq\n");
+			} else {
+				RK_MPI_VI_CtrlRawStream(true);
+				printf("raw stream control by rockit\n");
+			}
+#endif
 		}
 	}
 	TRACE_END();

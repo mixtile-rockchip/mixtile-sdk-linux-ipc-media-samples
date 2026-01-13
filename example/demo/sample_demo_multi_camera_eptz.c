@@ -153,6 +153,16 @@ static RK_S32 isp_init(RK_ISP_INIT_PARAM_S *pstIspParam) {
 				RK_LOGE("ISP init failure camid:%d", i);
 				return RK_FAILURE;
 			}
+
+#ifdef RV1126B
+			if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(pstIspParam->s32CamId[i])) {
+				RK_MPI_VI_CtrlRawStream(false);
+				printf("raw stream control by rkaiq\n");
+			} else {
+				RK_MPI_VI_CtrlRawStream(true);
+				printf("raw stream control by rockit\n");
+			}
+#endif
 		}
 	} else if (pstIspParam->bIfIspGroupInit == RK_TRUE) {
 		rk_aiq_camgroup_instance_cfg_t camgroup_cfg;

@@ -1346,6 +1346,16 @@ int main(int argc, char *argv[]) {
 			g_exit_result = RK_FAILURE;
 			goto __ISP_INIT_FAILED;
 		}
+
+#ifdef RV1126B
+		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(parsedArgs.s32CamId)) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 	}
 
 	if (RK_MPI_SYS_Init() != RK_SUCCESS) {

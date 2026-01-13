@@ -1218,6 +1218,17 @@ int main(int argc, char *argv[]) {
 			SIMPLE_COMM_ISP_Init(pViCfg1->u32PipeId, RK_AIQ_WORKING_MODE_NORMAL, bMultiCam, pIqfilesPath);
 			SIMPLE_COMM_ISP_Run(pViCfg1->u32PipeId);
 		}
+#ifdef RV1126B
+		if (stTestCtx.firstMode == TEST_ONLINE_MODE) {
+			if (rk_aiq_uapi2_judgeNeedRawPipeCtrl(g_aiq_ctx[pViCfg->u32PipeId])) {
+				RK_MPI_VI_CtrlRawStream(false);
+				printf("raw stream control by rkaiq\n");
+			} else {
+				RK_MPI_VI_CtrlRawStream(true);
+				printf("raw stream control by rockit\n");
+			}
+		}
+#endif
 #endif
 	}
 

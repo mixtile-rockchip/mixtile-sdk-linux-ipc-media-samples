@@ -1054,6 +1054,16 @@ int main(int argc, char *argv[]) {
 			g_exit_result = RK_FAILURE;
 			goto __FAILED2;
 		}
+
+#ifdef RV1126B
+		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 #endif
 	}
 

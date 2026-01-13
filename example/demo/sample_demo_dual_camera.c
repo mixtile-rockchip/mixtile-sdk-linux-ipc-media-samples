@@ -575,6 +575,15 @@ int main(int argc, char *argv[]) {
 		SAMPLE_COMM_ISP_Init(1, hdr_mode_1, bMultictx, iq_file_dir);
 		SAMPLE_COMM_ISP_Run(1);
 		SAMPLE_COMM_ISP_SetFrameRate(1, cam_1_fps);
+#ifdef RV1126B
+		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(0)) {
+			RK_MPI_VI_CtrlRawStream(false);
+			printf("raw stream control by rkaiq\n");
+		} else {
+			RK_MPI_VI_CtrlRawStream(true);
+			printf("raw stream control by rockit\n");
+		}
+#endif
 #endif
 	}
 
