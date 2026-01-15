@@ -222,6 +222,30 @@ simple_vi_bind_venc_wrap -I 0 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 9 -o 1 -r 
 checkmd5sum /data/venc_wrap_0.bin
 simple_vi_bind_venc_wrap -I 0 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 9 -o 1 -r 1 -L 720
 checkmd5sum /data/venc_wrap_0.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -o 1 -r 1 -L 180
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -o 1 -r 1 -L 360
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -o 1 -r 1 -L 720
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -D 1 -o 1 -r 1 -L 180
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -D 1 -o 1 -r 1 -L 360
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -D 1 -o 1 -r 1 -L 720
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 12 -o 1 -r 1 -L 180
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 12 -o 1 -r 1 -L 360
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 12 -o 1 -r 1 -L 720
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 9 -o 1 -r 1 -L 180
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 9 -o 1 -r 1 -L 360
+checkmd5sum /data/venc_wrap_3.bin
+simple_vi_bind_venc_wrap -I 3 -w 1280 -h 720 -W 1980 -H 1080 -l 30 -C 9 -o 1 -r 1 -L 720
+checkmd5sum /data/venc_wrap_3.bin
 
 simple_vi_bind_venc_osd&
 sleep 3
