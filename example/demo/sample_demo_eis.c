@@ -51,6 +51,7 @@ static struct {
 	bool enable_amtd;
 	bool enable_memc;
 	bool enable_vpss;
+	const char* sensor_name;
 } rk_cmd_param;
 
 static bool quit = false;
@@ -83,6 +84,7 @@ static const struct option long_options[] = {
 	{"enable_vpss", required_argument, RK_NULL, 'e' + 'v' + 'p'},
 	{"enable_memc", required_argument, RK_NULL, 'e' + 'm'},
 	{"iio_device_idx", required_argument, RK_NULL, 'i' + 'd' + 'd'},
+	{"sensor_name", required_argument, RK_NULL, 's' + 'n'},
 	{"help", required_argument, RK_NULL, 'h' + 'p'},
 	{RK_NULL, 0, RK_NULL, 0},
 };
@@ -117,6 +119,7 @@ static void print_usage(const char *name) {
 	printf("\t--enable_vpss: enable use vpss online mode, Default:1\n");
 	printf("\t--enable_memc: enable memc, this funciton depend on rkaiq, Default:0\n");
 	printf("\t--iio_device_idx: imu device index in path /sys/bus/iio/devices/, Default:1\n");
+	printf("\t--sensor_name: camera name, Default:imx586\n");
 }
 
 static int parse_cmd_args(int argc, const char **argv) {
@@ -138,6 +141,7 @@ static int parse_cmd_args(int argc, const char **argv) {
 	rk_cmd_param.type = TYPE_GDC_VENC;
 	rk_cmd_param.fps = 30;
 	rk_cmd_param.iio_device_idx = 1;
+	rk_cmd_param.sensor_name = "imx586";
 	while ((c = getopt_long(argc, argv, optstr, long_options, RK_NULL)) != -1) {
 		switch (c) {
 		case 'w':
@@ -193,6 +197,9 @@ static int parse_cmd_args(int argc, const char **argv) {
 			break;
 		case 'i' + 'd' + 'd':
 			rk_cmd_param.iio_device_idx = atoi(optarg);
+			break;
+		case 's' + 'n':
+			rk_cmd_param.sensor_name = optarg;
 			break;
 		case 'e' + 'h':
 		default:
@@ -578,7 +585,8 @@ static int gdc_init(void) {
 		gdc_attr.s32Depth = 1;
 	memset(gdc_attr.cfgFile, 0, sizeof(gdc_attr.cfgFile));
 	snprintf(gdc_attr.cfgFile, sizeof(gdc_attr.cfgFile)
-			, "/oem/usr/share/rkeis_config_normal_%dx%d_%dx%d_30fps.json"
+			, "/oem/usr/share/rkeis_config/%s_normal_%dx%d_%dx%d_30fps.json"
+			, rk_cmd_param.sensor_name
 			, input_width, input_height, output_width
 			, output_height);
 	ret = RK_MPI_GDC_CreateChn(GDC_MAIN_CHN, &gdc_attr);
