@@ -171,3 +171,7 @@ simple_vi_bind_venc_rtsp_lowdelay -w 3840 -h 2160 -b 16384 -m 1 -n /dev/video0 -
 sleep 1
 killall simple_vi_bind_venc_rtsp_lowdelay
 sleep 1
+simple_vdec_bind_vo_rtsp_lowdelay --input "rtsp://192.168.1.102/live/0" --vo_layer 0 --vo_dev 0 --vo_intf_type 2 --image_width 3840 --image_height 2160 --disp_width 1920 --disp_height 1080 --input1 "rtsp://192.168.1.102/live/1" --vo_layer_1 4 --vo_dev_1 0 --vo_intf_type_1 2 --image_width_1 1920 --image_height_1 1080 --disp_width_1 960 --disp_height_1 540
+sleep 1
+killall simple_vdec_bind_vo_rtsp_lowdelay
+sleep 1
