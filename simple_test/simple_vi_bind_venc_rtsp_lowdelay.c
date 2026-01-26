@@ -40,14 +40,6 @@
 #include "rk_mpi_vpss.h"
 
 #define MAX_AIQ_CTX 8
-// #define ENABLE_VI_GET_FRAME 1
-#define ENABLE_VPSS_GET_SEND 1
-#define  RTP_PORT 60044
-#define  RTCP_PORT 60045
-#define  RTP_PORT_1 61044
-#define  RTCP_PORT_1 61045
-#define  ENABLE_VI  0
-#define  DST_IP    "10.201.126.74"
 
 #include <stdatomic.h>
 
@@ -57,9 +49,7 @@ static RK_U32 g_u32SliceSplit = 0;
 static RK_S32 g_s32ChnCnt = 1;
 static RK_S32 g_s32FrameRate = 60;
 static bool quit = false;
-static RK_S32 g_rtsp_mode = 2;
-static int g_rtsp_mode2_chn0 = 0;
-static int g_rtsp_mode2_chn1 = 1;
+static RK_S32 g_rtsp_mode = 1;
 static char *g_dst_ip = "192.168.1.103";
 static char *g_VIEntityName = "/dev/video0";
 
@@ -78,45 +68,6 @@ RK_U64 TEST_COMM_GetNowUs() {
     return (RK_U64)time.tv_sec * 1000000 + (RK_U64)time.tv_nsec / 1000; /* microseconds */
 }
 
-void NetStatus(int channel, const uint32_t bitrate, const uint8_t fraction_loss, const uint32_t rtt) {
-    return;
-}
-
-void KeyFrameReq(int channel) {
-    return;
-}
-
-#ifdef ENABLE_VI_GET_FRAME
-static void *GetMediaBuffer0(void *arg) {
-    printf("========%s========\n", __func__);
-    int s32Ret;
-    RK_S32 waitTime = 1000;
-    int pipeId = 0;
-    VIDEO_FRAME_INFO_S stViFrame;
-    int loopCount = 0;
-    memset(&stViFrame, 0, sizeof(stViFrame));
-
-    while (!quit) {
-        s32Ret = RK_MPI_VI_GetChnFrame(pipeId, 0, &stViFrame, waitTime);
-        if (s32Ret == RK_SUCCESS) {
-            RK_U64 nowUs = TEST_COMM_GetNowUs();
-            RK_LOGI("VI chn:0, width %ld, pts=%llu, delay=%lluus\n",
-                stViFrame.stVFrame.u32Width, stViFrame.stVFrame.u64PTS, (nowUs - stViFrame.stVFrame.u64PTS));
-
-            // 7.release the frame
-            s32Ret = RK_MPI_VI_ReleaseChnFrame(pipeId, 0, &stViFrame);
-            if (s32Ret != RK_SUCCESS) {
-                RK_LOGE("RK_MPI_VI_ReleaseChnFrame fail %x", s32Ret);
-            }
-            loopCount++;
-        } else {
-            RK_LOGE("RK_MPI_VI_GetChnFrame timeout %x", s32Ret);
-        }
-    }
-
-    return NULL;
-}
-#else
 static void *GetMediaBuffer0(void *arg) {
     (void)arg;
     printf("========%s========\n", __func__);
@@ -166,7 +117,6 @@ static void *GetMediaBuffer0(void *arg) {
     free(stFrame.pstPack);
     return NULL;
 }
-#endif
 
 static void *GetMediaBuffer1(void *arg) {
     (void)arg;
@@ -213,7 +163,6 @@ static void *GetMediaBuffer1(void *arg) {
     return NULL;
 }
 
-#if ENABLE_VPSS_GET_SEND
 static void *GetVIBufferSendVPSS(void *arg) {
     printf("========%s========\n", __func__);
     int s32Ret;
@@ -230,7 +179,14 @@ static void *GetVIBufferSendVPSS(void *arg) {
             RK_LOGI("VI chn:0, width %ld, pts=%llu, delay=%lluus\n",
                 stViFrame.stVFrame.u32Width, stViFrame.stVFrame.u64PTS, (nowUs - stViFrame.stVFrame.u64PTS));
 
-            usleep(8000);
+            // 针对VI提前出帧，需要增加延时，使得VPSS处理完的耗时刚好是VI这一帧内容结束的时候，如果计算结果小于等于0，则无需延时
+            // echo_wait_lines 是提前出帧的行数，根据VO低延时文档配置的
+            // usleep_time = frame_time - frame_time * (echo_wait_lines - 32) / height - vpss_costtime
+#ifdef RK3576
+            usleep(10000); // echo_wait_lines = 32  vpss_costtime = 6ms
+#elif defined(RK3588)
+            usleep(2000);  // echo_wait_lines = 1112  vpss_costtime = 6ms
+#endif
             RK_MPI_VPSS_SendFrame(0, 0, &stViFrame, -1);
 
             // 7.release the frame
@@ -246,7 +202,6 @@ static void *GetVIBufferSendVPSS(void *arg) {
 
     return NULL;
 }
-#endif
 
 static RK_S32 test_venc_init(int chnId, int width, int height, RK_CODEC_ID_E enType) {
     printf("========%s========\n", __func__);
@@ -451,7 +406,7 @@ int vi_chn_init(int channelId, int width, int height) {
     if (g_s32FrameRate == 30) {
         vi_chn_attr.stFrameRate.s32SrcFrameRate = 60;
         vi_chn_attr.stFrameRate.s32DstFrameRate = 30;
-        printf("============set src framerate %d, set dst framerate %d\n", 
+        printf("============set src framerate %d, set dst framerate %d\n",
             vi_chn_attr.stFrameRate.s32SrcFrameRate, vi_chn_attr.stFrameRate.s32DstFrameRate);
     }
     vi_chn_attr.stSize.u32Width = width;
@@ -459,12 +414,8 @@ int vi_chn_init(int channelId, int width, int height) {
     vi_chn_attr.enPixelFormat = RK_FMT_YUV420SP;
     vi_chn_attr.enCompressMode = COMPRESS_MODE_NONE; // COMPRESS_AFBC_16x16;
     vi_chn_attr.u32Depth = 0; //0, get fail, 1 - u32BufCount, can get, if bind to other device, must be < u32BufCount
-#ifdef ENABLE_VI_GET_FRAME
-    vi_chn_attr.u32Depth = 2;
-#endif
-#ifdef ENABLE_VPSS_GET_SEND 
-    vi_chn_attr.u32Depth = 4;
-#endif
+    if (g_s32ChnCnt == 2)
+        vi_chn_attr.u32Depth = 2;
     ret = RK_MPI_VI_SetChnAttr(0, channelId, &vi_chn_attr);
     ret |= RK_MPI_VI_EnableChn(0, channelId);
     if (ret) {
@@ -717,18 +668,6 @@ int main(int argc, char *argv[]) {
         printf("====RK_MPI_SYS_Bind vpss0 to venc1====\n");
         s32Ret = RK_MPI_SYS_Bind(&stSrcChn, &stDestChn);
 
-#ifndef ENABLE_VPSS_GET_SEND
-        stSrcChn.enModId = RK_ID_VI;
-        stSrcChn.s32DevId = 0;
-        stSrcChn.s32ChnId = s32chnlId;
-
-        stDestChn.enModId = RK_ID_VPSS;
-        stDestChn.s32DevId = 0;
-        stDestChn.s32ChnId = 0;
-
-        printf("====RK_MPI_SYS_Bind vi0 to vpss0====\n");
-        s32Ret = RK_MPI_SYS_Bind(&stSrcChn, &stDestChn);
-#endif
     } else {
         stSrcChn.enModId = RK_ID_VI;
         stSrcChn.s32DevId = 0;
@@ -738,13 +677,11 @@ int main(int argc, char *argv[]) {
         stDestChn.s32DevId = 0;
         stDestChn.s32ChnId = 0;
         printf("====RK_MPI_SYS_Bind vi0 to venc0====\n");
-#ifndef ENABLE_VI_GET_FRAME
         s32Ret = RK_MPI_SYS_Bind(&stSrcChn, &stDestChn);
         if (s32Ret != RK_SUCCESS) {
             RK_LOGE("bind 0 ch venc failed");
             goto __FAILED;
         }
-#endif
     }
 
 
@@ -752,24 +689,20 @@ int main(int argc, char *argv[]) {
     pthread_create(&main_thread, NULL, GetMediaBuffer0, NULL);
 
     pthread_t main_thread1;
-    if (g_s32ChnCnt == 2)
-        pthread_create(&main_thread1, NULL, GetMediaBuffer1, NULL);
-
-#if ENABLE_VPSS_GET_SEND
     pthread_t main_thread2;
-    if (g_s32ChnCnt == 2)
+    if (g_s32ChnCnt == 2) {
+        pthread_create(&main_thread1, NULL, GetMediaBuffer1, NULL);
         pthread_create(&main_thread2, NULL, GetVIBufferSendVPSS, NULL);
-#endif
+    }
+
     while (!quit) {
         usleep(500000);
     }
     pthread_join(main_thread, NULL);
-    if (g_s32ChnCnt == 2)
+    if (g_s32ChnCnt == 2) {
         pthread_join(main_thread1, NULL);
-#if ENABLE_VPSS_GET_SEND
-    if (g_s32ChnCnt == 2)
         pthread_join(main_thread2, NULL);
-#endif
+    }
 
     if (g_rtsp_mode == 1) {
         if (g_rtsplive)
@@ -800,7 +733,6 @@ int main(int argc, char *argv[]) {
         printf("====RK_MPI_SYS_UnBind vpss0 to venc1====\n");
         s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
 
-#ifndef ENABLE_VPSS_GET_SEND
         stSrcChn.enModId = RK_ID_VI;
         stSrcChn.s32DevId = 0;
         stSrcChn.s32ChnId = s32chnlId;
@@ -811,7 +743,6 @@ int main(int argc, char *argv[]) {
 
         printf("====RK_MPI_SYS_UnBind vi0 to vpss0====\n");
         s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
-#endif
 
         RK_MPI_VPSS_StopGrp(0);
         RK_MPI_VPSS_DestroyGrp(0);
@@ -833,12 +764,10 @@ int main(int argc, char *argv[]) {
         stDestChn.enModId = RK_ID_VENC;
         stDestChn.s32DevId = 0;
         stDestChn.s32ChnId = 0;
-#ifndef ENABLE_VI_GET_FRAME
         s32Ret = RK_MPI_SYS_UnBind(&stSrcChn, &stDestChn);
         if (s32Ret != RK_SUCCESS) {
             RK_LOGE("RK_MPI_SYS_UnBind fail %x", s32Ret);
         }
-#endif
     }
 
     s32Ret = RK_MPI_VI_DisableChn(0, s32chnlId);
