@@ -286,6 +286,9 @@ int test_vpss_init(int VpssChn, int width, int height) {
 	VPSS_CHN_ATTR_S stVpssChnAttr;
 	VPSS_GRP_ATTR_S stGrpVpssAttr;
 
+	memset(&stVpssChnAttr, 0, sizeof(stVpssChnAttr));
+	memset(&stGrpVpssAttr, 0, sizeof(stGrpVpssAttr));
+
 	int s32Grp = 0;
 
 	stGrpVpssAttr.u32MaxW = 4096;
