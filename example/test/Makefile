@@ -8,8 +8,6 @@ all:
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_venc_stresstest.c -o sample_venc_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_rgn_stresstest.c -o sample_rgn_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_mulit_isp_stresstest.c -o sample_mulit_isp_stresstest $(LD_FLAGS) -lrkaiq
-	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_aiisp_stresstest.c -o sample_demo_aiisp_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp -lrockiva
-	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_dual_aiisp_stresstest.c -o sample_demo_dual_aiisp_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp -lrockiva
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_vdec_vo_stresstest.c -o sample_vdec_vo_stresstest $(LD_FLAGS)
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_vdec_vpss_vo_stresstest.c -o sample_vdec_vpss_vo_stresstest $(LD_FLAGS)
 ifeq ($(HAVE_AVS), y)
@@ -17,15 +15,18 @@ ifeq ($(HAVE_AVS), y)
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_vi_avs_venc_stresstest.c -o sample_demo_vi_avs_venc_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp
 endif
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_vpss_stresstest.c -o sample_vpss_stresstest $(LD_FLAGS) -lrkaiq
+
 ifeq ($(CONFIG_RK_IVA) ,y)
+	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_aiisp_stresstest.c -o sample_demo_aiisp_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp -lrockiva
+	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_dual_aiisp_stresstest.c -o sample_demo_dual_aiisp_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp -lrockiva
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_vi_venc_stresstest.c -o sample_demo_vi_venc_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp -lrockiva
-else
-	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_vi_venc_stresstest.c -o sample_demo_vi_venc_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp
-endif
+
 ifneq ($(findstring $(RK_MEDIA_CHIP), rk3576 rk3588),)
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_multi_cam_stresstest.c -o sample_multi_cam_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp -lrockiva -lfreetype
 endif
-
+else
+	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_vi_venc_stresstest.c -o sample_demo_vi_venc_stresstest $(LD_FLAGS) -lrockchip_mpp -lrkaiq -lrtsp
+endif
 
 install:
 	$(CMD_DBG)mv -f sample_ai_aenc_adec_ao_stresstest $(SAMPLE_OUT_DIR)/bin
@@ -39,13 +40,16 @@ ifeq ($(HAVE_AVS), y)
 endif
 	$(CMD_DBG)mv -f sample_vpss_stresstest $(SAMPLE_OUT_DIR)/bin
 	$(CMD_DBG)mv -f sample_demo_vi_venc_stresstest $(SAMPLE_OUT_DIR)/bin
+ifeq ($(CONFIG_RK_IVA) ,y)
 	$(CMD_DBG)mv -f sample_demo_aiisp_stresstest $(SAMPLE_OUT_DIR)/bin
 	$(CMD_DBG)mv -f sample_demo_dual_aiisp_stresstest $(SAMPLE_OUT_DIR)/bin
-	$(CMD_DBG)mv -f sample_vdec_vo_stresstest $(SAMPLE_OUT_DIR)/bin
-	$(CMD_DBG)mv -f sample_vdec_vpss_vo_stresstest $(SAMPLE_OUT_DIR)/bin
+
 ifneq ($(findstring $(RK_MEDIA_CHIP), rk3576 rk3588),)
 	$(CMD_DBG)mv -f sample_multi_cam_stresstest $(SAMPLE_OUT_DIR)/bin
 endif
+endif
+	$(CMD_DBG)mv -f sample_vdec_vo_stresstest $(SAMPLE_OUT_DIR)/bin
+	$(CMD_DBG)mv -f sample_vdec_vpss_vo_stresstest $(SAMPLE_OUT_DIR)/bin
 	$(CMD_DBG)mkdir -p $(SAMPLE_OUT_DIR)/install_to_userdata/
 	$(CMD_DBG)cp   -f   source/ai_aenc_adec_ao_stresstes.sh     $(SAMPLE_OUT_DIR)/install_to_userdata
 	$(CMD_DBG)cp   -f   source/160x96.bmp                       $(SAMPLE_OUT_DIR)/install_to_userdata
