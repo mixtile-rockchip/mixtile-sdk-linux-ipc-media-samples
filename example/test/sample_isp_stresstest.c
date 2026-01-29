@@ -269,7 +269,7 @@ static void hdr_mode_switch_test(RK_S32 test_loop) {
 	RK_S32 s32Ret = RK_FAILURE;
 
 	while (!gModeTest->bModuleTestThreadQuit) {
-#if defined(RV1106) || defined(RV1103B) || defined(RV1126B) || defined(RK3576) || defined(RV1126B)
+#if defined(RV1106) || defined(RV1103B) || defined(RV1126B) || defined(RK3576) || defined(RV1126B) || defined(RK3572)
 		RK_MPI_VI_PauseChn(ctx->vi.u32PipeId, ctx->vi.s32ChnId);
 		SAMPLE_COMM_ISP_Stop(gModeTest->s32CamId);
 		if (gModeTest->eHdrMode != RK_AIQ_WORKING_MODE_ISP_HDR2) {
@@ -874,7 +874,7 @@ int main(int argc, char *argv[]) {
 	ctx->vi.s32DevId = s32CamId;
 	ctx->vi.u32PipeId = ctx->vi.s32DevId;
 	ctx->vi.s32ChnId = s32ChnId;
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 	ctx->vi.stChnAttr.stIspOpt.u32BufCount = 6;
 #else
 	ctx->vi.stChnAttr.stIspOpt.u32BufCount = 2;

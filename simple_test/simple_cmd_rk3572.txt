@@ -1,0 +1,201 @@
+#chip rk3572, rockit c++
+logai=6
+simple_ai_bind_aenc&
+sleep 5
+killall simple_ai_bind_aenc
+checkmd5sum /tmp/aenc.g726
+simple_ai_bind_aenc -r 8000 -t g711a -o /tmp/8k_aenc.g711a&
+sleep 5
+killall simple_ai_bind_aenc
+checkmd5sum /tmp/8k_aenc.g711a
+simple_ai_bind_aenc -r 16000 -t g711u -o /tmp/16k_aenc.g711u&
+sleep 5
+killall simple_ai_bind_aenc
+checkmd5sum /tmp/16k_aenc.g711u
+
+simple_adec_bind_ao -r 8000 -t g726 -c 1 -i /tmp/aenc.g726
+rm /tmp/aenc.g726
+simple_adec_bind_ao -r 8000 -t g711a -c 1 -i /tmp/8k_aenc.g711a
+rm /tmp/8k_aenc.g711a
+simple_adec_bind_ao -r 16000 -t g711u -c 1 -i /tmp/16k_aenc.g711u
+rm /tmp/16k_aenc.g711u
+
+logai=6
+simple_ai_get_frame -b 0&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /tmp/ai.pcm
+rm /tmp/ai.pcm
+simple_ai_get_frame -r 16000 -R 16000 -v 1 -b 0 -o /data/ai_16000_16000_v_1.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_16000_16000_v_1.pcm
+rm /data/ai_16000_16000_v_1.pcm
+simple_ai_get_frame -r 16000 -R 16000 -v 0  -b 0 -o /data/ai_16000_16000_v_0.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_16000_16000_v_0.pcm
+rm /data/ai_16000_16000_v_0.pcm
+simple_ai_get_frame -r 8000 -R 16000 -b 0 -v 1 -o /data/ai_8000_16000_b_0_v_1.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_8000_16000_b_0_v_1.pcm
+rm /data/ai_8000_16000_b_0_v_1.pcm
+simple_ai_get_frame -r 8000 -R 16000 -b 0 -v 0 -o /data/ai_8000_16000_b_0_v_0.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_8000_16000_b_0_v_0.pcm
+rm /data/ai_8000_16000_b_0_v_0.pcm
+simple_ai_get_frame -r 16000 -R 8000 -v 1 -b 0 -o /data/ai_16000_8000_v_1.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_16000_8000_v_1.pcm
+rm /data/ai_16000_8000_v_1.pcm
+simple_ai_get_frame -r 16000 -R 8000 -v 0 -b 0 -o /data/ai_16000_8000_v_0.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_16000_8000_v_0.pcm
+rm /data/ai_16000_8000_v_0.pcm
+simple_ai_get_frame -r 8000 -R 8000 -b 0 -v 1 -o /data/ai_8000_8000_b_0_v_1.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_8000_8000_b_0_v_1.pcm
+simple_ai_get_frame -r 8000 -R 8000 -b 0 -v 0 -o /data/ai_8000_8000_b_0_v_0.pcm&
+sleep 3
+killall simple_ai_get_frame
+checkmd5sum /data/ai_8000_8000_b_0_v_0.pcm
+rm /data/ai_8000_8000_b_0_v_0.pcm
+
+logao=6
+simple_ao_send_frame -r 8000 -R 8000 -j /oem/usr/share/vqefiles/config_aovqe.json -i /data/ai_8000_8000_b_0_v_1.pcm
+simple_ao_send_frame -r 16000 -R 8000 -j /oem/usr/share/vqefiles/config_aovqe.json -i /data/ai_8000_8000_b_0_v_1.pcm
+simple_ao_send_frame -r 8000 -R 8000 -v 0 -i /data/ai_8000_8000_b_0_v_1.pcm
+simple_ao_send_frame -r 16000 -R 8000 -v 0 -i /data/ai_8000_8000_b_0_v_1.pcm
+rm /data/ai_8000_8000_b_0_v_1.pcm
+
+logvi=6
+simple_vi_get_frame&
+sleep 3
+killall simple_vi_get_frame
+sleep 1
+simple_vi_get_frame -I 0 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+simple_vi_get_frame -I 0 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+simple_vi_get_frame -I 1 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+simple_vi_get_frame -I 1 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+
+simple_vi_get_frame_rkaiq&
+sleep 1
+killall simple_vi_get_frame_rkaiq
+sleep 1
+simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+rm /userdata/test_0.yuv
+simple_vi_get_frame_rkaiq -I 0 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+rm /userdata/test_0.yuv
+simple_vi_get_frame_rkaiq -I 1 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+rm /userdata/test_1.yuv
+simple_vi_get_frame_rkaiq -I 1 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+rm /userdata/test_1.yuv
+simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1 -d 1
+checkmd5sum /userdata/test_0.yuv
+rm /userdata/test_0.yuv
+simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1 -m 1
+checkmd5sum /userdata/test_0.yuv
+rm /userdata/test_0.yuv
+
+simple_vi_get_frame_tde -w 1920 -h 1080 -l 10 -o /tmp
+checkmd5sum /tmp/tde_out.bin
+
+simple_vi_get_frame_send_vo -w 1920 -h 1080 -I 0 -l 5 -d 1 -t 1 -W 1080 -H 1920 &
+sleep 3
+killall simple_vi_get_frame_send_vo
+sleep 1
+
+logvenc=6
+simple_vi_bind_venc&
+sleep 1
+killall simple_vi_bind_venc
+sleep 1
+simple_vi_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
+checkmd5sum /tmp/venc.h264
+
+simple_vi_bind_vpss_bind_venc&
+sleep 1
+killall simple_vi_bind_vpss_bind_venc
+sleep 1
+simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/
+checkmd5sum /tmp/venc_1920x1080_0.h265
+rm /tmp/venc_1920x1080_0.h265
+simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/
+checkmd5sum /tmp/venc_1920x1080_0.mjpeg
+rm /tmp/venc_1920x1080_0.mjpeg
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/
+checkmd5sum /tmp/venc_320x240_0.h265
+rm /tmp/venc_320x240_0.h265
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/
+checkmd5sum /tmp/venc_320x240_0.mjpeg
+rm /tmp/venc_320x240_0.mjpeg
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/
+checkmd5sum /tmp/venc_320x240_0.h264
+rm /tmp/venc_320x240_0.h264
+
+simple_vi_bind_venc_osd&
+sleep 3
+killall simple_vi_bind_venc_osd
+sleep 3
+simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
+checkmd5sum /tmp/venc.h264
+
+simple_vi_bind_venc_rtsp&
+sleep 1
+killall simple_vi_bind_venc_rtsp
+sleep 1
+simple_vi_bind_venc_svc_rtsp&
+sleep 1
+killall simple_vi_bind_venc_svc_rtsp
+sleep 1
+
+simple_vi_bind_venc_jpeg&
+sleep 3
+killall simple_vi_bind_venc_jpeg
+sleep 1
+checkmd5sum /tmp/test_jpeg0.jpeg
+rm /tmp/test*
+
+simple_vdec_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
+sleep 1
+simple_vdec_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264 -b 1
+sleep 1
+simple_vdec_bind_vpss_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
+sleep 1
+simple_vdec -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264 -o /tmp/vdec_output.yuv
+sleep 1
+checkmd5sum /tmp/vdec_output.yuv
+rm /tmp/vdec_output.yuv
+simple_vdec -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h265 -o /tmp/vdec_output.yuv
+sleep 1
+checkmd5sum /tmp/vdec_output.yuv
+rm /tmp/vdec_output.yuv

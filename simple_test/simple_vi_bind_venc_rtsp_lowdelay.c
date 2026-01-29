@@ -182,7 +182,7 @@ static void *GetVIBufferSendVPSS(void *arg) {
             // 针对VI提前出帧，需要增加延时，使得VPSS处理完的耗时刚好是VI这一帧内容结束的时候，如果计算结果小于等于0，则无需延时
             // echo_wait_lines 是提前出帧的行数，根据VO低延时文档配置的
             // usleep_time = frame_time - frame_time * (echo_wait_lines - 32) / height - vpss_costtime
-#ifdef RK3576
+#if defined(RK3576) || defined(RK3572)
             usleep(10000); // echo_wait_lines = 32  vpss_costtime = 6ms
 #elif defined(RK3588)
             usleep(2000);  // echo_wait_lines = 1112  vpss_costtime = 6ms

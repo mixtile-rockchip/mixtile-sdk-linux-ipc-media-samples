@@ -37,6 +37,11 @@ SIMPLE_LD_FLAGS += -DRK3576
 SIMPLE_VO_LD_FLAGS += -DRK3576
 endif
 
+ifeq ($(RK_MEDIA_CHIP), rk3572)
+SIMPLE_LD_FLAGS += -DRK3572
+SIMPLE_VO_LD_FLAGS += -DRK3572
+endif
+
 ifeq ($(RK_MEDIA_CHIP), rk3588)
 SIMPLE_LD_FLAGS += -DRK3588
 SIMPLE_VO_LD_FLAGS += -DRK3588
@@ -123,6 +128,10 @@ simple_build: $(OBJECTS)
 
 ifeq ($(RK_MEDIA_CHIP), rk3576)
 	$(CMD_DBG)cp simple_cmd_rk3588_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
+endif
+
+ifeq ($(RK_MEDIA_CHIP), rk3572)
+	$(CMD_DBG)cp simple_cmd_rk3572.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rk3588)

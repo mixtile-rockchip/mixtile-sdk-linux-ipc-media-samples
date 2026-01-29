@@ -316,7 +316,7 @@ static void print_usage(const RK_CHAR *name) {
 #endif
 	printf("\t-d | --hdr_mode: Default:0, 0:normal,1:hdr2\n");
 	printf("\t-m | --multiple sensor: Default:0 \n");
-	printf("\t-o: output path, Default:0  0 or 1 /data/test_0.yuv\n");
+	printf("\t-o: output path, Default:0  0 or 1 /userdata/test_0.yuv\n");
 }
 
 int main(int argc, char *argv[]) {

@@ -324,8 +324,14 @@ void *get_frame(void *arg) {
 	FILE *fp = NULL;
 	VIDEO_FRAME_INFO_S sFrame;
 
-	if (file_path)
+	if (file_path) {
 		fp = fopen(file_path, "wb");
+		if (fp) {
+			RK_LOGI("open file %s success", file_path);
+		} else {
+			RK_LOGE("open file %s failed[%d, %s]", file_path, errno, strerror(errno));
+		}
+	}
 
 	memset(&sFrame, 0, sizeof(VIDEO_FRAME_INFO_S));
 	while (1) {
@@ -386,6 +392,8 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 	}
+
+	printf("#file_path: %s\n", file_path);
 
 	if (strstr(file_path, ".hevc") || strstr(file_path, ".h265") ||
 	    strstr(file_path, ".265"))

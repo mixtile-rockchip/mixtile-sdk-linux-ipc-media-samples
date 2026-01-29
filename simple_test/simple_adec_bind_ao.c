@@ -19,6 +19,8 @@
 
 #if defined(RK3576) || defined(RK3588)
 #define CARD_NAME "plughw:1,0"
+#elif defined(RK3572)
+#define CARD_NAME "default"
 #endif
 
 #ifndef CARD_NAME

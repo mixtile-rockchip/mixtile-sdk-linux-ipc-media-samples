@@ -622,7 +622,7 @@ int main(int argc, char *argv[]) {
 	ctx->vpss.dstFilePath = pOutPath;
 	/* RGA_device: VIDEO_PROC_DEV_RGA */
 	ctx->vpss.enVProcDevType = devtype;
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 	if (gModeTest->s32ModuleTestType == 3 || gModeTest->s32ModuleTestType == 4) {
 		ctx->vpss.enVProcDevType = VIDEO_PROC_DEV_VPSS;
 		RK_LOGE("using hardware vpss now");

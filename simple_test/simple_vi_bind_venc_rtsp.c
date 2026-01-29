@@ -377,15 +377,22 @@ int main(int argc, char *argv[]) {
 	RK_CODEC_ID_E enCodecType = RK_VIDEO_ID_AVC;
 	RK_CHAR *pCodecName = "H264";
 	RK_S32 s32chnlId = 0;
-	char *iq_dir = "/etc/iqfiles";
+	char *iq_dir = NULL;
 	int c;
 	int ret = -1;
 
 	while ((c = getopt(argc, argv, optstr)) != -1) {
 		switch (c) {
+		const char *tmp_optarg = optarg;
 		case 'a':
-			if (optarg)
-				iq_dir = optarg;
+			if (!optarg && NULL != argv[optind] && '-' != argv[optind][0]) {
+				tmp_optarg = argv[optind++];
+			}
+			if (tmp_optarg) {
+				iq_dir = (char *)tmp_optarg;
+			} else {
+				iq_dir = NULL;
+			}
 			break;
 		case 'w':
 			u32Width = atoi(optarg);
@@ -428,6 +435,7 @@ int main(int argc, char *argv[]) {
 	printf("#Resolution: %dx%d\n", u32Width, u32Height);
 	printf("#ChannelIdx: %d\n\n", s32chnlId);
 	printf("#Frame Count to save: %d\n", g_s32FrameCnt);
+	printf("#iq_dir: %s\n", iq_dir);
 
 	signal(SIGINT, sigterm_handler);
 

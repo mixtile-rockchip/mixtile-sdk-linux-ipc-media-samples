@@ -180,7 +180,7 @@ void* vdec_get_send_vo(void* arg) {
     while (1) {
         ret = RK_MPI_VDEC_GetFrame(data->src_chn.s32ChnId, &sFrame, 1000);
         if (ret == RK_SUCCESS)
-            RK_MPI_VO_SendFrame(data->dest_chn.s32DevId, data->dest_chn.s32DevId, &sFrame, -1);
+            RK_MPI_VO_SendFrame(data->dest_chn.s32DevId, data->dest_chn.s32ChnId, &sFrame, -1);
         else if (data->loop == 0)
             break;
         ret = RK_MPI_VDEC_ReleaseFrame(data->src_chn.s32ChnId, &sFrame);
@@ -330,6 +330,7 @@ int main(int argc, char* argv[]) {
     if (bind) {
         ret = RK_MPI_SYS_Bind(&src_chn, &dest_chn);
         check_ret(ret, "RK_MPI_SYS_Bind");
+        RK_LOGI("src_chn[%d, %d, %d] bind dest_chn[%d, %d, %d]", src_chn.enModId, src_chn.s32DevId, src_chn.s32ChnId, dest_chn.enModId, dest_chn.s32DevId, dest_chn.s32ChnId);
     } else {
         vo_thread_data.src_chn = src_chn;
         vo_thread_data.dest_chn = dest_chn;

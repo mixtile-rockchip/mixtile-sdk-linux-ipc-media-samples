@@ -30,7 +30,7 @@
 static RK_S32 g_s32FrameCnt = -1;
 static bool quit = false;
 FILE *file = NULL;
-static RK_CHAR *g_pOutPath = "/tmp/";
+static RK_CHAR *g_pOutPath = "/tmp";
 
 static void sigterm_handler(int sig) {
 	fprintf(stderr, "signal %d\n", sig);
@@ -57,7 +57,10 @@ static void *GetMediaBuffer0(void *arg) {
 	while (!quit) {
 		memset(jpeg_path, 0, sizeof(jpeg_path));
 		sprintf(jpeg_path, "%s/test_jpeg%d.jpeg", g_pOutPath, jpeg_id);
-		file = fopen(jpeg_path, "w");
+
+		file = fopen(jpeg_path, "wb");
+		if (!file)
+			printf("open jpeg_path[%s] faile, errno[%d, %s]\n", jpeg_path, errno, strerror(errno));
 
 		s32Ret = RK_MPI_VENC_GetStream(0, &stFrame, 500);
 		if (s32Ret == RK_SUCCESS) {
@@ -65,6 +68,9 @@ static void *GetMediaBuffer0(void *arg) {
 				pData = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
 				fwrite(pData, 1, stFrame.pstPack->u32Len, file);
 				fflush(file);
+				fsync(file);
+				fclose(file);
+				file = NULL;
 			}
 			RK_U64 nowUs = TEST_COMM_GetNowUs();
 
@@ -272,7 +278,10 @@ int main(int argc, char *argv[]) {
 	VENC_RECV_PIC_PARAM_S stRecvParam;
 
 	pthread_t main_thread;
-	pthread_create(&main_thread, NULL, GetMediaBuffer0, NULL);
+	s32Ret = pthread_create(&main_thread, NULL, GetMediaBuffer0, NULL);
+	if (s32Ret) {
+		RK_LOGE("pthread_create GetMediaBuffer0 failed s32Ret: %d", s32Ret);
+	}
 
 	char cmd[64];
 	VENC_JPEG_PARAM_S stJpegParam;

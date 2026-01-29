@@ -19,7 +19,7 @@ extern "C" {
 
 #include "sample_comm.h"
 
-#if defined(RK3588) || defined(RK3576)
+#if defined(RK3588) || defined(RK3576) || defined(RK3572)
 #define CIF_DEFAULIT_BUF_CNT 4
 #else
 #define CIF_DEFAULIT_BUF_CNT 2

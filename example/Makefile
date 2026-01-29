@@ -56,6 +56,10 @@ ifeq ($(RK_MEDIA_CHIP), rk3576)
 PKG_CONF_OPTS += -DARCH64=ON
 endif
 
+ifeq ($(RK_MEDIA_CHIP), rk3572)
+PKG_CONF_OPTS += -DARCH64=ON
+endif
+
 ifeq ($(RK_MEDIA_CHIP), rk3588)
 PKG_CONF_OPTS += -DARCH64=ON
 endif
@@ -105,7 +109,8 @@ ifeq ($(RK_MEDIA_CHIP), rv1103b)
 COMM_SRC += $(wildcard $(COMM_DIR)/isp3.3/*.c)
 endif
 
-ifeq ($(RK_MEDIA_CHIP), rv1126b)
+#ifeq ($(RK_MEDIA_CHIP), rv1126b)
+ifeq ($(RK_MEDIA_CHIP), rv1126b) || eq ($(RK_MEDIA_CHIP), rk3572)
 COMM_SRC += $(wildcard $(COMM_DIR)/isp3.5/*.c)
 COMM_SRC += $(wildcard $(COMM_DIR)/font_factory.c)
 endif
@@ -149,6 +154,12 @@ ifeq ($(RK_MEDIA_CHIP), rk3576)
 INC_FLAGS += -I$(COMM_DIR)/isp3.9
 INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/freetype2
 SAMPLE_CFLAGS += -DHAVE_VO -DISP_HW_V39 -DRK3576 -DUAPI2 -DRKAIQ_GRP
+endif
+
+ifeq ($(RK_MEDIA_CHIP), rk3572)
+INC_FLAGS += -I$(COMM_DIR)/isp3.5
+INC_FLAGS += -I$(RK_MEDIA_OUTPUT)/include/freetype2
+SAMPLE_CFLAGS += -DHAVE_VO -DISP_HW_V35 -DRK3572 -DUAPI2 -DRKAIQ_GRP
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rk3588)

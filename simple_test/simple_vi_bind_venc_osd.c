@@ -295,7 +295,7 @@ RK_S32 init_rgn_overlay_process_ex() {
 	RK_CHAR *filename = "/data/res/rgn/44";
 
 	MPP_CHN_S stMppChn;
-#if defined(RK3588) || defined(RK3576)
+#if defined(RK3588) || defined(RK3576) || defined(RK3572)
 	stMppChn.enModId = RK_ID_VENC;
 #else
 	stMppChn.enModId = RK_ID_VI;
@@ -420,7 +420,7 @@ RK_S32 deinit_rgn_overlay_process_ex() {
 	RK_S32 s32Ret = RK_SUCCESS;
 	RGN_HANDLE RgnHandle = 1;
 	MPP_CHN_S stMppChn;
-#if defined(RK3588) || defined(RK3576)
+#if defined(RK3588) || defined(RK3576) || defined(RK3572)
 	stMppChn.enModId = RK_ID_VENC;
 #else
 	stMppChn.enModId = RK_ID_VI;
@@ -669,7 +669,7 @@ int main(int argc, char *argv[]) {
 		goto __FAILED;
 	}
 
-#ifndef RK3576
+#if !defined(RK3576) && !defined(RK3572)
 	init_rgn_overlay_process();
 #endif
 
@@ -689,7 +689,7 @@ int main(int argc, char *argv[]) {
 	pthread_join(main_thread, NULL);
 	pthread_join(osd_thread, NULL);
 
-#ifndef RK3576
+#if !defined(RK3576) && !defined(RK3572)
 	deinit_rgn_overlay_process();
 #endif
 

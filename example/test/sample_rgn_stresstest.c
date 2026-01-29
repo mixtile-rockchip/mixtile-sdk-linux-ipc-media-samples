@@ -348,7 +348,7 @@ static RK_S32 rgn_init(void) {
 		// cover for venc
 		ctx->rgn[i].rgnHandle = i;
 		ctx->rgn[i].stRgnAttr.enType = COVER_RGN;
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 		ctx->rgn[i].stMppChn.enModId = RK_ID_VPSS;
 #else
 		ctx->rgn[i].stMppChn.enModId = RK_ID_VENC;
@@ -381,7 +381,7 @@ static RK_S32 rgn_init(void) {
 		u32Height = 128;
 	}
 	ctx->rgn[4].rgnHandle = 4;
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 	ctx->rgn[4].stRgnAttr.enType = OVERLAY_EX_RGN;
 	ctx->rgn[4].stRgnAttr.unAttr.stOverlay.enVProcDev = VIDEO_PROC_DEV_RGA;
 #else
@@ -414,7 +414,7 @@ static RK_S32 rgn_init(void) {
 		u32Height = 128;
 	}
 	ctx->rgn[5].rgnHandle = 5;
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 	ctx->rgn[5].stRgnAttr.enType = OVERLAY_EX_RGN;
 	ctx->rgn[5].stRgnAttr.unAttr.stOverlay.enVProcDev = VIDEO_PROC_DEV_RGA;
 #else
@@ -447,7 +447,7 @@ static RK_S32 rgn_init(void) {
 		u32Height = 128;
 	}
 	ctx->rgn[6].rgnHandle = 6;
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 	ctx->rgn[6].stRgnAttr.enType = OVERLAY_EX_RGN;
 	ctx->rgn[6].stRgnAttr.unAttr.stOverlay.enVProcDev = VIDEO_PROC_DEV_RGA;
 #else
@@ -807,7 +807,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* Init VPSS */
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 	ctx->vpss.s32GrpId = 0;
 	ctx->vpss.s32ChnId = 0;
 	if (gModeTest->s32ModuleTestType == 2)
@@ -863,7 +863,7 @@ int main(int argc, char *argv[]) {
 	ctx->venc.stChnAttr.stGopAttr.enGopMode = VENC_GOPMODE_NORMALP;
 	SAMPLE_COMM_VENC_CreateChn(&ctx->venc);
 
-#if defined (RK3576)
+#if defined (RK3576) || defined(RK3572)
 	/* VI bind VPSS bind VENC */
 	stSrcChn.enModId = RK_ID_VI;
 	stSrcChn.s32DevId = ctx->vi.s32DevId;
@@ -935,7 +935,7 @@ int main(int argc, char *argv[]) {
 	gModeTest->bIfVencThreadQuit = RK_TRUE;
 	pthread_join(ctx->venc.getStreamThread, NULL);
 
-#if defined (RK3576)
+#if defined (RK3576) || defined(RK3572)
 	/* VPSS unbind VENC */
 	stSrcChn.enModId = RK_ID_VPSS;
 	stSrcChn.s32DevId = ctx->vpss.s32GrpId;
@@ -976,7 +976,7 @@ int main(int argc, char *argv[]) {
 	/* destroy venc */
 	SAMPLE_COMM_VENC_DestroyChn(&ctx->venc);
 
-#if defined(RK3576)
+#if defined(RK3576) || defined(RK3572)
 	/* destroy venc */
 	SAMPLE_COMM_VPSS_DestroyChn(&ctx->vpss);
 #endif
