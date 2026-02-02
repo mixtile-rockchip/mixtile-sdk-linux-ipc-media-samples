@@ -109,8 +109,7 @@ ifeq ($(RK_MEDIA_CHIP), rv1103b)
 COMM_SRC += $(wildcard $(COMM_DIR)/isp3.3/*.c)
 endif
 
-#ifeq ($(RK_MEDIA_CHIP), rv1126b)
-ifeq ($(RK_MEDIA_CHIP), rv1126b) || eq ($(RK_MEDIA_CHIP), rk3572)
+ifneq ($(filter rv1126b rk3572, $(RK_MEDIA_CHIP)),)
 COMM_SRC += $(wildcard $(COMM_DIR)/isp3.5/*.c)
 COMM_SRC += $(wildcard $(COMM_DIR)/font_factory.c)
 endif
