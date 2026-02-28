@@ -8,12 +8,16 @@ echo "start to do-test.sh"
 cat /tmp/rtt-log.txt
 
 dmesg &> /tmp/dmesg.log
-f=$(ls /dev/mmcblk*p*)
-if [ -z "$f" ];then
-	f=$(ls /dev/mmcblk*)
-fi
+
+# Auto-detect SD card device: mmcblk1 for eMMC, mmcblk0 for SPI NOR
+for f in  $(ls /dev/mmcblk?p*|sort -r);do
+	if [ -e "$f" ];then
+		break
+	fi
+done
+
 if [ -n "$f" ];then
-	mount "$f" /mnt/sdcard/
+	mount $f /mnt/sdcard/
 	cnt=$(cat /mnt/sdcard/test_tb_num)
 	cnt=$(( cnt + 1 ))
 	echo $cnt > /mnt/sdcard/test_tb_num
