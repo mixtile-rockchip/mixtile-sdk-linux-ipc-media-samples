@@ -32,6 +32,9 @@ test_cmd()
 		return
 	fi
 	__echo_test_cmd_msg "TEST    `date "+%D %H:%M:%S"` [$*]"
+	if [ "$rk_dry_run" = "1" ]; then
+		return 0
+	fi
 	eval $*
 	ret=$?
 	__chk_cma_free
