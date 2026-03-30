@@ -237,10 +237,10 @@ static void pn_mode_switch(RK_S32 test_loop) {
 
 #ifdef RV1126B
 		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(gModeTest->s32CamId)) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, false);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, true);
 			printf("raw stream control by rockit\n");
 		}
 #endif
@@ -295,10 +295,10 @@ static void hdr_mode_switch_test(RK_S32 test_loop) {
 
 #ifdef RV1126B
 		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(gModeTest->s32CamId)) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, false);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, true);
 			printf("raw stream control by rockit\n");
 		}
 #endif
@@ -500,10 +500,10 @@ static void isp_deinit_init(RK_S32 test_loop) {
 
 #ifdef RV1126B
 		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(gModeTest->s32CamId)) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, false);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, true);
 			printf("raw stream control by rockit\n");
 		}
 #endif
@@ -585,10 +585,10 @@ static void aiisp_deinit_init(RK_S32 test_loop) {
 
 #ifdef RV1126B
 		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(gModeTest->s32CamId)) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, false);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, true);
 			printf("raw stream control by rockit\n");
 		}
 #endif
@@ -853,10 +853,10 @@ int main(int argc, char *argv[]) {
 
 #ifdef RV1126B
 		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(s32CamId, false);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(s32CamId, true);
 			printf("raw stream control by rockit\n");
 		}
 #endif

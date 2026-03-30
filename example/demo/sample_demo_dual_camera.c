@@ -577,10 +577,10 @@ int main(int argc, char *argv[]) {
 		SAMPLE_COMM_ISP_SetFrameRate(1, cam_1_fps);
 #ifdef RV1126B
 		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(0)) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(false, 0);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(true, 0);
 			printf("raw stream control by rockit\n");
 		}
 #endif

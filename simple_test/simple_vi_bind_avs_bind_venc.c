@@ -767,10 +767,10 @@ int main(int argc, char *argv[]) {
 		SIMPLE_COMM_ISP_Run(0);
 #ifdef RV1126B
 		if (rk_aiq_uapi2_judgeNeedRawPipeCtrl(g_aiq_ctx[0])) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(0, false);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(0, true);
 			printf("raw stream control by rockit\n");
 		}
 #endif

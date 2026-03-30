@@ -506,10 +506,10 @@ static RK_S32 pnMode_stressTest(RK_S32 s32CamId, rk_aiq_working_mode_t WDRMode,
 
 #ifdef RV1126B
 	if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
-		RK_MPI_VI_CtrlRawStream(false);
+		RK_MPI_VI_CtrlRawStream(s32CamId, false);
 		printf("raw stream control by rkaiq\n");
 	} else {
-		RK_MPI_VI_CtrlRawStream(true);
+		RK_MPI_VI_CtrlRawStream(s32CamId, true);
 		printf("raw stream control by rockit\n");
 	}
 #endif
@@ -554,10 +554,10 @@ static RK_S32 hdrMode_stressTest(RK_S32 s32CamId, rk_aiq_working_mode_t WDRMode,
 
 #ifdef RV1126B
 	if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(s32CamId)) {
-		RK_MPI_VI_CtrlRawStream(false);
+		RK_MPI_VI_CtrlRawStream(s32CamId, false);
 		printf("raw stream control by rkaiq\n");
 	} else {
-		RK_MPI_VI_CtrlRawStream(true);
+		RK_MPI_VI_CtrlRawStream(s32CamId, true);
 		printf("raw stream control by rockit\n");
 	}
 #endif
@@ -1726,10 +1726,10 @@ static RK_S32 media_init(RK_CHAR *pIqFileDir) {
 
 #ifdef RV1126B
 		if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(gModeTest->s32CamId)) {
-			RK_MPI_VI_CtrlRawStream(false);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, false);
 			printf("raw stream control by rkaiq\n");
 		} else {
-			RK_MPI_VI_CtrlRawStream(true);
+			RK_MPI_VI_CtrlRawStream(gModeTest->s32CamId, true);
 			printf("raw stream control by rockit\n");
 		}
 #endif

@@ -1056,10 +1056,10 @@ static RK_S32 isp_init(void) {
 
 #ifdef RV1126B
 			if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(g_aiq_ctx[sensor_idx])) {
-				RK_MPI_VI_CtrlRawStream(false);
+				RK_MPI_VI_CtrlRawStream(g_aiq_ctx[sensor_idx], false);
 				printf("raw stream control by rkaiq\n");
 			} else {
-				RK_MPI_VI_CtrlRawStream(true);
+				RK_MPI_VI_CtrlRawStream(g_aiq_ctx[sensor_idx], true);
 				printf("raw stream control by rockit\n");
 			}
 #endif

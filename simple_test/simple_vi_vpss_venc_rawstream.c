@@ -2081,10 +2081,10 @@ int main(int argc, char *argv[]) {
 #ifdef RV1126B
 		if (stTestCtx.firstMode == TEST_ONLINE_MODE) {
 			if (rk_aiq_uapi2_judgeNeedRawPipeCtrl(g_aiq_ctx[pViCfg->u32PipeId])) {
-				RK_MPI_VI_CtrlRawStream(false);
+				RK_MPI_VI_CtrlRawStream(pViCfg->u32PipeId, false);
 				printf("raw stream control by rkaiq\n");
 			} else {
-				RK_MPI_VI_CtrlRawStream(true);
+				RK_MPI_VI_CtrlRawStream(pViCfg->u32PipeId, true);
 				printf("raw stream control by rockit\n");
 			}
 		}

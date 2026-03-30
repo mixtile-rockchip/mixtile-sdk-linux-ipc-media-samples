@@ -344,9 +344,9 @@ static int vi_dev_init(void) {
 		RK_LOGE("RK_MPI_VI_SetDevAttr already\n");
 	}
 	if (rk_cmd_param.enable_memc) {
-		RK_MPI_VI_CtrlRawStream(false);
+		RK_MPI_VI_CtrlRawStream(VI_DEV, false);
 	} else {
-		RK_MPI_VI_CtrlRawStream(true);
+		RK_MPI_VI_CtrlRawStream(VI_DEV, true);
 	}
 	// 1.get dev enable status
 	ret = RK_MPI_VI_GetDevIsEnable(VI_DEV);

@@ -156,10 +156,10 @@ static RK_S32 isp_init(RK_ISP_INIT_PARAM_S *pstIspParam) {
 
 #ifdef RV1126B
 			if (SAMPLE_COMM_ISP_JudgeNeedRawPipeCtrl(pstIspParam->s32CamId[i])) {
-				RK_MPI_VI_CtrlRawStream(false);
+				RK_MPI_VI_CtrlRawStream(pstIspParam->s32CamId[i], false);
 				printf("raw stream control by rkaiq\n");
 			} else {
-				RK_MPI_VI_CtrlRawStream(true);
+				RK_MPI_VI_CtrlRawStream(pstIspParam->s32CamId[i], true);
 				printf("raw stream control by rockit\n");
 			}
 #endif
