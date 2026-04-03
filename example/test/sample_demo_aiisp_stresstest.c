@@ -795,6 +795,7 @@ static RK_S32 encode_type_switch(SAMPLE_VENC_CTX_S *pVencCtx) {
 			program_handle_error(__func__, __LINE__);
 			return RK_FAILURE;
 		}
+		break;
 
 	case 1: /* H265 CBR */
 		RK_LOGE("-------------Switch To H265CBR---------------");
@@ -806,6 +807,7 @@ static RK_S32 encode_type_switch(SAMPLE_VENC_CTX_S *pVencCtx) {
 			program_handle_error(__func__, __LINE__);
 			return RK_FAILURE;
 		}
+		break;
 
 	default:
 		return RK_SUCCESS;
