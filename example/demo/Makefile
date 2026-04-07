@@ -20,7 +20,7 @@ ifeq ($(CONFIG_RK_IVA),y)
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_vi_venc.c -o sample_demo_vi_venc $(LD_FLAGS) -lrockiva
 
 ifneq ($(findstring $(RK_MEDIA_CHIP), rk3576 rk3588),)
-        $(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_multi_cam.c -o sample_demo_multi_cam $(LD_FLAGS) -lrockiva -lfreetype
+	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_multi_cam.c -o sample_demo_multi_cam $(LD_FLAGS) -lrockiva -lfreetype
 endif
 else
 	$(CMD_DBG)$(SAMPLE_CC) $(SAMPLE_CFLAGS) sample_demo_vi_venc.c -o sample_demo_vi_venc $(LD_FLAGS)
