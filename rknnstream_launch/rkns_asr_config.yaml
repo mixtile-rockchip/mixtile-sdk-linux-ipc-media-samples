@@ -1,0 +1,219 @@
+# ============================================================
+# RKNNStream ASR 配置文件
+# 版本: 1.0.0
+# 描述: 配置 Rockit 音频输入和 RKNNStream ASR 推理 pipeline
+# ============================================================
+
+# Pipeline 列表
+pipelines:
+  # Pipeline 1: Rockit 音频采集
+  - name: "rockit_audio_pipeline"
+    type: "rockit"
+    enabled: true
+    # 模块列表
+    modules:
+      # AI 模块（音频输入）
+      # 支持多声卡配置：使用 devices 列表
+      - name: "AI"
+        # ========== 声卡列表 ==========
+        devices:
+          # 声卡1配置
+          - dev_id: 0
+            dev_config:
+              # 声卡名（hw:卡号,设备号）
+              source_type: "hw:1,0"
+              # 声卡采样率（Hz）
+              sample_rate: 16000
+              # 声卡声道数（1=单声道/Mono, 2=立体声/Stereo）
+              channels: 2
+              # 声卡采样位宽（bit）
+              bit_width: 16
+              # 通道映射使能开关（true=启用多通道+声道映射，false=单通道模式）
+              channel_map_enable: false
+            # 该声卡的通道列表
+            channels:
+              - chn_id: 0
+                chn_config:
+                  # ========== 通道音频参数（与声卡硬件参数对应） ==========
+                  # 通道采样率（Hz）
+                  sample_rate: 16000
+                  # 通道声道数（1=单声道/Mono, 2=立体声/Stereo）
+                  channels: 1
+                  # 通道采样位宽（bit）
+                  bit_width: 16
+                  # ========== 通道处理参数 ==========
+                  # 帧时间（毫秒为单位）
+                  frame_time: 3000
+                  # 缓冲区数量
+                  buffer_count: 4
+                  # 通道深度（队列深度）
+                  depth: 4
+                  # ========== 声道映射配置 ==========
+                  # 通道声道到声卡物理声道的映射
+                  # 格式: [声卡声道索引, ...]
+                  # 例如：通道是单声道(channels=1)，映射到声卡的左声道(0)
+                  #       channel_map: [0]
+                  # 例如：通道是立体声(channels=2)，映射到声卡的左(0)右(1)声道
+                  #       channel_map: [0, 1]
+                  # 例如：通道是单声道，映射到声卡的右声道(1)
+                  #       channel_map: [1]
+                  #channel_map: [0]
+                  # ========== 轨道模式配置（当声卡是2声道但通道是1声道时） ==========
+                  # track_mode: 0  # AUDIO_TRACK_NORMAL
+                  # track_mode: 1  # AUDIO_TRACK_BOTH_LEFT
+                  # track_mode: 2  # AUDIO_TRACK_BOTH_RIGHT
+                  # track_mode: 3  # AUDIO_TRACK_EXCHANGE
+                  # track_mode: 4  # AUDIO_TRACK_MIX
+                  # track_mode: 5  # AUDIO_TRACK_LEFT_MUTE
+                  # track_mode: 6  # AUDIO_TRACK_RIGHT_MUTE
+                  # track_mode: 7  # AUDIO_TRACK_BOTH_MUTE
+                  # track_mode: 8  # AUDIO_TRACK_FRONT_LEFT
+                  # track_mode: 9  # AUDIO_TRACK_FRONT_RIGHT
+                  # track_mode: 10 # AUDIO_TRACK_OUT_STEREO
+                  track_mode: 8
+                  # ========== VQE 配置（声音质量增强） ==========
+                  # VQE 配置文件路径
+                  #vqe_config_path: "/userdata/config_aivqe.json"
+            # 示例：同一声卡的第二个通道（映射到声卡右声道）
+            # - chn_id: 1
+            #   chn_config:
+            #     sample_rate: 16000
+            #     channels: 1
+            #     bit_width: 16
+            #     frame_time: 1000
+            #     buffer_count: 4
+            #     depth: 4
+            #     channel_map: [1]
+
+        # 示例：第二个声卡配置（取消注释启用）
+        # - dev_id: 1
+        #   dev_config:
+        #     source_type: "hw:2,0"
+        #     sample_rate: 16000
+        #     channels: 2
+        #     bit_width: 16
+        #   channels:
+        #     - chn_id: 0
+        #       chn_config:
+        #         frame_time: 1000
+        #         buffer_count: 4
+        #         depth: 4
+
+  # Pipeline 2: RKNNStream 框架 pipeline（ASR 推理）
+  - name: "rknnstream_asr_pipeline"
+    type: "rknnstream"
+    enabled: true
+
+    # 模块列表
+    modules:
+      # 输入模块（从 Rockit AI 取流）
+      # 与 rockit_audio_pipeline 中的 AI 模块隐式绑定
+      - name: "INPUT"
+        # ========== 通道列表（INPUT无设备参数，所有参数在通道中配置） ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 输入源类型
+              type: "ROCKIT"
+              # 操作类型：AI取流
+              op_type: "AI_CAPTURE"
+              # 源帧率（0表示不控制）
+              src_frame_rate: 0
+              # 目标帧率（0表示不控制）
+              dst_frame_rate: 0
+              # 观察深度
+              depth: 1
+              # 隐式绑定：指定源模块信息（Rockit AI 模块）
+              source:
+                module: "AI"
+                dev_id: 0
+                chn_id: 0
+
+      # 推理模块（ASR）
+      - name: "INFER"
+        # ========== 通道列表（INFER无设备参数，所有参数在通道中配置） ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 模型类型
+              # 可选值: ALM, CLASSIFY, DETECT, LLM, SEGMENT, TRACK, TTA, VLM
+              model_type: "ALM"
+              # 模块名称
+              module_name: "WhisperASR"
+              # 模型路径
+              model_path: "/userdata/rockx_data/whisper_asr"
+              # 模型授权配置
+              model_auth_config: ""
+              # 置信度阈值
+              confidence_threshold: 0.5
+              # 输入队列数量
+              input_queue_count: 3
+              # 输出缓冲数量
+              output_buffer_count: 3
+              # 源帧率（0表示不控制）
+              src_frame_rate: 0
+              # 目标帧率（0表示不控制）
+              dst_frame_rate: 0
+              # 观察深度
+              depth: 1
+              # ALM 模型特有属性
+              alm_task: "zh"
+              alm_encoder_model: "whisper-large-v3-turbo-encoder.rknn"
+              alm_decoder_model: "whisper-large-v3-turbo-decoder.rknn"
+              alm_mel_filters: "mel_128_filters.txt"
+              alm_vocab: "vocab_zh.txt"
+              # 缓存时间（毫秒）
+              frame_time: 3000
+
+    # 绑定关系列表
+    bindings:
+      # INPUT -> INFER 绑定
+      - name: "input_to_infer"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "INFER"
+        dst_dev_id: 0
+        dst_chn_id: 0
+        config:
+          # 绑定类型
+          bind_type: "AUTO"
+          # 队列深度
+          queue_depth: 3
+
+# ============================================================
+# 系统配置
+# ============================================================
+system:
+  # 日志级别
+  # 可选值: DEBUG, INFO, WARN, ERROR, FATAL
+  log_level: "INFO"
+  # 日志输出
+  # 可选值: CONSOLE, FILE, BOTH
+  log_output: "CONSOLE"
+  # 缓冲区数量
+  buffer_count: 8
+
+# ============================================================
+# 调试配置
+# ============================================================
+debug:
+  # 是否启用调试模式
+  enabled: false
+  # 调试输出目录
+  output_dir: "/tmp/rkns_debug"
+  # 是否保存中间结果
+  save_intermediate: false
+
+# ============================================================
+# VAD (语音活动检测) 配置
+# ============================================================
+vad:
+  # 是否启用 VAD
+  enabled: true
+  # 静音阈值（dB）
+  silence_threshold: -40
+  # 最小语音长度（毫秒）
+  min_speech_duration: 200
+  # 最大静音长度（毫秒）
+  max_silence_duration: 500

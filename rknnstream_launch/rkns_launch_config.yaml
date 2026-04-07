@@ -1,0 +1,219 @@
+# ============================================================
+# RKNNStream Launch 配置文件
+# ============================================================
+# 此配置文件用于 RKNNStream 完整应用的配置
+# 支持 YAML 格式的层级配置
+#
+# 使用方法：
+#   ./rkns_launch --config rkns_launch_config.yaml
+#
+# 配置验证：
+#   可以使用 third-party/yaml/yaml_test 工具验证配置语法
+# ============================================================
+
+# ------------------------------------------------------------
+# Pipeline 配置（支持多 pipeline）
+# ------------------------------------------------------------
+# pipeline 类型：
+#   - rknnstream: RKNNStream 框架 pipeline（默认）
+#   - rockit:     Rockit 多媒体框架 pipeline
+# ------------------------------------------------------------
+
+pipelines:
+  # Pipeline 1: RKNNStream 框架 pipeline（AI 推理）
+  - name: "rknnstream_pipeline"
+    type: "rknnstream"
+    enabled: true
+
+    # 模块列表
+    modules:
+      # 输入模块（从 Rockit AI 取流）
+      - name: "INPUT"
+        dev_id: 0
+        chn_id: 0
+        config:
+          # 输入源类型
+          type: "ROCKIT"
+          # 操作类型：AI取流
+          op_type: "AI_CAPTURE"
+          # 源帧率（0表示不控制）
+          src_frame_rate: 0
+          # 目标帧率（0表示不控制）
+          dst_frame_rate: 0
+          # 观察深度
+          depth: 1
+          # 隐式绑定：指定源模块信息（Rockit AI 模块）
+          source:
+            module: "AI"
+            dev_id: 0
+            chn_id: 0
+
+      # 推理模块
+      - name: "INFER"
+        dev_id: 0
+        chn_id: 0
+        config:
+          model_type: "ALM"
+          module_name: "WhisperASR"
+          # model_path: "/oem/rockx_data/"
+          model_path: "/userdata/rockx_data/whisper_asr"
+          model_auth_config: ""
+          confidence_threshold: 0.5
+          input_queue_count: 3
+          output_buffer_count: 3
+          depth: 1
+          src_frame_rate: 0
+          dst_frame_rate: 0
+          # ALM 模型特有属性
+          alm_task: "zh"
+          alm_encoder_model: "whisper-large-v3-turbo-encoder.rknn"
+          alm_decoder_model: "whisper-large-v3-turbo-decoder.rknn"
+          alm_mel_filters: "mel_128_filters.txt"
+          alm_vocab: "vocab_zh.txt"
+
+      # 图形叠加模块
+      - name: "GRAPHICS"
+        dev_id: 0
+        chn_id: 0
+        config:
+          enable: true
+          enable_box: true
+          enable_text: true
+          pixel_format: "NV12"
+
+      # 输出模块
+      - name: "OUTPUT"
+        dev_id: 0
+        chn_id: 0
+        config:
+          type: "APP"
+          path: ""
+          watch_depth: 1
+
+    # 绑定关系列表
+    bindings:
+      - name: "input_to_infer"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "INFER"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      - name: "infer_to_graphics"
+        src_module: "INFER"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "GRAPHICS"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      - name: "graphics_to_output"
+        src_module: "GRAPHICS"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "OUTPUT"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+  # Pipeline 2: Rockit 多媒体框架 pipeline
+  # 节点链路: VI -> VO（视频预览）
+  - name: "rockit_pipeline"
+    type: "rockit"
+    enabled: true
+
+    # 模块列表
+    modules:
+      # VI 模块（视频输入，参考 simple_vi_vo_osd.c）
+      - name: "VI"
+        dev_id: 0
+        chn_id: 0
+        pipe_id: 0
+        config:
+          width: 1920
+          height: 1080
+          buffer_count: 2
+          depth: 0
+
+      # VO 模块（视频输出，使用 MIPI DSI 接口，1080x1920 竖屏）
+      - name: "VO"
+        dev_id: 1
+        chn_id: 0
+        layer_id: 5
+        config:
+          layer_width: 1920
+          layer_height: 1080
+          disp_width: 640
+          disp_height: 480
+          intf_type: "MIPI"
+
+    # 绑定关系列表
+    bindings:
+      - name: "vi_to_vo"
+        src_module: "VI"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "VO"
+        dst_dev_id: 1
+        dst_chn_id: 0
+
+# ------------------------------------------------------------
+# 运行时配置（全局）
+# ------------------------------------------------------------
+runtime:
+  # 超时时间（秒）
+  # 0 表示无限运行，直到用户手动退出
+  # >0 表示运行指定时间后自动退出
+  timeout: 0
+
+  # 是否启用性能分析
+  # 启用后会输出帧率、延迟等性能指标
+  profiling: false
+
+  # 是否输出详细日志
+  # 启用后会输出更多调试信息
+  verbose: true
+
+# ------------------------------------------------------------
+# Overlay 配置（OSD 绘制）
+# ------------------------------------------------------------
+overlay:
+  enable: true
+  pixel_format: "NV12"
+  max_box_per_frame: 32
+  line_width: 2
+  text_scale: 1
+  enable_box: true
+  enable_text: true
+  global_score_threshold: 0.4
+
+  # 绘制规则配置（按类别）
+  rules:
+    - class_name: "face"
+      enable: true
+      score_threshold: 0.3
+      color:
+        r: 255
+        g: 0
+        b: 0
+        a: 255
+    - class_name: "body"
+      enable: true
+      score_threshold: 0.5
+      color:
+        r: 0
+        g: 255
+        b: 0
+        a: 255
+    - class_name: "car"
+      enable: true
+      score_threshold: 0.6
+      color:
+        r: 0
+        g: 128
+        b: 255
+        a: 255
+
+# ============================================================
+# 配置文件结束
+# ============================================================

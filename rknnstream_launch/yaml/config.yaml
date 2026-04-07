@@ -1,0 +1,91 @@
+# YAML 测试配置文件 - 支持嵌套和数组
+
+# 简单键值对
+app_name: 测试程序
+version: 1.0.0
+author: Linux C开发者
+debug: true
+max_connections: 100
+timeout: 30.5
+
+# 嵌套对象（一级）
+server:
+  name: MyServer
+  host: 0.0.0.0
+  port: 8080
+  enabled: true
+  timeout: 30.5
+  ssl:
+    enabled: true
+    cert_path: /etc/ssl/cert.pem
+    key_path: /etc/ssl/key.pem
+
+# 嵌套对象（二级）
+database:
+  connection:
+    driver: mysql
+    host: localhost
+    port: 3306
+    username: root
+    password: secret123
+  pool:
+    max_size: 20
+    min_size: 5
+  timeout: 10.0
+
+# 简单数组（字符串列表）
+servers:
+  - server1.example.com
+  - server2.example.com
+  - server3.example.com
+
+# 简单数组（整数列表）
+ports:
+  - 8080
+  - 8081
+  - 8082
+
+# 简单数组（混合类型列表）
+tags:
+  - production
+  - stable
+  - v1
+  - latest
+
+# 对象数组（每个元素是对象）
+users:
+  - name: Alice
+    age: 30
+    admin: true
+  - name: Bob
+    age: 25
+    admin: false
+
+# 数组中的嵌套对象
+features:
+  - name: Feature1
+    enabled: true
+    config:
+      level: 1
+      options:
+        - opt1
+        - opt2
+  - name: Feature2
+    enabled: false
+    config:
+      level: 2
+
+# 日志配置（多层嵌套）
+logging:
+  level: INFO
+  handlers:
+    console:
+      enabled: true
+      format: text
+    file:
+      enabled: true
+      path: /var/log/app.log
+      rotation:
+        enabled: true
+        max_size: 100M
+        max_age: 30d
