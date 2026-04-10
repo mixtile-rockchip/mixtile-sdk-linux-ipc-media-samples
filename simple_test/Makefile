@@ -14,6 +14,10 @@ endif
 
 SIMPLE_CC := $(RK_MEDIA_CROSS)-gcc
 SIMPLE_AR := $(RK_MEDIA_CROSS)-ar
+ifneq ($(RK_MEDIA_CC),)
+SIMPLE_CC := $(RK_MEDIA_CC)
+SIMPLE_AR := $(RK_MEDIA_AR)
+endif
 
 CURRENT_DIR := $(shell pwd)
 SIMPLE_OUT_DIR :=$(CURRENT_DIR)/out

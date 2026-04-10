@@ -32,6 +32,10 @@ endif
 
 SAMPLE_CC := $(RK_MEDIA_CROSS)-gcc
 SAMPLE_AR := $(RK_MEDIA_CROSS)-ar
+ifneq ($(RK_MEDIA_CC),)
+SAMPLE_CC := $(RK_MEDIA_CC)
+SAMPLE_AR := $(RK_MEDIA_AR)
+endif
 
 PKG_NAME := sample
 PKG_BIN ?= out

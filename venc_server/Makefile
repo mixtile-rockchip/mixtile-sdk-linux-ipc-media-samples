@@ -14,6 +14,10 @@ endif
 
 VENC_CC := $(RK_MEDIA_CROSS)-gcc
 VENC_AR := $(RK_MEDIA_CROSS)-ar
+ifneq ($(RK_MEDIA_CC),)
+VENC_CC := $(RK_MEDIA_CC)
+VENC_AR := $(RK_MEDIA_AR)
+endif
 
 CURRENT_DIR := $(shell pwd)
 VENC_OUT_DIR :=$(CURRENT_DIR)/out
