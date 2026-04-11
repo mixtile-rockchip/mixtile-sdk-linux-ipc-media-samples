@@ -21,7 +21,6 @@ extern "C" {
 #endif
 #endif /* End of #ifdef __cplusplus */
 
-#include <error.h>
 #include <stdio.h>
 
 #include "sample_comm.h"

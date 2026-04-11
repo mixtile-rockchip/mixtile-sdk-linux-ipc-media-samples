@@ -19,7 +19,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <time.h>
 #include <unistd.h>
 

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -71,14 +71,14 @@ static void *OsdUpdate(void *arg) {
 		s32Ret = RK_MPI_RGN_GetCanvasInfo(RgnHandle, &stCanvasInfo);
 		if (s32Ret != RK_SUCCESS) {
 			RK_LOGE("RK_MPI_RGN_GetCanvasInfo failed with %#x!", s32Ret);
-			return RK_FAILURE;
+			return NULL;
 		}
 		memset((void *)stCanvasInfo.u64VirAddr, 0xff,
 						stCanvasInfo.u32VirWidth * stCanvasInfo.u32VirHeight >> 2);
 		s32Ret = RK_MPI_RGN_UpdateCanvas(RgnHandle);
 		if (s32Ret != RK_SUCCESS) {
 			RK_LOGE("RK_MPI_RGN_UpdateCanvas failed with %#x!", s32Ret);
-			return RK_FAILURE;
+			return NULL;
 		}
 		RK_S64 s64ShowBmpEnd = TEST_COMM_GetNowUs();
 		RK_LOGI("Handle:%d, space time %lld us, update canvas success!", RgnHandle, s64ShowBmpEnd - s64ShowBmpStart);
@@ -91,14 +91,14 @@ static void *OsdUpdate(void *arg) {
 		s32Ret = RK_MPI_RGN_GetCanvasInfo(RgnHandle, &stCanvasInfo);
 		if (s32Ret != RK_SUCCESS) {
 			RK_LOGE("RK_MPI_RGN_GetCanvasInfo failed with %#x!", s32Ret);
-			return RK_FAILURE;
+			return NULL;
 		}
 		memset((void *)stCanvasInfo.u64VirAddr, 0xff,
 						stCanvasInfo.u32VirWidth * stCanvasInfo.u32VirHeight >> 2);
 		s32Ret = RK_MPI_RGN_UpdateCanvas(RgnHandle);
 		if (s32Ret != RK_SUCCESS) {
 			RK_LOGE("RK_MPI_RGN_UpdateCanvas failed with %#x!", s32Ret);
-			return RK_FAILURE;
+			return NULL;
 		}
 		s64ShowBmpEnd = TEST_COMM_GetNowUs();
 		RK_LOGI("Handle:%d, space time %lld us, update canvas success!", RgnHandle, s64ShowBmpEnd - s64ShowBmpStart);

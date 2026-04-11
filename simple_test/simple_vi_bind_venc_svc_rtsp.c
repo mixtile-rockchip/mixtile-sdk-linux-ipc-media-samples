@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>

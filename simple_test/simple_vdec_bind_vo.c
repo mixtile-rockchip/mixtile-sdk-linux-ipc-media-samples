@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
         {"width", required_argument, 0, 'w'},
         {"height", required_argument, 0, 'h'},
         {"input", required_argument, 0, 'i'},
-        {"bind", required_argument, 1, 'b'},
+        {"bind", required_argument, 0, 'b'},
         {0, 0, 0, 0}
     };
 

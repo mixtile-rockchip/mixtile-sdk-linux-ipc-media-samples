@@ -24,7 +24,7 @@ extern "C" {
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include "sample_comm.h"

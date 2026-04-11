@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/poll.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include "rk_debug.h"
@@ -68,7 +68,7 @@ static void *GetMediaBuffer0(void *arg) {
 				pData = RK_MPI_MB_Handle2VirAddr(stFrame.pstPack->pMbBlk);
 				fwrite(pData, 1, stFrame.pstPack->u32Len, file);
 				fflush(file);
-				fsync(file);
+				fsync(fileno(file));
 				fclose(file);
 				file = NULL;
 			}

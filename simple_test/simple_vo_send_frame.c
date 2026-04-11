@@ -1,6 +1,7 @@
 #include "rk_type.h"
 #include "rk_mpi_vo.h"
 #include "rk_comm_vo.h"
+#include "rk_mpi_mb.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -175,7 +176,7 @@ int testUIDrawing() {
     }
 
     // 设置图像数据到stVFrame
-    pData = RK_MPI_MMZ_Handle2VirAddr(pMblk);
+    pData = (RK_U8 *)RK_MPI_MB_Handle2VirAddr(pMblk);
     memset(pData, 0xaa, u32BuffSize / 2);
     stVFrame.stVFrame.pMbBlk = pMblk;
     stVFrame.stVFrame.u32Width = 1080;

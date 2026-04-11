@@ -21,7 +21,6 @@ extern "C" {
 #endif /* End of #ifdef __cplusplus */
 
 #include <assert.h>
-#include <error.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <pthread.h>
