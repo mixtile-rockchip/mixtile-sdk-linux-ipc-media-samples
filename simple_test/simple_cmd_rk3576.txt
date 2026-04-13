@@ -175,3 +175,8 @@ simple_vdec_bind_vo_rtsp_lowdelay --input "rtsp://192.168.1.102/live/0" --vo_lay
 sleep 1
 killall simple_vdec_bind_vo_rtsp_lowdelay
 sleep 1
+
+simple_vdec_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
+sleep 2
+simple_vdec_bind_vpss_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
+sleep 2

@@ -1,0 +1,182 @@
+#chip rk3588 rk3576, rockit c++
+logai=6
+simple_ai_bind_aenc&
+sleep 5
+killall simple_ai_bind_aenc
+checkmd5sum /tmp/aenc.g726
+simple_ai_bind_aenc -r 8000 -t g711a -o /tmp/8k_aenc.g711a&
+sleep 5
+killall simple_ai_bind_aenc
+checkmd5sum /tmp/8k_aenc.g711a
+simple_ai_bind_aenc -r 16000 -t g711u -o /tmp/16k_aenc.g711u&
+sleep 5
+killall simple_ai_bind_aenc
+checkmd5sum /tmp/16k_aenc.g711u
+
+simple_adec_bind_ao -r 8000 -t g726 -c 1 -i /tmp/simple/output/_simple_ai_bind_aenc.bin
+simple_adec_bind_ao -r 8000 -t g711a -c 1 -i /tmp/simple/output/_simple_ai_bind_aenc_-r_8000_-t_g711a_-o__tmp_8k_aenc_g711a.bin
+simple_adec_bind_ao -r 16000 -t g711u -c 1 -i /tmp/simple/output/_simple_ai_bind_aenc_-r_16000_-t_g711u_-o__tmp_16k_aenc_g711u.bin
+
+logai=6
+simple_ai_get_frame&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /tmp/ai.pcm
+simple_ai_get_frame -r 16000 -R 16000 -v 1 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+simple_ai_get_frame -r 16000 -R 16000 -v 0 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+simple_ai_get_frame -r 8000 -R 16000 -b 0 -v 1 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+simple_ai_get_frame -r 8000 -R 16000 -b 0 -v 0 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+simple_ai_get_frame -r 16000 -R 8000 -v 1 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+simple_ai_get_frame -r 16000 -R 8000 -v 0 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+simple_ai_get_frame -r 8000 -R 8000 -b 0 -v 1 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+simple_ai_get_frame -r 8000 -R 8000 -b 0 -v 0 -o /data/ai.pcm&
+sleep 1
+killall simple_ai_get_frame
+checkmd5sum /data/ai.pcm
+
+logao=6
+simple_ao_send_frame -r 8000 -R 8000 -j /usr/vqefiles/config_aovqe.json -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
+simple_ao_send_frame -r 16000 -R 8000 -j /usr/vqefiles/config_aovqe.json -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
+simple_ao_send_frame -r 8000 -R 8000 -v 0 -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
+simple_ao_send_frame -r 16000 -R 8000 -v 0 -i /tmp/simple/output/_simple_ai_get_frame_-r_8000_-R_8000_-b_0_-v_1_-o__data_ai_pcm.bin
+
+logvi=6
+simple_vi_get_frame&
+sleep 1
+killall simple_vi_get_frame
+sleep 1
+simple_vi_get_frame -I 0 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+simple_vi_get_frame -I 0 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+simple_vi_get_frame -I 1 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+simple_vi_get_frame -I 1 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+
+simple_vi_get_frame_rkaiq&
+sleep 1
+killall simple_vi_get_frame_rkaiq
+sleep 1
+simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+simple_vi_get_frame_rkaiq -I 0 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_0.yuv
+simple_vi_get_frame_rkaiq -I 1 -w 1920 -h 1080 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+simple_vi_get_frame_rkaiq -I 1 -w 320 -h 240 -c 10 -o 1
+checkmd5sum /userdata/test_1.yuv
+simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1 -d 1
+checkmd5sum /userdata/test_0.yuv
+simple_vi_get_frame_rkaiq -I 0 -w 1920 -h 1080 -c 10 -o 1 -m 1
+checkmd5sum /userdata/test_0.yuv
+
+simple_vi_get_frame_tde -a /etc/iqfiles -w 1920 -h 1080 -l 10 -o /tmp
+checkmd5sum /tmp/tde_out.bin
+
+simple_vi_get_frame_send_vo -w 1920 -h 1080 -I 0 -l 7 -d 3 -t 1 -W 1080 -H 1920 &
+sleep 1
+killall simple_vi_get_frame_send_vo
+sleep 1
+
+logvenc=6
+simple_vi_bind_venc&
+sleep 1
+killall simple_vi_bind_venc
+sleep 1
+simple_vi_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
+checkmd5sum /tmp/venc.h264
+
+simple_vi_bind_vpss_bind_venc&
+sleep 1
+killall simple_vi_bind_vpss_bind_venc
+sleep 1
+simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/
+checkmd5sum /tmp/venc_1920x1080_0.h265
+rm /tmp/venc_1920x1080_0.h265
+simple_vi_bind_vpss_bind_venc -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/
+checkmd5sum /tmp/venc_1920x1080_0.mjpeg
+rm /tmp/venc_1920x1080_0.mjpeg
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/
+checkmd5sum /tmp/venc_320x240_0.h265
+rm /tmp/venc_320x240_0.h265
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/
+checkmd5sum /tmp/venc_320x240_0.mjpeg
+rm /tmp/venc_320x240_0.mjpeg
+simple_vi_bind_vpss_bind_venc -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/
+checkmd5sum /tmp/venc_320x240_0.h264
+rm /tmp/venc_320x240_0.h264
+
+simple_vi_bind_venc_osd&
+sleep 3
+killall simple_vi_bind_venc_osd
+sleep 3
+simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc_osd -I 0 -w 1920 -h 1080 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e h265 -o /tmp/venc.h265
+checkmd5sum /tmp/venc.h265
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e mjpeg -o /tmp/venc.mjpeg
+checkmd5sum /tmp/venc.mjpeg
+simple_vi_bind_venc_osd -I 0 -w 320 -h 240 -c 30 -e h264 -o /tmp/venc.h264
+checkmd5sum /tmp/venc.h264
+
+simple_vi_bind_venc_rtsp&
+sleep 1
+killall simple_vi_bind_venc_rtsp
+sleep 1
+simple_vi_bind_venc_svc_rtsp&
+sleep 1
+killall simple_vi_bind_venc_svc_rtsp
+sleep 1
+
+simple_vi_bind_venc_jpeg&
+sleep 1
+killall simple_vi_bind_venc_jpeg
+sleep 1
+checkmd5sum /tmp/test_jpeg0.jpeg
+rm /tmp/test*
+
+simple_vi_bind_venc_rtsp_lowdelay -w 3840 -h 2160 -b 16384 -m 1 -n /dev/video0 -C 2 -W 1920 -H 1080 -c 10
+sleep 1
+killall simple_vi_bind_venc_rtsp_lowdelay
+sleep 1
+simple_vdec_bind_vo_rtsp_lowdelay --input "rtsp://192.168.1.102/live/0" --vo_layer 0 --vo_dev 0 --vo_intf_type 2 --image_width 3840 --image_height 2160 --disp_width 1920 --disp_height 1080 --input1 "rtsp://192.168.1.102/live/1" --vo_layer_1 4 --vo_dev_1 0 --vo_intf_type_1 2 --image_width_1 1920 --image_height_1 1080 --disp_width_1 960 --disp_height_1 540
+sleep 1
+killall simple_vdec_bind_vo_rtsp_lowdelay
+sleep 1
+
+simple_vdec_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
+sleep 2
+simple_vdec_bind_vpss_bind_vo -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h264
+sleep 2

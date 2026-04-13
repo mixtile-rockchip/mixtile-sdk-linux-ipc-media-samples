@@ -51,6 +51,14 @@ static	int IntfType = 0;
 static	int enIntfType = 0;
 static  RK_U32 disp_width = 320;
 static  RK_U32 disp_height = 480;
+#elif RK3588
+static	int VoLayer = 7;
+static	int VoDev = 3;
+static	int VoChn = 0;
+static	int IntfType = 1;
+static	int enIntfType = 0;
+static  RK_U32 disp_width = 1080;
+static  RK_U32 disp_height = 1920;
 #else
 static	int VoLayer = 5;
 static	int VoDev = 1;

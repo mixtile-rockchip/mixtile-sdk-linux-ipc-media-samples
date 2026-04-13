@@ -131,7 +131,7 @@ simple_build: $(OBJECTS)
 	$(CMD_DBG)cp simple_test.sh simple_cmd.txt $(SIMPLE_OUT_DIR)/bin/
 
 ifeq ($(RK_MEDIA_CHIP), rk3576)
-	$(CMD_DBG)cp simple_cmd_rk3588_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
+	$(CMD_DBG)cp simple_cmd_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rk3572)
@@ -139,7 +139,7 @@ ifeq ($(RK_MEDIA_CHIP), rk3572)
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rk3588)
-	$(CMD_DBG)cp simple_cmd_rk3588_rk3576.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
+	$(CMD_DBG)cp simple_cmd_rk3588.txt $(SIMPLE_OUT_DIR)/bin/simple_cmd.txt
 endif
 
 ifeq ($(RK_MEDIA_CHIP), rv1126b)

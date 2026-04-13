@@ -58,6 +58,14 @@ static int IntfType = 0;    // Interface type
 static int enIntfType = 0;  // Interface type enum
 static int VoWidth = 320;     // VO width
 static int VoHeight = 480;    // VO height
+#elif RK3588
+static int VoLayer = 7;     // VO layer
+static int VoDev = 3;       // VO device
+static int VoChn = 0;       // VO channel
+static int IntfType = 1;    // Interface type
+static int enIntfType = 0;  // Interface type enum
+static int VoWidth = 1080;  // VO width
+static int VoHeight = 1920; // VO height
 #else
 static int VoLayer = 5;     // VO layer
 static int VoDev = 1;       // VO device

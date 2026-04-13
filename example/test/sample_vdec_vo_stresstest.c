@@ -31,8 +31,13 @@ extern "C" {
 #include "sample_comm.h"
 
 #define DEFAULT_VDEC_CHN 0
+#ifdef RK3588
+#define DEFAULT_VO_DEV 3
+#define DEFAULT_VO_LAYER 7
+#else
 #define DEFAULT_VO_DEV 1
 #define DEFAULT_VO_LAYER 5
+#endif
 #define DEFAULT_VO_CHN 0
 #define DEFAULT_H264_FILE_PATH "/data/h264_1280x720"
 #define DEFAULT_WIDTH 1280

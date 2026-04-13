@@ -32,12 +32,29 @@
 #define DISP_H  1920
 #endif
 
+#ifdef RV1126B
 #ifndef VO_DEV_NUM
 #define VO_DEV_NUM 0
 #endif
 #ifndef VO_LAYER_NUM
 #define VO_LAYER_NUM 0
 #endif
+#elif RK3588
+#ifndef VO_DEV_NUM
+#define VO_DEV_NUM 3
+#endif
+#ifndef VO_LAYER_NUM
+#define VO_LAYER_NUM 7
+#endif
+#else
+#ifndef VO_DEV_NUM
+#define VO_DEV_NUM 1
+#endif
+#ifndef VO_LAYER_NUM
+#define VO_LAYER_NUM 5
+#endif
+#endif
+
 #ifndef VO_SYNC_TYPE
 #define VO_SYNC_TYPE VO_INTF_HDMI
 #endif

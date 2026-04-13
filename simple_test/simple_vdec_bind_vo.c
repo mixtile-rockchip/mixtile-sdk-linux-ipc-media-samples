@@ -29,6 +29,14 @@
 #define VO_LAYER_H 480
 #define VO_LAYER_RECT_W 320
 #define VO_LAYER_RECT_H 480
+#elif defined(RK3588)
+#define DEFAULT_VO_DEV 3
+#define DEFAULT_VO_LAYER 7
+#define DEFAULT_VO_INTFTYPE VO_INTF_MIPI
+#define VO_LAYER_W 1920
+#define VO_LAYER_H 1080
+#define VO_LAYER_RECT_W 640
+#define VO_LAYER_RECT_H 480
 #else
 #define DEFAULT_VO_DEV 1
 #define DEFAULT_VO_LAYER 5

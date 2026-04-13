@@ -17,6 +17,9 @@
 #ifdef RV1126B
 #define DEFAULT_VO_DEV 0
 #define DEFAULT_VO_LAYER 0
+#elif defined(RK3588)
+#define DEFAULT_VO_DEV 3
+#define DEFAULT_VO_LAYER 7
 #else
 #define DEFAULT_VO_DEV 1
 #define DEFAULT_VO_LAYER 5
