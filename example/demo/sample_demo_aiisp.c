@@ -50,7 +50,9 @@ typedef struct _rkMpiCtx {
 	SAMPLE_RGN_CTX_S rgn[RGN_NUM_MAX];
 	SAMPLE_VPSS_CTX_S vpss[VPSS_GRP_MAX];
 	SAMPLE_IVS_CTX_S ivs;
+#ifdef ROCKIVA
 	SAMPLE_IVA_CTX_S iva;
+#endif
 } SAMPLE_MPI_CTX_S;
 
 typedef struct _rkCmdArgs {
@@ -304,6 +306,7 @@ static void rkIvaFrame_releaseCallBack(const RockIvaReleaseFrames *releaseFrames
 	}
 }
 
+#ifdef ROCKIVA
 static void *vpss_iva_thread(void *pArgs) {
 	prctl(PR_SET_NAME, "vpss_iva_thread");
 	SAMPLE_MPI_CTX_S *ctx = (SAMPLE_MPI_CTX_S *)pArgs;
@@ -346,6 +349,7 @@ static void *vpss_iva_thread(void *pArgs) {
 	RK_LOGE("vpss_iva_thread exit !!!");
 	return RK_NULL;
 }
+#endif
 
 static void *ivs_detect_thread(void *pArgs) {
 	RK_LOGI("enter ive detect thread------------>\n");
@@ -853,6 +857,7 @@ static RK_S32 ivs_deinit(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 	return s32Ret;
 }
 
+#ifdef ROCKIVA
 static RK_S32 iva_init(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 	RK_S32 s32Ret = RK_SUCCESS;
 
@@ -888,6 +893,7 @@ static RK_S32 iva_deinit(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 	TRACE_END();
 	return s32Ret;
 }
+#endif
 
 static RK_S32 bind_init(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 	RK_S32 s32Ret = RK_SUCCESS;
@@ -1032,9 +1038,11 @@ static RK_S32 sub_threads_init(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 	// ivs detect thread launch
 	if (pArgs->bEnableIvs)
 		pthread_create(&g_ivs_thread_id, 0, ivs_detect_thread, (void *)&ctx->ivs);
+#ifdef ROCKIVA
 	// vpss iva thread launch
 	if (pArgs->bEnableIva)
 		pthread_create(&g_iva_thread_id, 0, vpss_iva_thread, (void *)ctx);
+#endif
 	TRACE_END();
 	return RK_SUCCESS;
 }
@@ -1046,11 +1054,13 @@ static RK_S32 sub_threads_deinit(SAMPLE_MPI_CTX_S *ctx, RkCmdArgs *pArgs) {
 		pthread_join(ctx->venc[i].getStreamThread, RK_NULL);
 		ctx->venc[i].getStreamThread = 0;
 	}
+#ifdef ROCKIVA
 	if (pArgs->bEnableIva) {
 		gPThreadStatus->bIfVpssIvaTHreadQuit = RK_TRUE;
 		pthread_join(g_iva_thread_id, NULL);
 		g_iva_thread_id = 0;
 	}
+#endif
 	if (pArgs->bEnableIvs) {
 		gPThreadStatus->bIvsDetectThreadQuit = RK_TRUE;
 		pthread_join(g_ivs_thread_id, NULL);
@@ -1366,9 +1376,11 @@ int main(int argc, char *argv[]) {
 
 	// Initialize rtsp server.
 	rtsp_init(parsedArgs.enCodecType);
+#ifdef ROCKIVA
 	// Initialize all pipeline nodes.
 	if (parsedArgs.bEnableIva)
 		iva_init(ctx, &parsedArgs);
+#endif
 	vi_chn_init(ctx, &parsedArgs);
 	vpss_chn_init(ctx, &parsedArgs);
 	venc_chn_init(ctx, &parsedArgs);
@@ -1395,9 +1407,11 @@ int main(int argc, char *argv[]) {
 		ivs_deinit(ctx, &parsedArgs);
 	venc_chn_deinit(ctx, &parsedArgs);
 	vpss_chn_deinit(ctx, &parsedArgs);
+#ifdef ROCKIVA
 	vi_chn_deinit(ctx, &parsedArgs);
 	if (parsedArgs.bEnableIva)
 		iva_deinit(ctx, &parsedArgs);
+#endif
 	rtsp_deinit();
 
 __MPI_INIT_FAILED:
