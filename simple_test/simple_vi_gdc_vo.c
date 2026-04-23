@@ -16,7 +16,7 @@
 #include "rk_mpi_mb.h"
 #include "rk_mpi_sys.h"
 #include "rk_common.h"
-#if defined(RV1126B)
+#if defined(RV1126B) || defined(RK3572)
 #include "rk_mpi_vi.h"
 #include "rk_mpi_vo.h"
 #include "rk_comm_vi.h"
@@ -25,7 +25,7 @@
 #include "rk_mpi_mmz.h"
 #include "rk_mpi_gdc.h"
 
-#ifdef RV1126B
+#if defined(RV1126B) || defined(RK3572)
 #define VO_SYNC_TYPE VO_INTF_MIPI
 #define LAYER_FMT RK_FMT_RGB888
 #define DISP_W  1080
@@ -138,6 +138,9 @@ typedef struct _rkMpiVICtx {
     RK_BOOL bGdcMode;
     RK_S32  s32GdcVFormat;
     RK_S32  s32GdcCompMode;
+    const char *pGdcMesh;
+    MB_BLK  meshBlk[GDC_MAX_CHN_NUM];
+    MB_BLK  updateMeshBlk[GDC_MAX_CHN_NUM];
 } TEST_VI_CTX_S;
 
 static RK_BOOL bquit = RK_FALSE;
@@ -3474,6 +3477,66 @@ __FAILED:
     return s32Ret;
 }
 
+static int alignUp(int x, int y) {
+    return ((x + y - 1) / y) * y;
+}
+
+static int readBinaryFile(const char* filename, void* pData, size_t targetSize) {
+    FILE* fp = fopen(filename, "rb");
+    if (fp == NULL) {
+        printf("Failed to open file '%s'\n", filename);
+        return -1;
+    }
+
+    if (targetSize == 0) {
+        fseek(fp, 0, SEEK_END);     /* move fp to end of file */
+        targetSize = ftell(fp);
+        fseek(fp, 0, SEEK_SET);     /* move fp back to beginning of file */
+    }
+    size_t readSize = fread(pData, sizeof(unsigned char), targetSize, fp);
+    if (readSize != targetSize) {
+        printf("read size (%zu) != target size (%zu). The file '%s' might be incomplete!\n", readSize, targetSize, filename);
+    }
+    fclose(fp);
+    return 0;
+}
+
+static int idcMeshCreate(TEST_VI_CTX_S *ctx, GDC_IDC_MESH_S *pstMesh, MB_BLK *pstBlk, const char *pMesh) {
+    RK_S32 s32Ret = 0;
+    RK_U32 u32DstStride =  alignUp(ctx->width, 16);
+    pstMesh->u32StepX     = 16;
+    pstMesh->u32StepY     = 8;
+    pstMesh->u32Width     = (u32DstStride - 1) / pstMesh->u32StepX + 2;
+    pstMesh->u32Height    = (ctx->height - 1) / pstMesh->u32StepY + 2;
+    pstMesh->u32Stride    = pstMesh->u32Width;
+    pstMesh->u32HgtStride = pstMesh->u32Height;
+    pstMesh->enMeshType   = GDC_IDC_MESH_TYPE_MERGED;
+    RK_U32 meshBpp = 8 * sizeof(float) * 2;
+    RK_U32 stride = pstMesh->u32Width * meshBpp / 8;
+    stride = alignUp(stride, 64);
+    RK_U32 allocMeshSize = stride * pstMesh->u32Height;
+    RK_LOGI("IDC mesh size = %u, stride = %u, height = %u, in = %p", allocMeshSize, stride, pstMesh->u32Height, *pstBlk);
+    if (!(*pstBlk)) {
+        s32Ret = RK_MPI_SYS_MmzAlloc(pstBlk, RK_NULL, RK_NULL, allocMeshSize);
+        if (s32Ret != RK_SUCCESS) {
+            RK_LOGE("IDC mesh alloc failed, size = %u", allocMeshSize);
+            return s32Ret;
+        }
+    }
+
+    void  *pSrcData = RK_MPI_MB_Handle2VirAddr(*pstBlk);
+    if (*pstBlk) {
+        RK_U32 readMeshSize = pstMesh->u32Width * pstMesh->u32Height * sizeof(float) * 2;
+        s32Ret = readBinaryFile(pMesh, pSrcData, readMeshSize);
+        RK_MPI_SYS_MmzFlushCache(*pstBlk, RK_FALSE);
+    }
+
+    pstMesh->s32Fd[0]    = RK_MPI_MB_Handle2Fd(*pstBlk);
+    pstMesh->pVirAddr[0] = pSrcData;
+    RK_LOGI("IDC mesh blk = %p, vaddr = %p, fd = %d", *pstBlk, pSrcData, pstMesh->s32Fd[0]);
+    return 0;
+}
+
 static RK_S32 create_gdc(TEST_VI_CTX_S *ctx, RK_U32 u32Ch) {
     RK_S32 s32Ret = RK_SUCCESS;
     GDC_CHN_ATTR_S stAttr = {0};
@@ -3526,6 +3589,21 @@ static RK_S32 create_gdc(TEST_VI_CTX_S *ctx, RK_U32 u32Ch) {
         stAttr.stDisAttr.stAttr.bStillCrop            = RK_FALSE;
         stAttr.stDisAttr.stAttr.u32HorizontalLimit    = 512;
         stAttr.stDisAttr.stAttr.u32VerticalLimit      = 512;
+    } else if (ctx->bGdcMode == 3) {
+        stAttr.enMode = GDC_CHN_MODE_IDC;
+        if (ctx->pGdcCfgFile)
+            memcpy(stAttr.stIdcAttr.aOpenclLibPath, stAttr.cfgFile, strlen(stAttr.cfgFile));
+        else {
+            RK_LOGE("idc malic so path is NULL");
+            return -1;
+        }
+
+        stAttr.stIdcAttr.enMode = GDC_IDC_LUT_DEFAULT_MODE;
+        s32Ret = idcMeshCreate(ctx, &stAttr.stIdcAttr.stMesh, &ctx->meshBlk[u32Ch], ctx->pGdcMesh);
+        if (s32Ret) {
+            RK_LOGE("mesh create fail, result = %X", s32Ret);
+            return -1;
+        }
     }
 
     s32Ret = RK_MPI_GDC_CreateChn(u32Ch, &stAttr);
@@ -3713,10 +3791,6 @@ static RK_S32 test_vi_bind_gdc_bind_vo_loop(TEST_VI_CTX_S *ctx) {
         goto __FAILED;
     }
 
-	system("cat /dev/mpi/valloc");
-	system("dumpsys cat /dev/mpi/valloc");
-	system("cat /dev/mpi/vsys");
-	system("dumpsys cat /dev/mpi/vsys");
     while (loopCount < ctx->loopCountSet && !bquit) {
         FD_ZERO(&readfds);
         FD_SET(s32DevFd, &readfds);
@@ -3805,10 +3879,6 @@ __FAILED:
     s32Ret = RK_MPI_VI_DisableDev(ctx->devId);
     RK_LOGE("RK_MPI_VI_DisableDev %x", s32Ret);
 
-	system("cat /dev/mpi/valloc");
-	system("dumpsys cat /dev/mpi/valloc");
-	system("cat /dev/mpi/vsys");
-	system("dumpsys cat /dev/mpi/vsys");
     return s32Ret;
 }
 
@@ -3884,10 +3954,6 @@ static RK_S32 test_vi_bind_gdc_get_bind_vo_loop(TEST_VI_CTX_S *ctx) {
             goto __FAILED;
         }
 
-        system("cat /dev/mpi/valloc");
-        system("dumpsys cat /dev/mpi/valloc");
-        system("cat /dev/mpi/vsys");
-        system("dumpsys cat /dev/mpi/vsys");
         while (loopCount < ctx->loopCountSet && !bquit) {
             FD_ZERO(&readfds);
             FD_SET(s32DevFd, &readfds);
@@ -3969,7 +4035,7 @@ __FAILED:
 
     return s32Ret;
 }
-static RK_CHAR optstr[] = "?::w:h:d:c:m:l:f:t:W:L:M:v:V:C:";
+static RK_CHAR optstr[] = "?::w:h:d:c:m:l:f:t:W:L:M:v:V:s:C:";
 static void print_usage(const RK_CHAR *name) {
 	printf("usage example:\n");
 	printf("\t%s -w 3840 -h 2160 -d 0 -c 0 -m 1 -l 50 -t 1 -f /data/rkeis_config.json -M 1\n", name);
@@ -3983,11 +4049,12 @@ static void print_usage(const RK_CHAR *name) {
     printf("\t-f: gdc eis file, Default:NULL\n");
     printf("\t-t: gdc mode, Default:1(0:eis, 1:fec)\n");
     printf("\t-L: loop count, Default:1\n");
+    printf("\t-s: mesh, Default:/data/rkalg_idc_gpu_meshxy_step16x8.bin\n");
 }
 #endif
 
 int main(int argc, char *argv[]) {
-#if defined(RV1126B)
+#if defined(RV1126B) || defined(RK3572)
     RK_S32 s32Ret = RK_FAILURE;
     RK_CHAR strBuff[128] = {0};
     FILE *imuFp = NULL;
@@ -4070,6 +4137,9 @@ int main(int argc, char *argv[]) {
         case 'C':
             ctx->s32GdcCompMode = atoi(optarg);
             break;
+        case 's':
+            ctx->pGdcMesh = optarg;
+            break;
         case '?':
         default:
             print_usage(argv[0]);
@@ -4088,6 +4158,7 @@ int main(int argc, char *argv[]) {
 	printf("#vi video format: %d\n", ctx->stChnAttr.enVideoFormat);
 	printf("#gdc video dst format: %d\n", ctx->s32GdcVFormat);
 	printf("#gdc video dst compress mode: %d\n", ctx->s32GdcCompMode);
+    printf("#pGdcMesh: %s\n", ctx->pGdcMesh);
 
     if (!ctx->width || !ctx->height) {
         printf("ctx->width(%d) or height(%d) = 0\n",

@@ -199,3 +199,9 @@ simple_vdec -w 1920 -h 1080 -i /data/venc_chn0_1920x1080_1080.h265 -o /tmp/vdec_
 sleep 1
 checkmd5sum /tmp/vdec_output.yuv
 rm /tmp/vdec_output.yuv
+
+simple_vi_gdc_vo  -w 1920 -h 1088 -m 0 -M 3 -W 1 -s /data/rkalg_idc_gpu_meshxy_step16x8.bin -f /usr/lib/libmali.so
+checkmd5sum /tmp/gdc_test.bin
+
+rm /tmp/gdc_test.bin
+simple_vi_gdc_vo  -w 1920 -h 1088 -m 1 -M 3 -W 1 -s /data/rkalg_idc_gpu_meshxy_step16x8.bin -f /usr/lib/libmali.so -l 100
