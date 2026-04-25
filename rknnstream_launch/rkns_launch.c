@@ -894,6 +894,17 @@ RKNS_S32 output_parse_config(YamlDocument *doc, const char *base_path,
     snprintf(path, sizeof(path), "%s.watch_depth", base_path);
     param->watchDepth = (int)yaml_get_int(doc, path, 1);
 
+    /* 操作类型（APP 类型时有效） */
+    snprintf(path, sizeof(path), "%s.op_type", base_path);
+    str = yaml_get_string(doc, path, "PRINT");
+    if (param->type == RKNS_OUTPUT_TYPE_APP) {
+        if (strcmp(str, "SAVE_FILE") == 0) {
+            param->app.cmd = RKNS_APP_CMD_SAVE_FILE;
+        } else {
+            param->app.cmd = RKNS_APP_CMD_PRINT;
+        }
+    }
+
     /* 打印 OUTPUT 模块配置参数 */
     printf("[INFO] OUTPUT Module Config:\n");
     printf("[INFO]   chn_id: %d\n", module->chnId);
@@ -901,6 +912,10 @@ RKNS_S32 output_parse_config(YamlDocument *doc, const char *base_path,
            param->type == RKNS_OUTPUT_TYPE_APP ? "APP" :
            param->type == RKNS_OUTPUT_TYPE_ROCKIT ? "ROCKIT" :
            param->type == RKNS_OUTPUT_TYPE_GSTREAM ? "GSTREAM" : "OPENCV");
+    if (param->type == RKNS_OUTPUT_TYPE_APP) {
+        printf("[INFO]   op_type: %s\n",
+               param->app.cmd == RKNS_APP_CMD_PRINT ? "PRINT" : "SAVE_FILE");
+    }
     printf("[INFO]   watch_depth: %d\n", param->watchDepth);
 
     module->configParsed = RKNS_TRUE;
@@ -920,8 +935,8 @@ RKNS_S32 output_create(const RKNSLaunchModule *module,
 
     switch (createParam.type) {
     case RKNS_OUTPUT_TYPE_APP:
-        createParam.app.appName = "rkns_launch";
-        createParam.app.bufferSize = 1024 * 1024;
+        // 使用解析出来的操作类型
+        createParam.app.cmd = param->app.cmd;
         break;
     case RKNS_OUTPUT_TYPE_ROCKIT:
         createParam.rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
