@@ -46,6 +46,10 @@ extern "C" {
 #define MAX_PIPELINE_NAME   64
 #define MAX_PIPELINES       4
 
+#ifndef MAX_VI_BIND_PIPE_NUM
+#define MAX_VI_BIND_PIPE_NUM 16
+#endif
+
 /* ============================================================
  * 统一模块 ID（解决 RKNS/Rockit 模块 ID 冲突）
  * ============================================================ */
@@ -80,27 +84,89 @@ typedef enum _RKNSLaunchModId {
     RKNS_LAUNCH_MOD_BUTT,
 } RKNSLaunchModId;
 
-/* Rockit 模块配置结构体（存储在 configBuf 中） */
-typedef struct _RockitVIConfig {
-    RKNS_S32 devId;
-    RKNS_S32 pipeId;
+/* Rockit VI 层级配置（设备 > Pipe > 通道） */
+typedef struct _RockitVIChnConfig {
     RKNS_S32 chnId;
     RKNS_U32 width;
     RKNS_U32 height;
-    RKNS_U32 frameRate;
-    RKNS_U32 bufferCount;
     RKNS_U32 depth;
+    RKNS_U32 bufferCount;
+} RockitVIChnConfig;
+
+typedef struct _RockitVIPipeConfig {
+    RKNS_S32 pipeId;
+    RockitVIChnConfig* chnConfigs;
+    RKNS_U32 chnCount;
+} RockitVIPipeConfig;
+
+typedef struct _RockitVIDevConfig {
+    RKNS_S32 devId;
+    RKNS_U32 frameRate;
+    RockitVIPipeConfig* pipeConfigs;
+    RKNS_U32 pipeCount;
+} RockitVIDevConfig;
+
+typedef struct _RockitVIConfig {
+    RockitVIDevConfig* devConfigs;
+    RKNS_U32 devCount;
 } RockitVIConfig;
 
-typedef struct _RockitVOConfig {
-    RKNS_S32 devId;
-    RKNS_S32 layerId;
+/* Rockit VPSS 层级配置（Group > 通道） */
+typedef struct _RockitVPSSChnConfig {
     RKNS_S32 chnId;
+    RKNS_U32 width;
+    RKNS_U32 height;
+    RKNS_U32 depth;
+    RKNS_U32 bufferCount;
+} RockitVPSSChnConfig;
+
+typedef struct _RockitVPSSGrpConfig {
+    RKNS_S32 grpId;
+    RKNS_U32 maxWidth;
+    RKNS_U32 maxHeight;
+    RKNS_U32 frameRate;
+    RockitVPSSChnConfig* chnConfigs;
+    RKNS_U32 chnCount;
+} RockitVPSSGrpConfig;
+
+typedef struct _RockitVPSSConfig {
+    RockitVPSSGrpConfig* grpConfigs;
+    RKNS_U32 grpCount;
+} RockitVPSSConfig;
+
+/* Rockit VO 层级配置（Device > Layer > Channel） */
+typedef struct _RockitVOChnConfig {
+    RKNS_S32 chnId;
+    RKNS_U32 width;
+    RKNS_U32 height;
+    RKNS_U32 priority;
+    RKNS_U32 fgAlpha;
+    RKNS_U32 bgAlpha;
+} RockitVOChnConfig;
+
+typedef struct _RockitVOLayerConfig {
+    RKNS_S32 layerId;
     RKNS_U32 layerWidth;
     RKNS_U32 layerHeight;
     RKNS_U32 dispWidth;
     RKNS_U32 dispHeight;
+    RKNS_S32 layerMode;
+    RockitVOChnConfig* chnConfigs;
+    RKNS_U32 chnCount;
+} RockitVOLayerConfig;
+
+typedef struct _RockitVODevConfig {
+    RKNS_S32 devId;
     RKNS_S32 intfType;
+    RKNS_S32 intfSync;
+    RKNS_U32 bgColor;
+    RockitVOLayerConfig* layerConfigs;
+    RKNS_U32 layerCount;
+} RockitVODevConfig;
+
+typedef struct _RockitVOConfig {
+    RockitVODevConfig* devConfigs;
+    RKNS_U32 devCount;
 } RockitVOConfig;
 
 /* AI 通道声道映射（通道声道到声卡物理声道） */
@@ -148,6 +214,17 @@ typedef struct _RockitAIConfig {
     RockitAIDevConfig* devConfigs;
     RKNS_U32 devCount;
 } RockitAIConfig;
+
+/**
+ * @brief RGN 模块配置（Rockit 专用）
+ */
+typedef struct _RockitRGNConfig {
+    unsigned int w;              /* 宽度 */
+    unsigned int h;              /* 高度 */
+    unsigned int fmt;            /* 像素格式 */
+    int vo_dev_id;               /* 绑定的 VO 设备 ID */
+    int vo_chn_id;               /* 绑定的 VO 通道 ID */
+} RockitRGNConfig;
 
 /**
  * @brief 应用场景类型
@@ -230,19 +307,58 @@ typedef struct _RKNSLaunchAIState {
 } RKNSLaunchAIState;
 
 /**
+ * @brief VI 设备/通道启用状态（支持多设备多 Pipe 多通道）
+ */
+#define MAX_VI_DEVICES    4
+#define MAX_VI_PIPES      4
+#define MAX_VI_CHNS       4
+typedef struct _RKNSLaunchVIState {
+    RKNS_BOOL devEnabled[MAX_VI_DEVICES];
+    RKNS_BOOL chnEnabled[MAX_VI_DEVICES][MAX_VI_PIPES][MAX_VI_CHNS];
+    RKNS_U32 devCount;
+    RKNS_U32 pipeCount[MAX_VI_DEVICES];
+    RKNS_U32 chnCount[MAX_VI_DEVICES][MAX_VI_PIPES];
+} RKNSLaunchVIState;
+
+/**
+ * @brief VPSS Group/通道启用状态
+ */
+#define MAX_VPSS_GROUPS    4
+#define MAX_VPSS_CHNS      4
+typedef struct _RKNSLaunchVPSSState {
+    RKNS_BOOL grpEnabled[MAX_VPSS_GROUPS];
+    RKNS_BOOL chnEnabled[MAX_VPSS_GROUPS][MAX_VPSS_CHNS];
+    RKNS_U32 grpCount;
+    RKNS_U32 chnCount[MAX_VPSS_GROUPS];
+} RKNSLaunchVPSSState;
+
+/**
+ * @brief VO 设备/图层/通道启用状态
+ */
+#define MAX_VO_DEVICES      4
+#define MAX_VO_LAYERS      4
+#define MAX_VO_CHNS        4
+typedef struct _RKNSLaunchVOState {
+    RKNS_BOOL devEnabled[MAX_VO_DEVICES];
+    RKNS_BOOL layerBound[MAX_VO_DEVICES][MAX_VO_LAYERS];
+    RKNS_BOOL layerEnabled[MAX_VO_DEVICES][MAX_VO_LAYERS];
+    RKNS_BOOL chnEnabled[MAX_VO_DEVICES][MAX_VO_LAYERS][MAX_VO_CHNS];
+    RKNS_U32 devCount;
+    RKNS_U32 layerCount[MAX_VO_DEVICES];
+    RKNS_U32 chnCount[MAX_VO_DEVICES][MAX_VO_LAYERS];
+} RKNSLaunchVOState;
+
+/**
  * @brief 模块运行时状态
  */
 typedef struct _RKNSLaunchModuleState {
     RKNS_CHN_S chn;
     RKNS_BOOL created;
     RKNS_BOOL started;
-    /* Rockit 模块运行时状态 */
-    RKNS_BOOL viDevEnabled;
-    RKNS_BOOL viChnEnabled;
-    RKNS_BOOL voDevEnabled;
-    RKNS_BOOL voLayerEnabled;
-    RKNS_BOOL voLayerBound;
-    /* AI模块使用新的多设备多通道状态 */
+    /* VI/VPSS/VO/AI 模块使用多维状态 */
+    RKNSLaunchVIState viState;
+    RKNSLaunchVPSSState vpssState;
+    RKNSLaunchVOState voState;
     RKNSLaunchAIState aiState;
 } RKNSLaunchModuleState;
 
@@ -345,7 +461,7 @@ typedef struct _RKNSLaunchConfig {
 
     // Overlay 配置
     RKNS_BOOL enableOverlay;
-    RKNS_OVERLAY_PIXEL_FMT_E pixelFormat;
+    RockXPixelFormat pixelFormat;
     RKNS_OVERLAY_ATTR_S overlayAttr;
     RKNS_OVERLAY_RULE_S overlayRule;
 
@@ -443,7 +559,7 @@ void sync_pipeline_desc_to_cli(const RKNSLaunchPipelineDesc *pl, RKNSLaunchConfi
 RKNSInputSourceType parse_input_type(const char *type_str);
 RKNSOutputType parse_output_type(const char *type_str);
 RKNS_MODEL_TYPE_E parse_model_type(const char *type_str);
-RKNS_OVERLAY_PIXEL_FMT_E parse_pixel_format(const char *fmt_str);
+RockXPixelFormat parse_pixel_format(const char *fmt_str);
 
 #ifdef __cplusplus
 }

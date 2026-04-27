@@ -1,0 +1,334 @@
+# ============================================================
+# RKNNStream Launch 配置文件
+# ============================================================
+# 此配置文件用于 RKNNStream 完整应用的配置
+# 支持 YAML 格式的层级配置
+#
+# 使用方法：
+#   ./rkns_launch --config rkns_yolo_config.yaml
+#
+# 配置验证：
+#   可以使用 third-party/yaml/yaml_test 工具验证配置语法
+# ============================================================
+
+# ------------------------------------------------------------
+# Pipeline 配置（支持多 pipeline）
+# ------------------------------------------------------------
+# pipeline 类型：
+#   - rknnstream: RKNNStream 框架 pipeline（默认）
+#   - rockit:     Rockit 多媒体框架 pipeline
+# ------------------------------------------------------------
+
+pipelines:
+  # Pipeline 1: RKNNStream 框架 pipeline（AI 推理）
+  - name: "rknnstream_pipeline"
+    type: "rknnstream"
+    enabled: true
+
+    # 模块列表
+    modules:
+      # 输入模块（从 Rockit VPSS 取流）
+      - name: "INPUT"
+        # ========== 通道列表（INPUT无设备参数，所有参数在通道中配置） ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 输入源类型
+              type: "ROCKIT"
+              # 操作类型：VPSS取流
+              op_type: "VPSS_CAPTURE"
+              # 源帧率（0表示不控制）
+              src_frame_rate: 0
+              # 目标帧率（0表示不控制）
+              dst_frame_rate: 0
+              # 观察深度
+              depth: 1
+              # 隐式绑定：指定源模块信息（Rockit VPSS 模块）
+              source:
+                module: "VPSS"
+                dev_id: 0
+                chn_id: 1
+
+      # 推理模块
+      - name: "INFER"
+        # ========== 通道列表（INFER无设备参数，所有参数在通道中配置） ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 模型类型
+              # 可选值: ALM, CLASSIFY, DETECT, LLM, SEGMENT, TRACK, TTA, VLM
+              model_type: "DETECT"
+              # 模块名称
+              module_name: "Yolov8"
+              # 模型名称（必须与模型文件名一致）
+              model_name: "yolov8s.rknn"
+              # 模型路径
+              # model_path: "/oem/rockx_data/"
+              model_path: "/userdata/rockx_data/model/yolov8s-640x640-w8a8-1"
+              # 模型授权配置
+              model_auth_config: ""
+              # 置信度阈值
+              confidence_threshold: 0.5
+              # 输入队列数量
+              input_queue_count: 3
+              # 输出缓冲数量
+              output_buffer_count: 6
+              # 源帧率（0表示不控制）
+              src_frame_rate: 0
+              # 目标帧率（0表示不控制）
+              dst_frame_rate: 0
+              # 观察深度
+              depth: 1
+
+      # 图形叠加模块
+      - name: "GRAPHICS"
+        # ========== 通道列表（GRAPHICS无设备参数，所有参数在通道中配置） ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # ========== Overlay 属性（RKNS_OVERLAY_ATTR_S） ==========
+              # 输出宽度
+              width: 1088
+              # 输出高度
+              height: 1920
+              # 像素格式（NV12/RGB888/ARGB8888）
+              pixel_format: "RGBA8888"
+              # 每帧最大框数
+              max_box_per_frame: 32
+              # 线宽
+              line_width: 2
+              # 文字缩放
+              text_scale: 1
+              # ========== 绘制规则（RKNS_OVERLAY_RULE_S） ==========
+              # 是否绘制检测框
+              enable_box: true
+              # 是否绘制文字标签
+              enable_text: true
+              # 全局置信度阈值
+              global_score_threshold: 0.4
+              # 按类别的绘制规则
+              rules:
+                - class_name: "face"
+                  enable: true
+                  score_threshold: 0.3
+                  color:
+                    r: 255
+                    g: 0
+                    b: 0
+                    a: 255
+                - class_name: "body"
+                  enable: true
+                  score_threshold: 0.5
+                  color:
+                    r: 0
+                    g: 255
+                    b: 0
+                    a: 255
+                - class_name: "car"
+                  enable: true
+                  score_threshold: 0.6
+                  color:
+                    r: 0
+                    g: 128
+                    b: 255
+                    a: 255
+
+      # 输出模块
+      - name: "OUTPUT"
+        # ========== 通道列表（OUTPUT无设备参数，所有参数在通道中配置） ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 输出类型
+              type: "ROCKIT"
+              # 操作类型
+              op_type: "UPDATE_RGN"
+              # 输出路径
+              path: ""
+              # 观察深度
+              watch_depth: 1
+
+    # 绑定关系列表
+    bindings:
+      - name: "input_to_infer"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "INFER"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      - name: "infer_to_graphics"
+        src_module: "INFER"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "GRAPHICS"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      - name: "graphics_to_output"
+        src_module: "GRAPHICS"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "OUTPUT"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+  # Pipeline 2: Rockit 多媒体框架 pipeline
+  # 节点链路: VI -> VO（视频预览）
+  - name: "rockit_pipeline"
+    type: "rockit"
+    enabled: true
+
+    # 模块列表
+    modules:
+      # VI 模块（视频输入）
+      # 支持多设备配置：使用 devices 列表
+      - name: "VI"
+        # ========== 设备列表 ==========
+        devices:
+          - dev_id: 0
+            dev_config:
+              # 帧率（0表示不控制）
+              frame_rate: 0
+            # 该设备的 pipe 列表
+            pipes:
+              - pipe_id: 0
+                # 该 pipe 上的通道列表
+                channels:
+                  - chn_id: 0
+                    chn_config:
+                      width: 1088
+                      height: 1920
+                      buffer_count: 6
+                      depth: 0
+
+      # VPSS 模块（视频处理）
+      # 支持多 Group 配置：使用 groups 列表
+      - name: "VPSS"
+        # ========== Group 列表 ==========
+        groups:
+          - grp_id: 0
+            grp_config:
+              # 输入最大分辨率
+              max_width: 1920
+              max_height: 1080
+              # 帧率（0表示不控制）
+              frame_rate: 0
+            # 该 Group 的通道列表
+            channels:
+              - chn_id: 0
+                chn_config:
+                  # 输出分辨率
+                  width: 1088
+                  height: 1920
+                  # 缓冲区数量
+                  buffer_count: 6
+                  # 通道深度（队列深度）
+                  depth: 3
+              - chn_id: 1
+                chn_config:
+                  # 输出分辨率
+                  width: 640
+                  height: 480
+                  # 缓冲区数量
+                  buffer_count: 4
+                  # 通道深度（队列深度）
+                  depth: 3
+
+      # RGN #DISABLED 模块（OSD 叠加）
+      - name: "RGN"
+        dev_id: 0
+        chn_id: 0
+        config:
+          width: 1088
+          height: 1920
+          pixel_format: "RGBA8888"
+          buffer_count: 2
+
+      # VO 模块（视频输出）
+      # 支持多设备配置：使用 devices 列表
+      - name: "VO"
+        # ========== 设备列表 ==========
+        devices:
+          # dev 0/1 - hdmi 输出, dev 3 - mipi 输出
+          - dev_id: 3
+            dev_config:
+              # 接口类型（MIPI/HDMI/LCD）
+              intf_type: "MIPI"
+              # 接口时序（0=DEFAULT, 47=1080x1920 MIPI DSI）
+              intf_sync: 0
+              # 背景色（RGB 格式，0=黑色）
+              bg_color: 0
+            # 该设备的图层列表
+            layers:
+              - layer_id: 7
+                layer_config:
+                  # 图层分辨率
+                  layer_width: 1080
+                  layer_height: 1920
+                  # 显示区域分辨率
+                  disp_width: 1080
+                  disp_height: 1920
+                  # 图层模式（0=VIDEO, 1=GRAPHIC, 2=CURSOR）
+                  layer_mode: 1
+                # 该图层的通道列表
+                channels:
+                  - chn_id: 0
+                    chn_config:
+                      # 通道分辨率
+                      width: 1080
+                      height: 1920
+                      # 优先级
+                      priority: 0
+                      # 前景透明度
+                      fg_alpha: 255
+                      # 背景透明度
+                      bg_alpha: 0
+
+    # 绑定关系列表
+    bindings:
+      - name: "vi_to_vpss"
+        src_module: "VI"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "VPSS"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      - name: "vpss_to_vo"
+        src_module: "VPSS"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "VO"
+        dst_dev_id: 7
+        dst_chn_id: 0
+
+    # Attach 关系列表
+    attaches:
+      - name: "rgn_to_vo"
+        rgn_handle: 0
+        dst_module: "VO"
+        dst_dev_id: 7
+        dst_chn_id: 0
+
+# ------------------------------------------------------------
+# 运行时配置（全局）
+# ------------------------------------------------------------
+runtime:
+  # 超时时间（秒）
+  # 0 表示无限运行，直到用户手动退出
+  # >0 表示运行指定时间后自动退出
+  timeout: 0
+
+  # 是否启用性能分析
+  # 启用后会输出帧率、延迟等性能指标
+  profiling: false
+
+  # 是否输出详细日志
+  # 启用后会输出更多调试信息
+  verbose: true
+
+# ============================================================
+# 配置文件结束
+# ============================================================

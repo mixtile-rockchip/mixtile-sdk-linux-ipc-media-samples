@@ -18,13 +18,18 @@ endif
 CURRENT_DIR := $(shell pwd)
 
 # RKNNStream库路径
+ifeq ($(COMPILE_FOR_BUILDROOT),y)
+RKNS_PATH ?= $(shell cd ../.. && pwd)/rknnstream
+else
 RKNS_PATH ?= $(RK_MEDIA_TOP_DIR)/rknnstream
+endif
 RKNS_BUILD ?= $(RKNS_PATH)/build
 RKNS_INSTALL ?= $(RK_MEDIA_OUTPUT)
 
 # 头文件路径
 RKNS_INC_FLAGS := -I$(RKNS_PATH)/include
 RKNS_INC_FLAGS += -I$(RKNS_PATH)/rkns_utils
+RKNS_INC_FLAGS += -I$(RKNS_PATH)/rkns
 RKNS_INC_FLAGS += -I$(CURRENT_DIR)/yaml
 RKNS_INC_FLAGS += -I$(RKNS_INSTALL)/include
 
@@ -34,7 +39,7 @@ RKNS_LD_FLAGS += -L$(RKNS_INSTALL)/lib
 RKNS_LD_FLAGS += -lrkns -lrockchip_osal -lrockx2 -lrockx_modules_open
 RKNS_LD_FLAGS += -lrknn3_api -lrknnrt -lrockx_aicore -lrknn3_api_native -lrknn3_api_rkcp
 RKNS_LD_FLAGS += -lrockit
-RKNS_LD_FLAGS += -lpthread -lm
+RKNS_LD_FLAGS += -lpthread -lm -ldl
 RKNS_LD_FLAGS += -Wl,-rpath-link,$(RKNS_INSTALL)/lib -Wl,--allow-shlib-undefined
 
 # 编译选项
@@ -65,7 +70,7 @@ $(LAUNCH_BIN): $(ALL_LAUNCH_SRC)
 install:
 	$(CMD_DBG)mkdir -p $(CURRENT_DIR)/$(PKG_BIN)/bin
 	$(CMD_DBG)cp -f $(LAUNCH_BIN) $(CURRENT_DIR)/$(PKG_BIN)/bin/
-	$(CMD_DBG)cp -f $(CURRENT_DIR)/rkns_launch_config.yaml $(CURRENT_DIR)/$(PKG_BIN)/bin/
+	$(CMD_DBG)cp -f $(CURRENT_DIR)/rkns_yolo_config.yaml $(CURRENT_DIR)/$(PKG_BIN)/bin/
 
 clean:
 	$(CMD_DBG)rm -f $(LAUNCH_BIN) *.o yaml/*.o

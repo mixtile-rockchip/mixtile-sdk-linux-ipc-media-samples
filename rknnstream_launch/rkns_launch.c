@@ -35,14 +35,20 @@
 #include "rkns.h"
 #include "rk_osal.h"
 #include "rkns_launch_config.h"
+#include "rockx.h"
+#include "rockx_module_type.h"
+#include "rkns_buf.h"
 
 /* Rockit MPI headers */
 #include "rk_mpi_sys.h"
 #include "rk_mpi_vi.h"
 #include "rk_mpi_vo.h"
 #include "rk_mpi_ai.h"
+#include "rk_mpi_vpss.h"
 #include "rk_comm_aio.h"
+#include "rk_comm_vpss.h"
 #include "rk_common.h"
+#include "rk_comm_vo.h"
 
 /* ============================================================
  * 常量定义
@@ -398,7 +404,7 @@ RKNS_S32 input_parse_config(YamlDocument *doc, const char *base_path,
     str = yaml_get_string(doc, path, "CUSTOM");
     param->sourceType = parse_input_type(str);
 
-    /* 检测 op_type 字段以确定是否为音频输入 */
+    /* 检测 op_type 字段以确定输入类型 */
     snprintf(path, sizeof(path), "%s.channels.0.chn_config.op_type", base_path);
     str = yaml_get_string(doc, path, "");
     if (strcmp(str, "AI_CAPTURE") == 0) {
@@ -413,9 +419,22 @@ RKNS_S32 input_parse_config(YamlDocument *doc, const char *base_path,
         param->rockit.chnId = yaml_get_int(doc, path, 0);
 
         /* 设置模块 ID 为 AI (RK_ID_AI = 10) */
-        param->rockit.modId = 10;
+        param->rockit.modId = RK_ID_AI;
+    } else if (strcmp(str, "VPSS_CAPTURE") == 0) {
+        /* 视频输入模式 - Rockit VPSS 源 */
+        param->sourceType = RKNS_INPUT_SOURCE_ROCKIT;
+
+        /* 解析 source 对象 */
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.source.dev_id", base_path);
+        param->rockit.devId = yaml_get_int(doc, path, 0);
+
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.source.chn_id", base_path);
+        param->rockit.chnId = yaml_get_int(doc, path, 0);
+
+        /* 设置模块 ID 为 VPSS (RK_ID_VPSS = 5) */
+        param->rockit.modId = RK_ID_VPSS;
     } else {
-        /* 视频输入模式（默认） - 使用自定义源 */
+        /* 其他输入模式 - 使用自定义源 */
         param->sourceType = RKNS_INPUT_SOURCE_CUSTOM;
     }
 
@@ -433,8 +452,13 @@ RKNS_S32 input_parse_config(YamlDocument *doc, const char *base_path,
     printf("[INFO]   source_type: %d (%s)\n", param->sourceType,
            param->sourceType == RKNS_INPUT_SOURCE_ROCKIT ? "ROCKIT" : "CUSTOM");
     if (param->sourceType == RKNS_INPUT_SOURCE_ROCKIT) {
-        printf("[INFO]   op_type: AI_CAPTURE\n");
-        printf("[INFO]   source.module: AI (modId=%d)\n", param->rockit.modId);
+        if (param->rockit.modId == 10) {
+            printf("[INFO]   op_type: AI_CAPTURE\n");
+            printf("[INFO]   source.module: AI (modId=%d)\n", param->rockit.modId);
+        } else if (param->rockit.modId == 5) {
+            printf("[INFO]   op_type: VPSS_CAPTURE\n");
+            printf("[INFO]   source.module: VPSS (modId=%d)\n", param->rockit.modId);
+        }
         printf("[INFO]   source.dev_id: %d\n", param->rockit.devId);
         printf("[INFO]   source.chn_id: %d\n", param->rockit.chnId);
     }
@@ -544,7 +568,31 @@ static RKNS_S32 alm_parse_model_config(YamlDocument *doc, const char *base_path,
     return RKNS_SUCCESS;
 }
 
-/* DETECT/CLASSIFY/LLM/SEGMENT/TRACK/TTA/VLM 当前为预留空字段，无需特有解析 */
+/**
+ * @brief DETECT 模型属性解析（YoloV8/YoloX 等）
+ * YAML 字段：model_name, weight_path, rknn_version, core_mask
+ */
+static RKNS_S32 detect_parse_model_config(YamlDocument *doc, const char *base_path,
+                                          RKNS_INFER_ATTR_S *attr,
+                                          char *str_pool, size_t pool_size,
+                                          size_t *offset) {
+    RKNS_DETECT_MODEL_ATTR_S *m = &attr->stDetectAttr;
+    char path[256];
+
+    snprintf(path, sizeof(path), "%s.model_name", base_path);
+    str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pModelName);
+
+    snprintf(path, sizeof(path), "%s.weight_path", base_path);
+    str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pWeightPath);
+
+    snprintf(path, sizeof(path), "%s.rknn_version", base_path);
+    m->u32RknnVersion = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+    snprintf(path, sizeof(path), "%s.core_mask", base_path);
+    m->u32CoreMask = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+    return RKNS_SUCCESS;
+}
 
 /**
  * @brief 模型类型解析注册表
@@ -565,7 +613,7 @@ static const struct {
 } g_model_config_parsers[] = {
     { RKNS_MODEL_TYPE_ALM,      alm_parse_model_config },
     { RKNS_MODEL_TYPE_CLASSIFY, NULL },  /* 预留 */
-    { RKNS_MODEL_TYPE_DETECT,   NULL },  /* 预留 */
+    { RKNS_MODEL_TYPE_DETECT,   detect_parse_model_config },
     { RKNS_MODEL_TYPE_LLM,      NULL },  /* 预留 */
     { RKNS_MODEL_TYPE_SEGMENT,  NULL },  /* 预留 */
     { RKNS_MODEL_TYPE_TRACK,    NULL },  /* 预留 */
@@ -669,6 +717,13 @@ RKNS_S32 infer_parse_config(YamlDocument *doc, const char *base_path,
         printf("[INFO]     vocab: %s\n", attr->stAlmAttr.pVocabName ? attr->stAlmAttr.pVocabName : "(null)");
         printf("[INFO]     cache_time: %u ms\n", attr->stAlmAttr.u32CacheTime);
     }
+    if (attr->enModelType == RKNS_MODEL_TYPE_DETECT) {
+        printf("[INFO]   DETECT Model Attr:\n");
+        printf("[INFO]     model_name: %s\n", attr->stDetectAttr.pModelName ? attr->stDetectAttr.pModelName : "(null)");
+        printf("[INFO]     weight_path: %s\n", attr->stDetectAttr.pWeightPath ? attr->stDetectAttr.pWeightPath : "(null)");
+        printf("[INFO]     rknn_version: %u\n", attr->stDetectAttr.u32RknnVersion);
+        printf("[INFO]     core_mask: 0x%x\n", attr->stDetectAttr.u32CoreMask);
+    }
 
     module->configParsed = RKNS_TRUE;
     return RKNS_SUCCESS;
@@ -722,44 +777,58 @@ RKNS_S32 graphics_parse_config(YamlDocument *doc, const char *base_path,
     RKNSGraphicsParam *param = MODULE_CONFIG(module, RKNSGraphicsParam);
     RKNS_OVERLAY_RULE_S *rule = MODULE_SECONDARY(module, RKNS_OVERLAY_RULE_S);
     char path[256];
+    char chn_path[256];
     const char *str;
     int rule_count;
 
     rkos_memset(param, 0, sizeof(RKNSGraphicsParam));
     rkos_memset(rule, 0, sizeof(RKNS_OVERLAY_RULE_S));
 
+    /* 实际配置在 channels.0.chn_config 下 */
+    snprintf(chn_path, sizeof(chn_path), "%s.channels.0.chn_config", base_path);
+
+    /* 获取通道 ID */
+    snprintf(path, sizeof(path), "%s.channels.0.chn_id", base_path);
+    module->chnId = (RKNS_S32)yaml_get_int(doc, path, 0);
+
     /* 主配置: RKNSGraphicsParam */
     param->type = RKNS_GRAPHICS_TYPE_OVERLAY;
 
-    snprintf(path, sizeof(path), "%s.width", base_path);
+    snprintf(path, sizeof(path), "%s.width", chn_path);
     param->attr.width = (RKNS_U32)yaml_get_int(doc, path, 640);
 
-    snprintf(path, sizeof(path), "%s.height", base_path);
+    snprintf(path, sizeof(path), "%s.height", chn_path);
     param->attr.height = (RKNS_U32)yaml_get_int(doc, path, 480);
 
     param->attr.stride = param->attr.width;
 
-    snprintf(path, sizeof(path), "%s.pixel_format", base_path);
+    snprintf(path, sizeof(path), "%s.pixel_format", chn_path);
     str = yaml_get_string(doc, path, "NV12");
     param->attr.pixelFmt = parse_pixel_format(str);
 
-    param->attr.bgColor.a = 0xFF;
-    param->attr.maxBoxPerFrame = 32;
-    param->attr.lineWidth = 2;
-    param->attr.textScale = 1;
+    param->attr.bgColor.a = 0x00;
+
+    snprintf(path, sizeof(path), "%s.max_box_per_frame", chn_path);
+    param->attr.maxBoxPerFrame = (RKNS_U32)yaml_get_int(doc, path, 32);
+
+    snprintf(path, sizeof(path), "%s.line_width", chn_path);
+    param->attr.lineWidth = (RKNS_U32)yaml_get_int(doc, path, 2);
+
+    snprintf(path, sizeof(path), "%s.text_scale", chn_path);
+    param->attr.textScale = (RKNS_U32)yaml_get_int(doc, path, 1);
 
     /* 次级配置: RKNS_OVERLAY_RULE_S */
-    snprintf(path, sizeof(path), "%s.enable_box", base_path);
+    snprintf(path, sizeof(path), "%s.enable_box", chn_path);
     rule->enableBox = (RKNS_BOOL)yaml_get_bool(doc, path, 1);
 
-    snprintf(path, sizeof(path), "%s.enable_text", base_path);
+    snprintf(path, sizeof(path), "%s.enable_text", chn_path);
     rule->enableText = (RKNS_BOOL)yaml_get_bool(doc, path, 1);
 
-    snprintf(path, sizeof(path), "%s.global_score_threshold", base_path);
+    snprintf(path, sizeof(path), "%s.global_score_threshold", chn_path);
     rule->globalScoreThreshold = (RKNS_FLOAT)yaml_get_float(doc, path, 0.4);
 
     /* 解析 overlay rules 子列表 */
-    snprintf(path, sizeof(path), "%s.rules", base_path);
+    snprintf(path, sizeof(path), "%s.rules", chn_path);
     rule_count = yaml_get_count(doc, path);
     if (rule_count > 0 && rule_count <= RKNS_OVERLAY_MAX_CLS_NUM) {
         int ri;
@@ -767,26 +836,26 @@ RKNS_S32 graphics_parse_config(YamlDocument *doc, const char *base_path,
         for (ri = 0; ri < rule_count; ri++) {
             RKNS_OVERLAY_RULE_ITEM_S *item = &rule->clsRule[ri];
 
-            snprintf(path, sizeof(path), "%s.rules.%d.class_name", base_path, ri);
+            snprintf(path, sizeof(path), "%s.rules.%d.class_name", chn_path, ri);
             str = yaml_get_string(doc, path, "unknown");
             rkos_strncpy(item->clsName, str, RKNS_OVERLAY_MAX_NAME_LEN - 1);
 
-            snprintf(path, sizeof(path), "%s.rules.%d.enable", base_path, ri);
+            snprintf(path, sizeof(path), "%s.rules.%d.enable", chn_path, ri);
             item->enable = (RKNS_BOOL)yaml_get_bool(doc, path, 1);
 
-            snprintf(path, sizeof(path), "%s.rules.%d.score_threshold", base_path, ri);
+            snprintf(path, sizeof(path), "%s.rules.%d.score_threshold", chn_path, ri);
             item->scoreThreshold = (RKNS_FLOAT)yaml_get_float(doc, path, 0.5);
 
-            snprintf(path, sizeof(path), "%s.rules.%d.color.r", base_path, ri);
+            snprintf(path, sizeof(path), "%s.rules.%d.color.r", chn_path, ri);
             item->color.r = (RKNS_U8)yaml_get_int(doc, path, 255);
 
-            snprintf(path, sizeof(path), "%s.rules.%d.color.g", base_path, ri);
+            snprintf(path, sizeof(path), "%s.rules.%d.color.g", chn_path, ri);
             item->color.g = (RKNS_U8)yaml_get_int(doc, path, 0);
 
-            snprintf(path, sizeof(path), "%s.rules.%d.color.b", base_path, ri);
+            snprintf(path, sizeof(path), "%s.rules.%d.color.b", chn_path, ri);
             item->color.b = (RKNS_U8)yaml_get_int(doc, path, 0);
 
-            snprintf(path, sizeof(path), "%s.rules.%d.color.a", base_path, ri);
+            snprintf(path, sizeof(path), "%s.rules.%d.color.a", chn_path, ri);
             item->color.a = (RKNS_U8)yaml_get_int(doc, path, 255);
         }
     }
@@ -798,8 +867,8 @@ RKNS_S32 graphics_parse_config(YamlDocument *doc, const char *base_path,
     printf("[INFO]   width: %u\n", param->attr.width);
     printf("[INFO]   height: %u\n", param->attr.height);
     printf("[INFO]   pixel_format: %s\n",
-           param->attr.pixelFmt == RKNS_OVERLAY_PIXFMT_NV12 ? "NV12" :
-           param->attr.pixelFmt == RKNS_OVERLAY_PIXFMT_RGB888 ? "RGB888" : "ARGB8888");
+           param->attr.pixelFmt == ROCKX_PIXEL_FORMAT_YUV420SP_NV12 ? "NV12" :
+           param->attr.pixelFmt == ROCKX_PIXEL_FORMAT_RGB888 ? "RGB888" : "ARGB8888");
     printf("[INFO]   max_box_per_frame: %u\n", param->attr.maxBoxPerFrame);
     printf("[INFO]   line_width: %u\n", param->attr.lineWidth);
     printf("[INFO]   text_scale: %u\n", param->attr.textScale);
@@ -887,21 +956,37 @@ RKNS_S32 output_parse_config(YamlDocument *doc, const char *base_path,
 
     rkos_memset(param, 0, sizeof(RKNSOutputParam));
 
-    snprintf(path, sizeof(path), "%s.type", base_path);
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.type", base_path);
     str = yaml_get_string(doc, path, "APP");
     param->type = parse_output_type(str);
 
-    snprintf(path, sizeof(path), "%s.watch_depth", base_path);
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.watch_depth", base_path);
     param->watchDepth = (int)yaml_get_int(doc, path, 1);
 
     /* 操作类型（APP 类型时有效） */
-    snprintf(path, sizeof(path), "%s.op_type", base_path);
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.op_type", base_path);
     str = yaml_get_string(doc, path, "PRINT");
     if (param->type == RKNS_OUTPUT_TYPE_APP) {
         if (strcmp(str, "SAVE_FILE") == 0) {
             param->app.cmd = RKNS_APP_CMD_SAVE_FILE;
         } else {
             param->app.cmd = RKNS_APP_CMD_PRINT;
+        }
+    } else if (param->type == RKNS_OUTPUT_TYPE_ROCKIT) {
+        if (strcmp(str, "UPDATE_RGN") == 0) {
+            param->rockit.cmd = RKNS_ROCKIT_CMD_UPDATE_RGN;
+        } else if (strcmp(str, "SEND_VPSS") == 0) {
+            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VPSS;
+        } else if (strcmp(str, "SEND_VO") == 0) {
+            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
+        } else if (strcmp(str, "SEND_AO") == 0) {
+            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_AO;
+        } else if (strcmp(str, "SEND_AENC") == 0) {
+            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_AENC;
+        } else if (strcmp(str, "SEND_VENC") == 0) {
+            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VENC;
+        } else {
+            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
         }
     }
 
@@ -912,11 +997,13 @@ RKNS_S32 output_parse_config(YamlDocument *doc, const char *base_path,
            param->type == RKNS_OUTPUT_TYPE_APP ? "APP" :
            param->type == RKNS_OUTPUT_TYPE_ROCKIT ? "ROCKIT" :
            param->type == RKNS_OUTPUT_TYPE_GSTREAM ? "GSTREAM" : "OPENCV");
+    printf("[INFO]   watch_depth: %d\n", param->watchDepth);
     if (param->type == RKNS_OUTPUT_TYPE_APP) {
         printf("[INFO]   op_type: %s\n",
                param->app.cmd == RKNS_APP_CMD_PRINT ? "PRINT" : "SAVE_FILE");
+    } else if (param->type == RKNS_OUTPUT_TYPE_ROCKIT) {
+        printf("[INFO]   op_type: %s\n", str);
     }
-    printf("[INFO]   watch_depth: %d\n", param->watchDepth);
 
     module->configParsed = RKNS_TRUE;
     return RKNS_SUCCESS;
@@ -939,7 +1026,7 @@ RKNS_S32 output_create(const RKNSLaunchModule *module,
         createParam.app.cmd = param->app.cmd;
         break;
     case RKNS_OUTPUT_TYPE_ROCKIT:
-        createParam.rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
+        createParam.rockit.cmd = param->rockit.cmd;
         createParam.rockit.sendVo.volayerId = 0;
         createParam.rockit.sendVo.voChnId = 0;
         break;
@@ -978,6 +1065,8 @@ RKNS_S32 output_destroy(const RKNSLaunchModule *module,
     return RKNS_SUCCESS;
 }
 
+/* ---------- OUTPUT 模块 ---------- */
+
 RKNS_S32 output_start(const RKNSLaunchModule *module,
                               RKNSLaunchModuleState *state) {
     RKNS_S32 ret = RKNS_OUTPUT_StartChn(module->devId, module->chnId);
@@ -998,33 +1087,137 @@ RKNS_S32 rockit_vi_parse_config(YamlDocument *doc, const char *base_path,
                                         RKNSLaunchModule *module) {
     RockitVIConfig *cfg = MODULE_CONFIG(module, RockitVIConfig);
     char path[256];
+    int dev_count, pipe_count, chn_count;
+    int di, pi, ci;
 
     rkos_memset(cfg, 0, sizeof(RockitVIConfig));
-    cfg->devId = module->devId;
-    cfg->pipeId = module->pipeId;
-    cfg->chnId = module->chnId;
 
-    snprintf(path, sizeof(path), "%s.width", base_path);
-    cfg->width = (RKNS_U32)yaml_get_int(doc, path, 1920);
+    /* ========== 获取设备数量并分配内存 ========== */
+    snprintf(path, sizeof(path), "%s.devices", base_path);
+    dev_count = yaml_get_count(doc, path);
+    if (dev_count <= 0) dev_count = 1;
 
-    snprintf(path, sizeof(path), "%s.height", base_path);
-    cfg->height = (RKNS_U32)yaml_get_int(doc, path, 1080);
+    cfg->devCount = (RKNS_U32)dev_count;
+    cfg->devConfigs = (RockitVIDevConfig*)rkos_kmalloc(sizeof(RockitVIDevConfig) * dev_count);
+    if (!cfg->devConfigs) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for %d VI devices\n", dev_count);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(cfg->devConfigs, 0, sizeof(RockitVIDevConfig) * dev_count);
 
-    snprintf(path, sizeof(path), "%s.buffer_count", base_path);
-    cfg->bufferCount = (RKNS_U32)yaml_get_int(doc, path, 2);
+    /* ========== 解析每个设备 ========== */
+    for (di = 0; di < dev_count; di++) {
+        RockitVIDevConfig *dev = &cfg->devConfigs[di];
 
-    snprintf(path, sizeof(path), "%s.depth", base_path);
-    cfg->depth = (RKNS_U32)yaml_get_int(doc, path, 0);
+        snprintf(path, sizeof(path), "%s.devices.%d.dev_id", base_path, di);
+        dev->devId = (RKNS_S32)yaml_get_int(doc, path, di);
+
+        snprintf(path, sizeof(path), "%s.devices.%d.dev_config.frame_rate", base_path, di);
+        dev->frameRate = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+        /* ========== 获取该设备的 pipe 数量并分配内存 ========== */
+        snprintf(path, sizeof(path), "%s.devices.%d.pipes", base_path, di);
+        pipe_count = yaml_get_count(doc, path);
+        if (pipe_count <= 0) pipe_count = 1;
+
+        dev->pipeCount = (RKNS_U32)pipe_count;
+        dev->pipeConfigs = (RockitVIPipeConfig*)rkos_kmalloc(sizeof(RockitVIPipeConfig) * pipe_count);
+        if (!dev->pipeConfigs) {
+            fprintf(stderr, "[ERROR] Failed to allocate memory for %d VI pipes\n", pipe_count);
+            for (int j = 0; j < di; j++) {
+                if (cfg->devConfigs[j].pipeConfigs) {
+                    for (int k = 0; k < (int)cfg->devConfigs[j].pipeCount; k++) {
+                        if (cfg->devConfigs[j].pipeConfigs[k].chnConfigs)
+                            rkos_kfree(cfg->devConfigs[j].pipeConfigs[k].chnConfigs);
+                    }
+                    rkos_kfree(cfg->devConfigs[j].pipeConfigs);
+                }
+            }
+            rkos_kfree(cfg->devConfigs);
+            cfg->devConfigs = NULL;
+            cfg->devCount = 0;
+            return RKNS_FAILURE;
+        }
+        rkos_memset(dev->pipeConfigs, 0, sizeof(RockitVIPipeConfig) * pipe_count);
+
+        /* ========== 解析该设备的所有 pipe ========== */
+        for (pi = 0; pi < pipe_count; pi++) {
+            RockitVIPipeConfig *pipe = &dev->pipeConfigs[pi];
+
+            snprintf(path, sizeof(path), "%s.devices.%d.pipes.%d.pipe_id", base_path, di, pi);
+            pipe->pipeId = (RKNS_S32)yaml_get_int(doc, path, pi);
+
+            /* ========== 获取该 pipe 的通道数量并分配内存 ========== */
+            snprintf(path, sizeof(path), "%s.devices.%d.pipes.%d.channels", base_path, di, pi);
+            chn_count = yaml_get_count(doc, path);
+            if (chn_count <= 0) chn_count = 1;
+
+            pipe->chnCount = (RKNS_U32)chn_count;
+            pipe->chnConfigs = (RockitVIChnConfig*)rkos_kmalloc(sizeof(RockitVIChnConfig) * chn_count);
+            if (!pipe->chnConfigs) {
+                fprintf(stderr, "[ERROR] Failed to allocate memory for %d VI channels\n", chn_count);
+                for (int k = 0; k < pi; k++) {
+                    if (dev->pipeConfigs[k].chnConfigs) {
+                        rkos_kfree(dev->pipeConfigs[k].chnConfigs);
+                        dev->pipeConfigs[k].chnConfigs = NULL;
+                    }
+                }
+                rkos_kfree(dev->pipeConfigs);
+                dev->pipeConfigs = NULL;
+                for (int j = 0; j < di; j++) {
+                    if (cfg->devConfigs[j].pipeConfigs) {
+                        for (int k = 0; k < (int)cfg->devConfigs[j].pipeCount; k++) {
+                            if (cfg->devConfigs[j].pipeConfigs[k].chnConfigs)
+                                rkos_kfree(cfg->devConfigs[j].pipeConfigs[k].chnConfigs);
+                        }
+                        rkos_kfree(cfg->devConfigs[j].pipeConfigs);
+                    }
+                }
+                rkos_kfree(cfg->devConfigs);
+                cfg->devConfigs = NULL;
+                cfg->devCount = 0;
+                return RKNS_FAILURE;
+            }
+            rkos_memset(pipe->chnConfigs, 0, sizeof(RockitVIChnConfig) * chn_count);
+
+            /* ========== 解析该 pipe 的所有通道 ========== */
+            for (ci = 0; ci < chn_count; ci++) {
+                RockitVIChnConfig *chn = &pipe->chnConfigs[ci];
+
+                snprintf(path, sizeof(path), "%s.devices.%d.pipes.%d.channels.%d.chn_id", base_path, di, pi, ci);
+                chn->chnId = (RKNS_S32)yaml_get_int(doc, path, ci);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.pipes.%d.channels.%d.chn_config.width", base_path, di, pi, ci);
+                chn->width = (RKNS_U32)yaml_get_int(doc, path, 1920);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.pipes.%d.channels.%d.chn_config.height", base_path, di, pi, ci);
+                chn->height = (RKNS_U32)yaml_get_int(doc, path, 1080);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.pipes.%d.channels.%d.chn_config.buffer_count", base_path, di, pi, ci);
+                chn->bufferCount = (RKNS_U32)yaml_get_int(doc, path, 2);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.pipes.%d.channels.%d.chn_config.depth", base_path, di, pi, ci);
+                chn->depth = (RKNS_U32)yaml_get_int(doc, path, 0);
+            }
+        }
+    }
 
     /* 打印 VI 模块配置参数 */
     printf("[INFO] VI Module Config:\n");
-    printf("[INFO]   dev_id: %d\n", cfg->devId);
-    printf("[INFO]   pipe_id: %d\n", cfg->pipeId);
-    printf("[INFO]   chn_id: %d\n", cfg->chnId);
-    printf("[INFO]   width: %u\n", cfg->width);
-    printf("[INFO]   height: %u\n", cfg->height);
-    printf("[INFO]   buffer_count: %u\n", cfg->bufferCount);
-    printf("[INFO]   depth: %u\n", cfg->depth);
+    printf("[INFO]   Total devices: %u\n", cfg->devCount);
+    for (di = 0; di < (int)cfg->devCount; di++) {
+        RockitVIDevConfig *dev = &cfg->devConfigs[di];
+        printf("[INFO]   Device[%d]: dev_id=%d, frame_rate=%u\n", di, dev->devId, dev->frameRate);
+        for (pi = 0; pi < (int)dev->pipeCount; pi++) {
+            RockitVIPipeConfig *pipe = &dev->pipeConfigs[pi];
+            printf("[INFO]     Pipe[%d]: pipe_id=%d\n", pi, pipe->pipeId);
+            for (ci = 0; ci < (int)pipe->chnCount; ci++) {
+                RockitVIChnConfig *chn = &pipe->chnConfigs[ci];
+                printf("[INFO]       Channel[%d]: chn_id=%d, %ux%u, buffer_count=%u, depth=%u\n",
+                       ci, chn->chnId, chn->width, chn->height, chn->bufferCount, chn->depth);
+            }
+        }
+    }
 
     module->configParsed = RKNS_TRUE;
     return RKNS_SUCCESS;
@@ -1034,89 +1227,215 @@ RKNS_S32 rockit_vi_create(const RKNSLaunchModule *module,
                                   RKNSLaunchModuleState *state) {
     const RockitVIConfig *cfg = MODULE_CONFIG(module, RockitVIConfig);
     RK_S32 ret;
+    int di = 0, pi = 0, ci = 0;
 
-    /* 1. 配置 VI 设备 */
-    {
-        VI_DEV_ATTR_S stDevAttr;
-        rkos_memset(&stDevAttr, 0, sizeof(stDevAttr));
-        ret = RK_MPI_VI_GetDevAttr(cfg->devId, &stDevAttr);
-        if (ret == -1) { /* RK_ERR_VI_NOT_CONFIG */
-            ret = RK_MPI_VI_SetDevAttr(cfg->devId, &stDevAttr);
+    if (cfg->devCount == 0 || cfg->devConfigs == NULL) {
+        fprintf(stderr, "[ERROR] No VI device config available\n");
+        return RKNS_FAILURE;
+    }
+
+    rkos_memset(&state->viState, 0, sizeof(state->viState));
+    state->viState.devCount = cfg->devCount;
+
+    printf("[INFO] Creating VI module with %u devices\n", cfg->devCount);
+
+    /* ========== 遍历所有设备 ========== */
+    for (di = 0; di < (int)cfg->devCount && di < MAX_VI_DEVICES; di++) {
+        RockitVIDevConfig *dev = &cfg->devConfigs[di];
+
+        if (dev->pipeCount == 0 || dev->pipeConfigs == NULL) {
+            fprintf(stderr, "[WARNING] VI device %d has no pipes, skipping\n", di);
+            continue;
+        }
+
+        state->viState.pipeCount[di] = dev->pipeCount;
+        for (pi = 0; pi < (int)dev->pipeCount && pi < MAX_VI_PIPES; pi++)
+            state->viState.chnCount[di][pi] = dev->pipeConfigs[pi].chnCount;
+
+        /* 1. 配置 VI 设备 */
+        {
+            VI_DEV_ATTR_S stDevAttr;
+            rkos_memset(&stDevAttr, 0, sizeof(stDevAttr));
+            ret = RK_MPI_VI_GetDevAttr(dev->devId, &stDevAttr);
+            if (ret == RK_ERR_VI_NOT_CONFIG) {
+                ret = RK_MPI_VI_SetDevAttr(dev->devId, &stDevAttr);
+                if (ret != 0) {
+                    fprintf(stderr, "[ERROR] RK_MPI_VI_SetDevAttr failed: %#x\n", ret);
+                    goto cleanup_devices;
+                }
+            }
+        }
+
+        /* 2. 使能 VI 设备 */
+        ret = RK_MPI_VI_GetDevIsEnable(dev->devId);
+        if (ret != 0) {
+            ret = RK_MPI_VI_EnableDev(dev->devId);
             if (ret != 0) {
-                fprintf(stderr, "[ERROR] RK_MPI_VI_SetDevAttr failed: %#x\n", ret);
-                return RKNS_FAILURE;
+                fprintf(stderr, "[ERROR] RK_MPI_VI_EnableDev failed: %#x\n", ret);
+                goto cleanup_devices;
+            }
+            state->viState.devEnabled[di] = RKNS_TRUE;
+        } else {
+            state->viState.devEnabled[di] = RKNS_TRUE;
+        }
+
+        /* 3. 绑定设备到所有 pipe */
+        {
+            VI_DEV_BIND_PIPE_S stBindPipe;
+            int bindCount = RK_MIN((int)dev->pipeCount, MAX_VI_BIND_PIPE_NUM);
+            rkos_memset(&stBindPipe, 0, sizeof(stBindPipe));
+            stBindPipe.u32Num = 1;
+            for (pi = 0; pi < bindCount; pi++)
+                stBindPipe.PipeId[pi] = dev->pipeConfigs[pi].pipeId;
+            ret = RK_MPI_VI_SetDevBindPipe(dev->devId, &stBindPipe);
+            if (ret != 0) {
+                fprintf(stderr, "[ERROR] RK_MPI_VI_SetDevBindPipe failed: %#x\n", ret);
+                goto cleanup_devices;
+            }
+        }
+
+        /* ========== 遍历该设备的所有 pipe 和通道 ========== */
+        for (pi = 0; pi < (int)dev->pipeCount && pi < MAX_VI_PIPES; pi++) {
+            RockitVIPipeConfig *pipe = &dev->pipeConfigs[pi];
+            if (pipe->chnCount == 0 || pipe->chnConfigs == NULL)
+                continue;
+
+            for (ci = 0; ci < (int)pipe->chnCount && ci < MAX_VI_CHNS; ci++) {
+                RockitVIChnConfig *chn = &pipe->chnConfigs[ci];
+                VI_CHN_ATTR_S stChnAttr;
+
+                rkos_memset(&stChnAttr, 0, sizeof(stChnAttr));
+                stChnAttr.stSize.u32Width = chn->width;
+                stChnAttr.stSize.u32Height = chn->height;
+                stChnAttr.enPixelFormat = RK_FMT_YUV420SP;
+                stChnAttr.enCompressMode = COMPRESS_MODE_NONE;
+                stChnAttr.u32Depth = chn->depth;
+                stChnAttr.stIspOpt.u32BufCount = chn->bufferCount;
+                stChnAttr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF;
+
+                ret = RK_MPI_VI_SetChnAttr(pipe->pipeId, chn->chnId, &stChnAttr);
+                if (ret != 0) {
+                    fprintf(stderr, "[ERROR] RK_MPI_VI_SetChnAttr failed: %#x\n", ret);
+                    goto cleanup_channels;
+                }
+
+                ret = RK_MPI_VI_EnableChn(pipe->pipeId, chn->chnId);
+                if (ret != 0) {
+                    fprintf(stderr, "[ERROR] RK_MPI_VI_EnableChn failed: %#x\n", ret);
+                    goto cleanup_channels;
+                }
+
+                state->viState.chnEnabled[di][pi][ci] = RKNS_TRUE;
+                printf("[INFO]   VI channel enabled: dev=%d, pipe=%d, chn=%d, %ux%u\n",
+                       dev->devId, pipe->pipeId, chn->chnId, chn->width, chn->height);
             }
         }
     }
 
-    /* 2. 使能 VI 设备 */
-    ret = RK_MPI_VI_GetDevIsEnable(cfg->devId);
-    if (ret != 0) {
-        ret = RK_MPI_VI_EnableDev(cfg->devId);
-        if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VI_EnableDev failed: %#x\n", ret);
-            return RKNS_FAILURE;
-        }
-        state->viDevEnabled = RKNS_TRUE;
+    /* 使用第一个设备和第一个通道作为模块的主通道（用于绑定） */
+    if (cfg->devCount > 0 && cfg->devConfigs[0].pipeCount > 0 &&
+        cfg->devConfigs[0].pipeConfigs[0].chnCount > 0) {
+        state->chn.s32DevId = cfg->devConfigs[0].devId;
+        state->chn.s32ChnId = cfg->devConfigs[0].pipeConfigs[0].chnConfigs[0].chnId;
+    } else {
+        fprintf(stderr, "[ERROR] VI module has no valid device/pipe/channel\n");
+        goto cleanup_devices;
     }
-
-    /* 3. 绑定设备到 pipe */
-    {
-        VI_DEV_BIND_PIPE_S stBindPipe;
-        rkos_memset(&stBindPipe, 0, sizeof(stBindPipe));
-        stBindPipe.u32Num = 1;
-        stBindPipe.PipeId[0] = cfg->pipeId;
-        ret = RK_MPI_VI_SetDevBindPipe(cfg->devId, &stBindPipe);
-        if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VI_SetDevBindPipe failed: %#x\n", ret);
-            return RKNS_FAILURE;
-        }
-    }
-
-    /* 4. 配置并使能 VI 通道 */
-    {
-        VI_CHN_ATTR_S stChnAttr;
-        rkos_memset(&stChnAttr, 0, sizeof(stChnAttr));
-        stChnAttr.stSize.u32Width = cfg->width;
-        stChnAttr.stSize.u32Height = cfg->height;
-        stChnAttr.enPixelFormat = RK_FMT_YUV420SP;
-        stChnAttr.enCompressMode = COMPRESS_MODE_NONE;
-        stChnAttr.u32Depth = cfg->depth;
-        stChnAttr.stIspOpt.u32BufCount = cfg->bufferCount;
-        stChnAttr.stIspOpt.enMemoryType = VI_V4L2_MEMORY_TYPE_DMABUF;
-
-        ret = RK_MPI_VI_SetChnAttr(cfg->pipeId, cfg->chnId, &stChnAttr);
-        if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VI_SetChnAttr failed: %#x\n", ret);
-            return RKNS_FAILURE;
-        }
-
-        ret = RK_MPI_VI_EnableChn(cfg->pipeId, cfg->chnId);
-        if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VI_EnableChn failed: %#x\n", ret);
-            return RKNS_FAILURE;
-        }
-        state->viChnEnabled = RKNS_TRUE;
-    }
-
-    state->chn.s32DevId = cfg->devId;
-    state->chn.s32ChnId = cfg->chnId;
     state->created = RKNS_TRUE;
+    printf("[INFO] VI module created successfully\n");
     return RKNS_SUCCESS;
+
+cleanup_channels:
+    /* 清理当前设备 di 的已创建通道，然后禁用设备 */
+    {
+        RockitVIDevConfig *cleanupDev = &cfg->devConfigs[di];
+        for (int p = pi; p >= 0; p--) {
+            int cEnd = (p == pi) ? ci - 1 : RK_MIN((int)cleanupDev->pipeConfigs[p].chnCount, MAX_VI_CHNS) - 1;
+            for (int c = cEnd; c >= 0; c--) {
+                if (state->viState.chnEnabled[di][p][c]) {
+                    RK_MPI_VI_DisableChn(cleanupDev->pipeConfigs[p].pipeId,
+                                          cleanupDev->pipeConfigs[p].chnConfigs[c].chnId);
+                    state->viState.chnEnabled[di][p][c] = RKNS_FALSE;
+                }
+            }
+        }
+        if (state->viState.devEnabled[di]) {
+            RK_MPI_VI_DisableDev(cleanupDev->devId);
+            state->viState.devEnabled[di] = RKNS_FALSE;
+        }
+    }
+
+cleanup_devices:
+    /* 清理之前已创建的设备（d < di） */
+    for (int d = di; d >= 0; d--) {
+        RockitVIDevConfig *cleanupDev = &cfg->devConfigs[d];
+        if (state->viState.devEnabled[d]) {
+            for (int p = 0; p < (int)state->viState.pipeCount[d] && p < MAX_VI_PIPES; p++) {
+                for (int c = 0; c < (int)state->viState.chnCount[d][p] && c < MAX_VI_CHNS; c++) {
+                    if (state->viState.chnEnabled[d][p][c]) {
+                        RK_MPI_VI_DisableChn(cleanupDev->pipeConfigs[p].pipeId,
+                                              cleanupDev->pipeConfigs[p].chnConfigs[c].chnId);
+                        state->viState.chnEnabled[d][p][c] = RKNS_FALSE;
+                    }
+                }
+            }
+            RK_MPI_VI_DisableDev(cleanupDev->devId);
+            state->viState.devEnabled[d] = RKNS_FALSE;
+        }
+    }
+    return RKNS_FAILURE;
 }
 
 RKNS_S32 rockit_vi_destroy(const RKNSLaunchModule *module,
                                    RKNSLaunchModuleState *state) {
-    const RockitVIConfig *cfg = MODULE_CONFIG(module, RockitVIConfig);
-    if (state->viChnEnabled) {
-        RK_MPI_VI_DisableChn(cfg->pipeId, cfg->chnId);
-        state->viChnEnabled = RKNS_FALSE;
+    RockitVIConfig *cfg = MODULE_CONFIG(module, RockitVIConfig);
+    int di, pi, ci;
+
+    printf("[INFO] Destroying VI module\n");
+
+    /* 反向清理所有通道和设备 */
+    if (cfg->devCount > 0 && cfg->devConfigs != NULL) {
+        for (di = RK_MIN((int)cfg->devCount, MAX_VI_DEVICES) - 1; di >= 0; di--) {
+            RockitVIDevConfig *dev = &cfg->devConfigs[di];
+            if (!state->viState.devEnabled[di])
+                continue;
+
+            /* 反向禁用所有通道 */
+            for (pi = RK_MIN((int)dev->pipeCount, MAX_VI_PIPES) - 1; pi >= 0; pi--) {
+                RockitVIPipeConfig *pipe = &dev->pipeConfigs[pi];
+                for (ci = RK_MIN((int)pipe->chnCount, MAX_VI_CHNS) - 1; ci >= 0; ci--) {
+                    if (state->viState.chnEnabled[di][pi][ci]) {
+                        RK_MPI_VI_DisableChn(pipe->pipeId, pipe->chnConfigs[ci].chnId);
+                        state->viState.chnEnabled[di][pi][ci] = RKNS_FALSE;
+                    }
+                }
+            }
+
+            RK_MPI_VI_DisableDev(dev->devId);
+            state->viState.devEnabled[di] = RKNS_FALSE;
+        }
+
+        /* 释放动态分配的内存 */
+        for (di = 0; di < (int)cfg->devCount; di++) {
+            RockitVIDevConfig *dev = &cfg->devConfigs[di];
+            if (dev->pipeConfigs != NULL) {
+                for (pi = 0; pi < (int)dev->pipeCount; pi++) {
+                    if (dev->pipeConfigs[pi].chnConfigs != NULL) {
+                        rkos_kfree(dev->pipeConfigs[pi].chnConfigs);
+                        dev->pipeConfigs[pi].chnConfigs = NULL;
+                    }
+                }
+                rkos_kfree(dev->pipeConfigs);
+                dev->pipeConfigs = NULL;
+            }
+        }
+        rkos_kfree(cfg->devConfigs);
+        cfg->devConfigs = NULL;
     }
-    if (state->viDevEnabled) {
-        RK_MPI_VI_DisableDev(cfg->devId);
-        state->viDevEnabled = RKNS_FALSE;
-    }
+    cfg->devCount = 0;
+
     state->created = RKNS_FALSE;
+    printf("[INFO] VI module destroyed\n");
     return RKNS_SUCCESS;
 }
 
@@ -1140,32 +1459,174 @@ RKNS_S32 rockit_vo_parse_config(YamlDocument *doc, const char *base_path,
                                         RKNSLaunchModule *module) {
     RockitVOConfig *cfg = MODULE_CONFIG(module, RockitVOConfig);
     char path[256];
+    const char *str;
+    int dev_count, layer_count, chn_count;
+    int di, li, ci;
 
     rkos_memset(cfg, 0, sizeof(RockitVOConfig));
-    cfg->devId = module->devId;
-    cfg->layerId = module->layerId;
-    cfg->chnId = module->chnId;
 
-    snprintf(path, sizeof(path), "%s.width", base_path);
-    cfg->layerWidth = (RKNS_U32)yaml_get_int(doc, path, 1920);
+    /* ========== 获取设备数量并分配内存 ========== */
+    snprintf(path, sizeof(path), "%s.devices", base_path);
+    dev_count = yaml_get_count(doc, path);
+    if (dev_count <= 0) dev_count = 1;
 
-    snprintf(path, sizeof(path), "%s.height", base_path);
-    cfg->layerHeight = (RKNS_U32)yaml_get_int(doc, path, 1080);
+    cfg->devCount = (RKNS_U32)dev_count;
+    cfg->devConfigs = (RockitVODevConfig*)rkos_kmalloc(sizeof(RockitVODevConfig) * dev_count);
+    if (!cfg->devConfigs) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for %d VO devices\n", dev_count);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(cfg->devConfigs, 0, sizeof(RockitVODevConfig) * dev_count);
 
-    cfg->dispWidth = cfg->layerWidth;
-    cfg->dispHeight = cfg->layerHeight;
-    cfg->intfType = 2; /* VO_INTF_MIPI */
+    /* ========== 解析每个设备 ========== */
+    for (di = 0; di < dev_count; di++) {
+        RockitVODevConfig *dev = &cfg->devConfigs[di];
+
+        snprintf(path, sizeof(path), "%s.devices.%d.dev_id", base_path, di);
+        dev->devId = (RKNS_S32)yaml_get_int(doc, path, di);
+
+        /* 接口类型 */
+        snprintf(path, sizeof(path), "%s.devices.%d.dev_config.intf_type", base_path, di);
+        str = yaml_get_string(doc, path, "MIPI");
+        if (strcmp(str, "HDMI") == 0)
+            dev->intfType = VO_INTF_HDMI;
+        else if (strcmp(str, "MIPI") == 0)
+            dev->intfType = VO_INTF_MIPI;
+        else if (strcmp(str, "LCD") == 0)
+            dev->intfType = VO_INTF_LCD;
+        else
+            dev->intfType = VO_INTF_MIPI;
+
+        snprintf(path, sizeof(path), "%s.devices.%d.dev_config.intf_sync", base_path, di);
+        dev->intfSync = (RKNS_S32)yaml_get_int(doc, path, 0);
+
+        snprintf(path, sizeof(path), "%s.devices.%d.dev_config.bg_color", base_path, di);
+        dev->bgColor = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+        /* ========== 获取该设备的图层数量并分配内存 ========== */
+        snprintf(path, sizeof(path), "%s.devices.%d.layers", base_path, di);
+        layer_count = yaml_get_count(doc, path);
+        if (layer_count <= 0) layer_count = 1;
+
+        dev->layerCount = (RKNS_U32)layer_count;
+        dev->layerConfigs = (RockitVOLayerConfig*)rkos_kmalloc(sizeof(RockitVOLayerConfig) * layer_count);
+        if (!dev->layerConfigs) {
+            fprintf(stderr, "[ERROR] Failed to allocate memory for %d VO layers\n", layer_count);
+            for (int j = 0; j < di; j++) {
+                if (cfg->devConfigs[j].layerConfigs) {
+                    for (int k = 0; k < (int)cfg->devConfigs[j].layerCount; k++) {
+                        if (cfg->devConfigs[j].layerConfigs[k].chnConfigs)
+                            rkos_kfree(cfg->devConfigs[j].layerConfigs[k].chnConfigs);
+                    }
+                    rkos_kfree(cfg->devConfigs[j].layerConfigs);
+                }
+            }
+            rkos_kfree(cfg->devConfigs);
+            cfg->devConfigs = NULL;
+            cfg->devCount = 0;
+            return RKNS_FAILURE;
+        }
+        rkos_memset(dev->layerConfigs, 0, sizeof(RockitVOLayerConfig) * layer_count);
+
+        /* ========== 解析该设备的所有图层 ========== */
+        for (li = 0; li < layer_count; li++) {
+            RockitVOLayerConfig *layer = &dev->layerConfigs[li];
+
+            snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.layer_id", base_path, di, li);
+            layer->layerId = (RKNS_S32)yaml_get_int(doc, path, li);
+
+            snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.layer_config.layer_width", base_path, di, li);
+            layer->layerWidth = (RKNS_U32)yaml_get_int(doc, path, 1920);
+
+            snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.layer_config.layer_height", base_path, di, li);
+            layer->layerHeight = (RKNS_U32)yaml_get_int(doc, path, 1080);
+
+            snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.layer_config.disp_width", base_path, di, li);
+            layer->dispWidth = (RKNS_U32)yaml_get_int(doc, path, layer->layerWidth);
+
+            snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.layer_config.disp_height", base_path, di, li);
+            layer->dispHeight = (RKNS_U32)yaml_get_int(doc, path, layer->layerHeight);
+
+            snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.layer_config.layer_mode", base_path, di, li);
+            layer->layerMode = (RKNS_S32)yaml_get_int(doc, path, 0);
+
+            /* ========== 获取该图层的通道数量并分配内存 ========== */
+            snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.channels", base_path, di, li);
+            chn_count = yaml_get_count(doc, path);
+            if (chn_count <= 0) chn_count = 1;
+
+            layer->chnCount = (RKNS_U32)chn_count;
+            layer->chnConfigs = (RockitVOChnConfig*)rkos_kmalloc(sizeof(RockitVOChnConfig) * chn_count);
+            if (!layer->chnConfigs) {
+                fprintf(stderr, "[ERROR] Failed to allocate memory for %d VO channels\n", chn_count);
+                for (int k = 0; k < li; k++) {
+                    if (dev->layerConfigs[k].chnConfigs) {
+                        rkos_kfree(dev->layerConfigs[k].chnConfigs);
+                        dev->layerConfigs[k].chnConfigs = NULL;
+                    }
+                }
+                rkos_kfree(dev->layerConfigs);
+                dev->layerConfigs = NULL;
+                for (int j = 0; j < di; j++) {
+                    if (cfg->devConfigs[j].layerConfigs) {
+                        for (int k = 0; k < (int)cfg->devConfigs[j].layerCount; k++) {
+                            if (cfg->devConfigs[j].layerConfigs[k].chnConfigs)
+                                rkos_kfree(cfg->devConfigs[j].layerConfigs[k].chnConfigs);
+                        }
+                        rkos_kfree(cfg->devConfigs[j].layerConfigs);
+                    }
+                }
+                rkos_kfree(cfg->devConfigs);
+                cfg->devConfigs = NULL;
+                cfg->devCount = 0;
+                return RKNS_FAILURE;
+            }
+            rkos_memset(layer->chnConfigs, 0, sizeof(RockitVOChnConfig) * chn_count);
+
+            /* ========== 解析该图层的所有通道 ========== */
+            for (ci = 0; ci < chn_count; ci++) {
+                RockitVOChnConfig *chn = &layer->chnConfigs[ci];
+
+                snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.channels.%d.chn_id", base_path, di, li, ci);
+                chn->chnId = (RKNS_S32)yaml_get_int(doc, path, ci);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.channels.%d.chn_config.width", base_path, di, li, ci);
+                chn->width = (RKNS_U32)yaml_get_int(doc, path, layer->layerWidth);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.channels.%d.chn_config.height", base_path, di, li, ci);
+                chn->height = (RKNS_U32)yaml_get_int(doc, path, layer->layerHeight);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.channels.%d.chn_config.priority", base_path, di, li, ci);
+                chn->priority = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.channels.%d.chn_config.fg_alpha", base_path, di, li, ci);
+                chn->fgAlpha = (RKNS_U32)yaml_get_int(doc, path, 255);
+
+                snprintf(path, sizeof(path), "%s.devices.%d.layers.%d.channels.%d.chn_config.bg_alpha", base_path, di, li, ci);
+                chn->bgAlpha = (RKNS_U32)yaml_get_int(doc, path, 0);
+            }
+        }
+    }
 
     /* 打印 VO 模块配置参数 */
     printf("[INFO] VO Module Config:\n");
-    printf("[INFO]   dev_id: %d\n", cfg->devId);
-    printf("[INFO]   layer_id: %d\n", cfg->layerId);
-    printf("[INFO]   chn_id: %d\n", cfg->chnId);
-    printf("[INFO]   layer_width: %u\n", cfg->layerWidth);
-    printf("[INFO]   layer_height: %u\n", cfg->layerHeight);
-    printf("[INFO]   disp_width: %u\n", cfg->dispWidth);
-    printf("[INFO]   disp_height: %u\n", cfg->dispHeight);
-    printf("[INFO]   intf_type: %d (MIPI)\n", cfg->intfType);
+    printf("[INFO]   Total devices: %u\n", cfg->devCount);
+    for (di = 0; di < (int)cfg->devCount; di++) {
+        RockitVODevConfig *dev = &cfg->devConfigs[di];
+        printf("[INFO]   Device[%d]: dev_id=%d, intf_type=%d, intf_sync=%d\n",
+               di, dev->devId, dev->intfType, dev->intfSync);
+        for (li = 0; li < (int)dev->layerCount; li++) {
+            RockitVOLayerConfig *layer = &dev->layerConfigs[li];
+            printf("[INFO]     Layer[%d]: layer_id=%d, %ux%u, disp=%ux%u, mode=%d\n",
+                   li, layer->layerId, layer->layerWidth, layer->layerHeight,
+                   layer->dispWidth, layer->dispHeight, layer->layerMode);
+            for (ci = 0; ci < (int)layer->chnCount; ci++) {
+                RockitVOChnConfig *chn = &layer->chnConfigs[ci];
+                printf("[INFO]       Channel[%d]: chn_id=%d, %ux%u, priority=%u, alpha=%u/%u\n",
+                       ci, chn->chnId, chn->width, chn->height, chn->priority, chn->fgAlpha, chn->bgAlpha);
+            }
+        }
+    }
 
     module->configParsed = RKNS_TRUE;
     return RKNS_SUCCESS;
@@ -1175,107 +1636,253 @@ RKNS_S32 rockit_vo_create(const RKNSLaunchModule *module,
                                   RKNSLaunchModuleState *state) {
     const RockitVOConfig *cfg = MODULE_CONFIG(module, RockitVOConfig);
     RK_S32 ret;
+    int di = 0, li = 0, ci = 0;
 
-    /* 1. 绑定图层到设备 */
-    ret = RK_MPI_VO_BindLayer(cfg->layerId, cfg->devId, 0 /* VO_LAYER_MODE_VIDEO */);
-    if (ret != 0) {
-        fprintf(stderr, "[ERROR] RK_MPI_VO_BindLayer failed: %#x\n", ret);
+    if (cfg->devCount == 0 || cfg->devConfigs == NULL) {
+        fprintf(stderr, "[ERROR] No VO device config available\n");
         return RKNS_FAILURE;
     }
-    state->voLayerBound = RKNS_TRUE;
 
-    /* 2. 设置 VO 设备公共属性 */
-    {
-        VO_PUB_ATTR_S stPubAttr;
-        rkos_memset(&stPubAttr, 0, sizeof(stPubAttr));
-        stPubAttr.enIntfType = cfg->intfType;
-        stPubAttr.enIntfSync = 0; /* VO_OUTPUT_DEFAULT */
-        ret = RK_MPI_VO_SetPubAttr(cfg->devId, &stPubAttr);
+    rkos_memset(&state->voState, 0, sizeof(state->voState));
+    state->voState.devCount = cfg->devCount;
+
+    printf("[INFO] Creating VO module with %u devices\n", cfg->devCount);
+
+    /* ========== 遍历所有设备 ========== */
+    for (di = 0; di < (int)cfg->devCount && di < MAX_VO_DEVICES; di++) {
+        RockitVODevConfig *dev = &cfg->devConfigs[di];
+
+        if (dev->layerCount == 0 || dev->layerConfigs == NULL) {
+            fprintf(stderr, "[WARNING] VO device %d has no layers, skipping\n", di);
+            continue;
+        }
+
+        state->voState.layerCount[di] = dev->layerCount;
+
+        /* 1. 绑定所有图层到设备 */
+        for (li = 0; li < (int)dev->layerCount && li < MAX_VO_LAYERS; li++) {
+            RockitVOLayerConfig *layer = &dev->layerConfigs[li];
+            ret = RK_MPI_VO_BindLayer(layer->layerId, dev->devId, layer->layerMode);
+            if (ret != 0) {
+                fprintf(stderr, "[ERROR] RK_MPI_VO_BindLayer failed: dev=%d layer=%d, %#x\n",
+                        dev->devId, layer->layerId, ret);
+                goto cleanup;
+            }
+            state->voState.layerBound[di][li] = RKNS_TRUE;
+        }
+
+        /* 2. 设置 VO 设备公共属性 */
+        {
+            VO_PUB_ATTR_S stPubAttr;
+            rkos_memset(&stPubAttr, 0, sizeof(stPubAttr));
+            stPubAttr.enIntfType = dev->intfType;
+            stPubAttr.enIntfSync = VO_OUTPUT_DEFAULT;
+            ret = RK_MPI_VO_SetPubAttr(dev->devId, &stPubAttr);
+            if (ret != 0) {
+                fprintf(stderr, "[ERROR] RK_MPI_VO_SetPubAttr failed: dev=%d, %#x\n",
+                        dev->devId, ret);
+                goto cleanup;
+            }
+        }
+
+        /* 3. 使能 VO 设备 */
+        ret = RK_MPI_VO_Enable(dev->devId);
         if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VO_SetPubAttr failed: %#x\n", ret);
-            return RKNS_FAILURE;
+            fprintf(stderr, "[ERROR] RK_MPI_VO_Enable failed: dev=%d, %#x\n", dev->devId, ret);
+            goto cleanup;
+        }
+        state->voState.devEnabled[di] = RKNS_TRUE;
+
+        /* ========== 遍历该设备的所有图层和通道 ========== */
+        for (li = 0; li < (int)dev->layerCount && li < MAX_VO_LAYERS; li++) {
+            RockitVOLayerConfig *layer = &dev->layerConfigs[li];
+
+            state->voState.chnCount[di][li] = layer->chnCount;
+
+            /* 4. 设置图层属性 */
+            {
+                VO_VIDEO_LAYER_ATTR_S stLayerAttr;
+                rkos_memset(&stLayerAttr, 0, sizeof(stLayerAttr));
+                stLayerAttr.enPixFormat = RK_FMT_BGRA8888;
+                stLayerAttr.enCompressMode = COMPRESS_AFBC_16x16;
+                stLayerAttr.u32DispFrmRt = 25;
+                stLayerAttr.stDispRect.s32X = 0;
+                stLayerAttr.stDispRect.s32Y = 0;
+                stLayerAttr.stDispRect.u32Width = layer->dispWidth;
+                stLayerAttr.stDispRect.u32Height = layer->dispHeight;
+                stLayerAttr.stImageSize.u32Width = layer->layerWidth;
+                stLayerAttr.stImageSize.u32Height = layer->layerHeight;
+                RK_MPI_VO_SetLayerDispBufLen(layer->layerId, 3);
+                ret = RK_MPI_VO_SetLayerAttr(layer->layerId, &stLayerAttr);
+                if (ret != 0) {
+                    fprintf(stderr, "[ERROR] RK_MPI_VO_SetLayerAttr failed: layer=%d, %#x\n",
+                            layer->layerId, ret);
+                    goto cleanup;
+                }
+            }
+
+            /* 5. 使能图层 */
+            RK_MPI_VO_SetLayerSpliceMode(layer->layerId, VO_SPLICE_MODE_RGA);
+            ret = RK_MPI_VO_EnableLayer(layer->layerId);
+            if (ret != 0) {
+                fprintf(stderr, "[ERROR] RK_MPI_VO_EnableLayer failed: layer=%d, %#x\n",
+                        layer->layerId, ret);
+                goto cleanup;
+            }
+            state->voState.layerEnabled[di][li] = RKNS_TRUE;
+
+            /* 6. 设置通道属性并使能 */
+            if (layer->chnCount > 0 && layer->chnConfigs != NULL) {
+                for (ci = 0; ci < (int)layer->chnCount && ci < MAX_VO_CHNS; ci++) {
+                    RockitVOChnConfig *chn = &layer->chnConfigs[ci];
+                    VO_CHN_ATTR_S stChnAttr;
+
+                    rkos_memset(&stChnAttr, 0, sizeof(stChnAttr));
+                    stChnAttr.stRect.s32X = 0;
+                    stChnAttr.stRect.s32Y = 0;
+                    stChnAttr.stRect.u32Width = chn->width;
+                    stChnAttr.stRect.u32Height = chn->height;
+                    stChnAttr.u32Priority = chn->priority;
+                    stChnAttr.u32FgAlpha = chn->fgAlpha;
+                    stChnAttr.u32BgAlpha = chn->bgAlpha;
+
+                    ret = RK_MPI_VO_SetChnAttr(layer->layerId, chn->chnId, &stChnAttr);
+                    if (ret != 0) {
+                        fprintf(stderr, "[ERROR] RK_MPI_VO_SetChnAttr failed: layer=%d chn=%d, %#x\n",
+                                layer->layerId, chn->chnId, ret);
+                        goto cleanup;
+                    }
+
+                    ret = RK_MPI_VO_EnableChn(layer->layerId, chn->chnId);
+                    if (ret != 0) {
+                        fprintf(stderr, "[ERROR] RK_MPI_VO_EnableChn failed: layer=%d chn=%d, %#x\n",
+                                layer->layerId, chn->chnId, ret);
+                        goto cleanup;
+                    }
+
+                    state->voState.chnEnabled[di][li][ci] = RKNS_TRUE;
+                    printf("[INFO]   VO channel enabled: dev=%d, layer=%d, chn=%d, %ux%u\n",
+                           dev->devId, layer->layerId, chn->chnId, chn->width, chn->height);
+                }
+            }
+
+            printf("[INFO]   VO layer enabled: dev=%d, layer=%d, %ux%u -> disp %ux%u\n",
+                   dev->devId, layer->layerId, layer->layerWidth, layer->layerHeight,
+                   layer->dispWidth, layer->dispHeight);
         }
     }
 
-    /* 3. 使能 VO 设备 */
-    ret = RK_MPI_VO_Enable(cfg->devId);
-    if (ret != 0) {
-        fprintf(stderr, "[ERROR] RK_MPI_VO_Enable failed: %#x\n", ret);
-        return RKNS_FAILURE;
+    /* 使用第一个设备和第一个图层/通道作为模块的主通道（用于绑定） */
+    if (cfg->devCount > 0 && cfg->devConfigs[0].layerCount > 0 &&
+        cfg->devConfigs[0].layerConfigs[0].chnCount > 0) {
+        state->chn.s32DevId = cfg->devConfigs[0].layerConfigs[0].layerId;
+        state->chn.s32ChnId = cfg->devConfigs[0].layerConfigs[0].chnConfigs[0].chnId;
+    } else {
+        fprintf(stderr, "[ERROR] VO module has no valid device/layer/channel\n");
+        goto cleanup;
     }
-    state->voDevEnabled = RKNS_TRUE;
-
-    /* 4. 设置图层属性 */
-    {
-        VO_VIDEO_LAYER_ATTR_S stLayerAttr;
-        rkos_memset(&stLayerAttr, 0, sizeof(stLayerAttr));
-        stLayerAttr.enPixFormat = RK_FMT_YUV420SP;
-        stLayerAttr.stDispRect.s32X = 0;
-        stLayerAttr.stDispRect.s32Y = 0;
-        stLayerAttr.stDispRect.u32Width = cfg->dispWidth;
-        stLayerAttr.stDispRect.u32Height = cfg->dispHeight;
-        stLayerAttr.stImageSize.u32Width = cfg->layerWidth;
-        stLayerAttr.stImageSize.u32Height = cfg->layerHeight;
-        ret = RK_MPI_VO_SetLayerAttr(cfg->layerId, &stLayerAttr);
-        if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VO_SetLayerAttr failed: %#x\n", ret);
-            return RKNS_FAILURE;
-        }
-    }
-
-    /* 5. 使能图层 */
-    ret = RK_MPI_VO_EnableLayer(cfg->layerId);
-    if (ret != 0) {
-        fprintf(stderr, "[ERROR] RK_MPI_VO_EnableLayer failed: %#x\n", ret);
-        return RKNS_FAILURE;
-    }
-    state->voLayerEnabled = RKNS_TRUE;
-
-    /* 6. 设置通道属性并使能 */
-    {
-        VO_CHN_ATTR_S stChnAttr;
-        rkos_memset(&stChnAttr, 0, sizeof(stChnAttr));
-        stChnAttr.stRect.s32X = 0;
-        stChnAttr.stRect.s32Y = 0;
-        stChnAttr.stRect.u32Width = cfg->layerWidth;
-        stChnAttr.stRect.u32Height = cfg->layerHeight;
-        ret = RK_MPI_VO_SetChnAttr(cfg->layerId, cfg->chnId, &stChnAttr);
-        if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VO_SetChnAttr failed: %#x\n", ret);
-            return RKNS_FAILURE;
-        }
-
-        ret = RK_MPI_VO_EnableChn(cfg->layerId, cfg->chnId);
-        if (ret != 0) {
-            fprintf(stderr, "[ERROR] RK_MPI_VO_EnableChn failed: %#x\n", ret);
-            return RKNS_FAILURE;
-        }
-    }
-
-    state->chn.s32DevId = cfg->layerId; /* VO 绑定使用 layerId 作为 devId */
-    state->chn.s32ChnId = cfg->chnId;
     state->created = RKNS_TRUE;
+    printf("[INFO] VO module created successfully\n");
     return RKNS_SUCCESS;
+
+cleanup:
+    /* 反向清理已创建的资源 */
+    for (int d = di; d >= 0; d--) {
+        RockitVODevConfig *cleanupDev = &cfg->devConfigs[d];
+        /* 1. 禁用通道和图层 */
+        int lEnd = (d == di) ? li : RK_MIN((int)cleanupDev->layerCount, MAX_VO_LAYERS);
+        for (int l = lEnd - 1; l >= 0; l--) {
+            RockitVOLayerConfig *cleanupLayer = &cleanupDev->layerConfigs[l];
+            int cEnd = (d == di && l == li) ? ci : RK_MIN((int)cleanupLayer->chnCount, MAX_VO_CHNS);
+            for (int c = cEnd - 1; c >= 0; c--) {
+                if (state->voState.chnEnabled[d][l][c]) {
+                    RK_MPI_VO_DisableChn(cleanupLayer->layerId, cleanupLayer->chnConfigs[c].chnId);
+                    state->voState.chnEnabled[d][l][c] = RKNS_FALSE;
+                }
+            }
+            if (state->voState.layerEnabled[d][l]) {
+                RK_MPI_VO_DisableLayer(cleanupLayer->layerId);
+                state->voState.layerEnabled[d][l] = RKNS_FALSE;
+            }
+        }
+        /* 2. 禁用设备 */
+        if (state->voState.devEnabled[d]) {
+            RK_MPI_VO_Disable(cleanupDev->devId);
+            state->voState.devEnabled[d] = RKNS_FALSE;
+        }
+        /* 3. 解绑图层 */
+        for (int l = RK_MIN((int)cleanupDev->layerCount, MAX_VO_LAYERS) - 1; l >= 0; l--) {
+            if (state->voState.layerBound[d][l]) {
+                RK_MPI_VO_UnBindLayer(cleanupDev->layerConfigs[l].layerId, cleanupDev->devId);
+                state->voState.layerBound[d][l] = RKNS_FALSE;
+            }
+        }
+    }
+    return RKNS_FAILURE;
 }
 
 RKNS_S32 rockit_vo_destroy(const RKNSLaunchModule *module,
                                    RKNSLaunchModuleState *state) {
-    const RockitVOConfig *cfg = MODULE_CONFIG(module, RockitVOConfig);
+    RockitVOConfig *cfg = MODULE_CONFIG(module, RockitVOConfig);
+    int di, li, ci;
 
-    RK_MPI_VO_DisableChn(cfg->layerId, cfg->chnId);
-    if (state->voLayerEnabled) {
-        RK_MPI_VO_DisableLayer(cfg->layerId);
-        state->voLayerEnabled = RKNS_FALSE;
+    printf("[INFO] Destroying VO module\n");
+
+    if (cfg->devCount > 0 && cfg->devConfigs != NULL) {
+        for (di = RK_MIN((int)cfg->devCount, MAX_VO_DEVICES) - 1; di >= 0; di--) {
+            RockitVODevConfig *dev = &cfg->devConfigs[di];
+
+            /* 1. 禁用通道和图层 */
+            for (li = RK_MIN((int)dev->layerCount, MAX_VO_LAYERS) - 1; li >= 0; li--) {
+                RockitVOLayerConfig *layer = &dev->layerConfigs[li];
+                for (ci = RK_MIN((int)layer->chnCount, MAX_VO_CHNS) - 1; ci >= 0; ci--) {
+                    if (state->voState.chnEnabled[di][li][ci]) {
+                        RK_MPI_VO_DisableChn(layer->layerId, layer->chnConfigs[ci].chnId);
+                        state->voState.chnEnabled[di][li][ci] = RKNS_FALSE;
+                    }
+                }
+                if (state->voState.layerEnabled[di][li]) {
+                    RK_MPI_VO_DisableLayer(layer->layerId);
+                    state->voState.layerEnabled[di][li] = RKNS_FALSE;
+                }
+            }
+
+            /* 2. 禁用设备 */
+            if (state->voState.devEnabled[di]) {
+                RK_MPI_VO_Disable(dev->devId);
+                state->voState.devEnabled[di] = RKNS_FALSE;
+            }
+
+            /* 3. 解绑图层 */
+            for (li = RK_MIN((int)dev->layerCount, MAX_VO_LAYERS) - 1; li >= 0; li--) {
+                if (state->voState.layerBound[di][li]) {
+                    RK_MPI_VO_UnBindLayer(dev->layerConfigs[li].layerId, dev->devId);
+                    state->voState.layerBound[di][li] = RKNS_FALSE;
+                }
+            }
+        }
+
+        /* 释放所有动态分配的内存（遍历全部，不限于 MAX_VO_DEVICES） */
+        for (di = 0; di < (int)cfg->devCount; di++) {
+            RockitVODevConfig *dev = &cfg->devConfigs[di];
+            if (dev->layerConfigs != NULL) {
+                for (li = 0; li < (int)dev->layerCount; li++) {
+                    if (dev->layerConfigs[li].chnConfigs != NULL) {
+                        rkos_kfree(dev->layerConfigs[li].chnConfigs);
+                        dev->layerConfigs[li].chnConfigs = NULL;
+                    }
+                }
+                rkos_kfree(dev->layerConfigs);
+                dev->layerConfigs = NULL;
+            }
+        }
+        rkos_kfree(cfg->devConfigs);
+        cfg->devConfigs = NULL;
     }
-    if (state->voDevEnabled) {
-        RK_MPI_VO_Disable(cfg->devId);
-        state->voDevEnabled = RKNS_FALSE;
-    }
-    if (state->voLayerBound) {
-        RK_MPI_VO_UnBindLayer(cfg->layerId, cfg->devId);
-        state->voLayerBound = RKNS_FALSE;
-    }
+    cfg->devCount = 0;
+
     state->created = RKNS_FALSE;
+    printf("[INFO] VO module destroyed\n");
     return RKNS_SUCCESS;
 }
 
@@ -1289,6 +1896,480 @@ RKNS_S32 rockit_vo_start(const RKNSLaunchModule *module,
 RKNS_S32 rockit_vo_stop(const RKNSLaunchModule *module,
                                 RKNSLaunchModuleState *state) {
     (void)module;
+    state->started = RKNS_FALSE;
+    return RKNS_SUCCESS;
+}
+
+/* ---------- Rockit VPSS 模块 ---------- */
+
+RKNS_S32 rockit_vpss_parse_config(YamlDocument *doc, const char *base_path,
+                                        RKNSLaunchModule *module) {
+    RockitVPSSConfig *cfg = MODULE_CONFIG(module, RockitVPSSConfig);
+    char path[256];
+    int grp_count, chn_count;
+    int gi, ci;
+
+    rkos_memset(cfg, 0, sizeof(RockitVPSSConfig));
+
+    /* ========== 获取 Group 数量并分配内存 ========== */
+    snprintf(path, sizeof(path), "%s.groups", base_path);
+    grp_count = yaml_get_count(doc, path);
+    if (grp_count <= 0) grp_count = 1;
+
+    cfg->grpCount = (RKNS_U32)grp_count;
+    cfg->grpConfigs = (RockitVPSSGrpConfig*)rkos_kmalloc(sizeof(RockitVPSSGrpConfig) * grp_count);
+    if (!cfg->grpConfigs) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for %d VPSS groups\n", grp_count);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(cfg->grpConfigs, 0, sizeof(RockitVPSSGrpConfig) * grp_count);
+
+    /* ========== 解析每个 Group ========== */
+    for (gi = 0; gi < grp_count; gi++) {
+        RockitVPSSGrpConfig *grp = &cfg->grpConfigs[gi];
+
+        snprintf(path, sizeof(path), "%s.groups.%d.grp_id", base_path, gi);
+        grp->grpId = (RKNS_S32)yaml_get_int(doc, path, gi);
+
+        snprintf(path, sizeof(path), "%s.groups.%d.grp_config.max_width", base_path, gi);
+        grp->maxWidth = (RKNS_U32)yaml_get_int(doc, path, 1920);
+
+        snprintf(path, sizeof(path), "%s.groups.%d.grp_config.max_height", base_path, gi);
+        grp->maxHeight = (RKNS_U32)yaml_get_int(doc, path, 1080);
+
+        snprintf(path, sizeof(path), "%s.groups.%d.grp_config.frame_rate", base_path, gi);
+        grp->frameRate = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+        /* ========== 获取该 Group 的通道数量并分配内存 ========== */
+        snprintf(path, sizeof(path), "%s.groups.%d.channels", base_path, gi);
+        chn_count = yaml_get_count(doc, path);
+        if (chn_count <= 0) chn_count = 1;
+
+        grp->chnCount = (RKNS_U32)chn_count;
+        grp->chnConfigs = (RockitVPSSChnConfig*)rkos_kmalloc(sizeof(RockitVPSSChnConfig) * chn_count);
+        if (!grp->chnConfigs) {
+            fprintf(stderr, "[ERROR] Failed to allocate memory for %d VPSS channels\n", chn_count);
+            for (int j = 0; j < gi; j++) {
+                if (cfg->grpConfigs[j].chnConfigs)
+                    rkos_kfree(cfg->grpConfigs[j].chnConfigs);
+            }
+            rkos_kfree(cfg->grpConfigs);
+            cfg->grpConfigs = NULL;
+            cfg->grpCount = 0;
+            return RKNS_FAILURE;
+        }
+        rkos_memset(grp->chnConfigs, 0, sizeof(RockitVPSSChnConfig) * chn_count);
+
+        /* ========== 解析该 Group 的所有通道 ========== */
+        for (ci = 0; ci < chn_count; ci++) {
+            RockitVPSSChnConfig *chn = &grp->chnConfigs[ci];
+
+            snprintf(path, sizeof(path), "%s.groups.%d.channels.%d.chn_id", base_path, gi, ci);
+            chn->chnId = (RKNS_S32)yaml_get_int(doc, path, ci);
+
+            snprintf(path, sizeof(path), "%s.groups.%d.channels.%d.chn_config.width", base_path, gi, ci);
+            chn->width = (RKNS_U32)yaml_get_int(doc, path, 640);
+
+            snprintf(path, sizeof(path), "%s.groups.%d.channels.%d.chn_config.height", base_path, gi, ci);
+            chn->height = (RKNS_U32)yaml_get_int(doc, path, 480);
+
+            snprintf(path, sizeof(path), "%s.groups.%d.channels.%d.chn_config.buffer_count", base_path, gi, ci);
+            chn->bufferCount = (RKNS_U32)yaml_get_int(doc, path, 4);
+
+            snprintf(path, sizeof(path), "%s.groups.%d.channels.%d.chn_config.depth", base_path, gi, ci);
+            chn->depth = (RKNS_U32)yaml_get_int(doc, path, 4);
+        }
+    }
+
+    /* 打印 VPSS 模块配置参数 */
+    printf("[INFO] VPSS Module Config:\n");
+    printf("[INFO]   Total groups: %u\n", cfg->grpCount);
+    for (gi = 0; gi < (int)cfg->grpCount; gi++) {
+        RockitVPSSGrpConfig *grp = &cfg->grpConfigs[gi];
+        printf("[INFO]   Group[%d]: grp_id=%d, max=%ux%u, frame_rate=%u\n",
+               gi, grp->grpId, grp->maxWidth, grp->maxHeight, grp->frameRate);
+        for (ci = 0; ci < (int)grp->chnCount; ci++) {
+            RockitVPSSChnConfig *chn = &grp->chnConfigs[ci];
+            printf("[INFO]     Channel[%d]: chn_id=%d, %ux%u, buffer_count=%u, depth=%u\n",
+                   ci, chn->chnId, chn->width, chn->height, chn->bufferCount, chn->depth);
+        }
+    }
+
+    module->configParsed = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 rockit_vpss_create(const RKNSLaunchModule *module,
+                                 RKNSLaunchModuleState *state) {
+    const RockitVPSSConfig *cfg = MODULE_CONFIG(module, RockitVPSSConfig);
+    RK_S32 ret;
+    int gi = 0, ci = 0;
+
+    if (cfg->grpCount == 0 || cfg->grpConfigs == NULL) {
+        fprintf(stderr, "[ERROR] No VPSS group config available\n");
+        return RKNS_FAILURE;
+    }
+
+    rkos_memset(&state->vpssState, 0, sizeof(state->vpssState));
+    state->vpssState.grpCount = cfg->grpCount;
+
+    printf("[INFO] Creating VPSS module with %u groups\n", cfg->grpCount);
+
+    for (gi = 0; gi < (int)cfg->grpCount && gi < MAX_VPSS_GROUPS; gi++) {
+        RockitVPSSGrpConfig *grp = &cfg->grpConfigs[gi];
+        VPSS_GRP_ATTR_S stGrpAttr;
+
+        /* 1. 创建 Group */
+        rkos_memset(&stGrpAttr, 0, sizeof(stGrpAttr));
+        stGrpAttr.u32MaxW = grp->maxWidth;
+        stGrpAttr.u32MaxH = grp->maxHeight;
+        stGrpAttr.enPixelFormat = RK_FMT_YUV420SP;
+        stGrpAttr.stFrameRate.s32SrcFrameRate = -1;
+        stGrpAttr.stFrameRate.s32DstFrameRate = -1;
+
+        ret = RK_MPI_VPSS_CreateGrp(grp->grpId, &stGrpAttr);
+        if (ret != RK_SUCCESS) {
+            fprintf(stderr, "[ERROR] RK_MPI_VPSS_CreateGrp failed: grp=%d, %#x\n",
+                    grp->grpId, ret);
+            goto cleanup;
+        }
+        state->vpssState.grpEnabled[gi] = RKNS_TRUE;
+        printf("[INFO]   VPSS group created: grp=%d, max=%ux%u\n",
+               grp->grpId, grp->maxWidth, grp->maxHeight);
+
+        /* 2. 设置视频处理设备 */
+        ret = RK_MPI_VPSS_SetVProcDev(grp->grpId, VIDEO_PROC_DEV_RGA);
+        if (ret != RK_SUCCESS) {
+            fprintf(stderr, "[WARNING] RK_MPI_VPSS_SetVProcDev failed: grp=%d, %#x\n",
+                    grp->grpId, ret);
+        }
+
+        /* 3. 重置 Group */
+        ret = RK_MPI_VPSS_ResetGrp(grp->grpId);
+        if (ret != RK_SUCCESS) {
+            fprintf(stderr, "[ERROR] RK_MPI_VPSS_ResetGrp failed: grp=%d, %#x\n",
+                    grp->grpId, ret);
+            goto cleanup;
+        }
+
+        /* 4. 配置并使能通道 */
+        state->vpssState.chnCount[gi] = grp->chnCount;
+
+        for (ci = 0; ci < (int)grp->chnCount && ci < MAX_VPSS_CHNS; ci++) {
+            RockitVPSSChnConfig *chn = &grp->chnConfigs[ci];
+            VPSS_CHN_ATTR_S stVpssChnAttr;
+
+            rkos_memset(&stVpssChnAttr, 0, sizeof(stVpssChnAttr));
+            stVpssChnAttr.u32Width = chn->width;
+            stVpssChnAttr.u32Height = chn->height;
+            stVpssChnAttr.enPixelFormat = RK_FMT_YUV420SP;
+            stVpssChnAttr.u32Depth = chn->depth;
+
+            ret = RK_MPI_VPSS_SetChnAttr(grp->grpId, chn->chnId, &stVpssChnAttr);
+            if (ret != RK_SUCCESS) {
+                fprintf(stderr, "[ERROR] RK_MPI_VPSS_SetChnAttr failed: grp=%d chn=%d, %#x\n",
+                        grp->grpId, chn->chnId, ret);
+                goto cleanup;
+            }
+
+            ret = RK_MPI_VPSS_EnableChn(grp->grpId, chn->chnId);
+            if (ret != RK_SUCCESS) {
+                fprintf(stderr, "[ERROR] RK_MPI_VPSS_EnableChn failed: grp=%d chn=%d, %#x\n",
+                        grp->grpId, chn->chnId, ret);
+                goto cleanup;
+            }
+
+            state->vpssState.chnEnabled[gi][ci] = RKNS_TRUE;
+            printf("[INFO]   VPSS channel enabled: grp=%d, chn=%d, %ux%u, depth=%u\n",
+                   grp->grpId, chn->chnId, chn->width, chn->height, chn->depth);
+        }
+
+        /* 5. 启动 Group */
+        ret = RK_MPI_VPSS_StartGrp(grp->grpId);
+        if (ret != RK_SUCCESS) {
+            fprintf(stderr, "[ERROR] RK_MPI_VPSS_StartGrp failed: grp=%d, %#x\n",
+                    grp->grpId, ret);
+            goto cleanup;
+        }
+        printf("[INFO]   VPSS group started: grp=%d\n", grp->grpId);
+    }
+
+    if (cfg->grpCount > 0 && cfg->grpConfigs[0].chnCount > 0) {
+        state->chn.enModId = (RKNS_MOD_ID_E)RK_ID_VPSS;
+        state->chn.s32DevId = cfg->grpConfigs[0].grpId;
+        state->chn.s32ChnId = cfg->grpConfigs[0].chnConfigs[0].chnId;
+    }
+    state->created = RKNS_TRUE;
+    printf("[INFO] VPSS module created successfully\n");
+    return RKNS_SUCCESS;
+
+cleanup:
+    for (int g = gi; g >= 0; g--) {
+        RockitVPSSGrpConfig *cleanupGrp = &cfg->grpConfigs[g];
+        /* 当前 group 尚未 StartGrp，只需清理通道 */
+        int cEnd = (g == gi) ? ci - 1 : RK_MIN((int)cleanupGrp->chnCount, MAX_VPSS_CHNS) - 1;
+        for (int c = cEnd; c >= 0; c--) {
+            if (state->vpssState.chnEnabled[g][c]) {
+                RK_MPI_VPSS_DisableChn(cleanupGrp->grpId, cleanupGrp->chnConfigs[c].chnId);
+                state->vpssState.chnEnabled[g][c] = RKNS_FALSE;
+            }
+        }
+        /* 已完成 StartGrp 的 group 需要先 Stop 再 Destroy */
+        if (g < gi && state->vpssState.grpEnabled[g]) {
+            RK_MPI_VPSS_StopGrp(cleanupGrp->grpId);
+            RK_MPI_VPSS_DestroyGrp(cleanupGrp->grpId);
+            state->vpssState.grpEnabled[g] = RKNS_FALSE;
+        } else if (state->vpssState.grpEnabled[g]) {
+            /* 当前失败的 group: 已 CreateGrp 但未 StartGrp */
+            RK_MPI_VPSS_DestroyGrp(cleanupGrp->grpId);
+            state->vpssState.grpEnabled[g] = RKNS_FALSE;
+        }
+    }
+    return RKNS_FAILURE;
+}
+
+RKNS_S32 rockit_vpss_destroy(const RKNSLaunchModule *module,
+                                  RKNSLaunchModuleState *state) {
+    RockitVPSSConfig *cfg = MODULE_CONFIG(module, RockitVPSSConfig);
+    int gi, ci;
+
+    printf("[INFO] Destroying VPSS module\n");
+
+    if (cfg->grpCount > 0 && cfg->grpConfigs != NULL) {
+        for (gi = RK_MIN((int)cfg->grpCount, MAX_VPSS_GROUPS) - 1; gi >= 0; gi--) {
+            RockitVPSSGrpConfig *grp = &cfg->grpConfigs[gi];
+
+            /* 停止并销毁 Group */
+            if (state->vpssState.grpEnabled[gi]) {
+                /* 禁用所有通道 */
+                for (ci = RK_MIN((int)grp->chnCount, MAX_VPSS_CHNS) - 1; ci >= 0; ci--) {
+                    if (state->vpssState.chnEnabled[gi][ci]) {
+                        RK_MPI_VPSS_DisableChn(grp->grpId, grp->chnConfigs[ci].chnId);
+                        state->vpssState.chnEnabled[gi][ci] = RKNS_FALSE;
+                    }
+                }
+                RK_MPI_VPSS_StopGrp(grp->grpId);
+                RK_MPI_VPSS_DestroyGrp(grp->grpId);
+                state->vpssState.grpEnabled[gi] = RKNS_FALSE;
+            }
+        }
+
+        /* 释放所有动态分配的内存（遍历全部，不限于 MAX_VPSS_GROUPS） */
+        for (gi = 0; gi < (int)cfg->grpCount; gi++) {
+            if (cfg->grpConfigs[gi].chnConfigs != NULL) {
+                rkos_kfree(cfg->grpConfigs[gi].chnConfigs);
+                cfg->grpConfigs[gi].chnConfigs = NULL;
+            }
+        }
+        rkos_kfree(cfg->grpConfigs);
+        cfg->grpConfigs = NULL;
+    }
+    cfg->grpCount = 0;
+
+    state->created = RKNS_FALSE;
+    printf("[INFO] VPSS module destroyed\n");
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 rockit_vpss_start(const RKNSLaunchModule *module,
+                                RKNSLaunchModuleState *state) {
+    (void)module;
+    state->started = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 rockit_vpss_stop(const RKNSLaunchModule *module,
+                               RKNSLaunchModuleState *state) {
+    (void)module;
+    state->started = RKNS_FALSE;
+    return RKNS_SUCCESS;
+}
+
+/* ---------- Rockit RGN 模块 ---------- */
+
+RKNS_S32 rockit_rgn_parse_config(YamlDocument *doc, const char *base_path,
+                                        RKNSLaunchModule *module) {
+    RockitRGNConfig *cfg = (RockitRGNConfig *)module->configBuf;
+    char path[256];
+    const char *str;
+
+    snprintf(path, sizeof(path), "%s.config.width", base_path);
+    cfg->w = (unsigned int)yaml_get_int(doc, path, 640);
+
+    snprintf(path, sizeof(path), "%s.config.height", base_path);
+    cfg->h = (unsigned int)yaml_get_int(doc, path, 480);
+
+    snprintf(path, sizeof(path), "%s.config.pixel_format", base_path);
+    str = yaml_get_string(doc, path, "ARGB8888");
+    if (strcmp(str, "RGB888") == 0) cfg->fmt = RK_FMT_RGB888;
+    else if (strcmp(str, "RGBA8888") == 0) cfg->fmt = RK_FMT_RGBA8888;
+    else if (strcmp(str, "BGRA8888") == 0) cfg->fmt = RK_FMT_BGRA8888;
+    else if (strcmp(str, "ARGB8888") == 0) cfg->fmt = RK_FMT_ARGB8888;
+    else cfg->fmt = RK_FMT_BGRA8888;
+
+    /* Iterate attaches to find RGN-to-VO binding, default dev=7 chn=0 */
+    cfg->vo_dev_id = 7;
+    cfg->vo_chn_id = 0;
+    {
+        char ap[256];
+        int pi, ai;
+        if (sscanf(base_path, "pipelines.%d", &pi) == 1) {
+            for (ai = 0; ai < 10; ai++) {
+                snprintf(ap, sizeof(ap), "pipelines.%d.attaches.%d.name", pi, ai);
+                const char *att_name = yaml_get_string(doc, ap, NULL);
+                if (att_name && strstr(att_name, "rgn") != NULL) {
+                    snprintf(ap, sizeof(ap), "pipelines.%d.attaches.%d.dst_dev_id", pi, ai);
+                    cfg->vo_dev_id = yaml_get_int(doc, ap, 7);
+                    snprintf(ap, sizeof(ap), "pipelines.%d.attaches.%d.dst_chn_id", pi, ai);
+                    cfg->vo_chn_id = yaml_get_int(doc, ap, 0);
+                    break;
+                }
+            }
+        }
+    }
+    printf("[INFO] RGN Module Config:\n");
+    printf("[INFO]   chn_id: %d\n", module->chnId);
+    printf("[INFO]   width: %u, height: %u, fmt: %s(%u)\n",
+           cfg->w, cfg->h, str, cfg->fmt);
+
+    module->configParsed = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+/* Inline RGN operations (was rockit_rgn.c) */
+#include "rk_mpi_rgn.h"
+
+
+static int rgn_update(int rgnHandle, const BITMAP_S *bitmap)
+{
+    return RK_MPI_RGN_SetBitMap((RGN_HANDLE)rgnHandle, bitmap);
+}
+
+static int rgn_create(const void *config, int devId, int chnId)
+{
+    const RockitRGNConfig *cfg = (RockitRGNConfig *)config;
+    RGN_HANDLE handle = (RGN_HANDLE)chnId;
+    RGN_ATTR_S stRgnAttr;
+    int ret;
+    (void)devId;
+    printf("[INFO] Creating RGN: handle=%d, %ux%u fmt=%u\n", handle, cfg->w, cfg->h, cfg->fmt);
+    memset(&stRgnAttr, 0, sizeof(stRgnAttr));
+    stRgnAttr.enType = OVERLAY_RGN;
+    stRgnAttr.unAttr.stOverlay.enPixelFmt = (PIXEL_FORMAT_E)cfg->fmt;
+    stRgnAttr.unAttr.stOverlay.u32CanvasNum = 1;
+    stRgnAttr.unAttr.stOverlay.stSize.u32Width = cfg->w;
+    stRgnAttr.unAttr.stOverlay.stSize.u32Height = cfg->h;
+    ret = RK_MPI_RGN_Create(handle, &stRgnAttr);
+    if (ret != 0) { fprintf(stderr, "[ERROR] RGN_Create(%d): %#x\n", handle, ret); return -1; }
+    printf("[INFO] RGN handle %d created OK\n", handle);
+    return 0;
+}
+
+static void rgn_destroy(int chnId)
+{
+    RK_MPI_RGN_Destroy((RGN_HANDLE)chnId);
+}
+
+static void rgn_detach(int rgnHandle, int modId, int devId, int chnId)
+{
+    MPP_CHN_S stChn;
+    memset(&stChn, 0, sizeof(stChn));
+    stChn.enModId = (MOD_ID_E)modId;
+    stChn.s32DevId = devId;
+    stChn.s32ChnId = chnId;
+    RK_MPI_RGN_DetachFromChn((RGN_HANDLE)rgnHandle, &stChn);
+}
+
+
+static int rgn_attach(int rgnHandle, int modId, int devId, int chnId)
+{
+    MPP_CHN_S stChn;
+    RGN_CHN_ATTR_S stChnAttr;
+    int ret;
+    memset(&stChn, 0, sizeof(stChn));
+    stChn.enModId = (MOD_ID_E)modId;
+    stChn.s32DevId = devId;
+    stChn.s32ChnId = chnId;
+    memset(&stChnAttr, 0, sizeof(stChnAttr));
+    stChnAttr.bShow = RK_TRUE;
+    stChnAttr.enType = OVERLAY_RGN;
+    stChnAttr.unChnAttr.stOverlayChn.stPoint.s32X = 0;
+    stChnAttr.unChnAttr.stOverlayChn.stPoint.s32Y = 0;
+    stChnAttr.unChnAttr.stOverlayChn.u32BgAlpha = 0;
+    stChnAttr.unChnAttr.stOverlayChn.u32FgAlpha = 0;
+    stChnAttr.unChnAttr.stOverlayChn.u32Layer = 0;
+    stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bEnable = RK_FALSE;
+    stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bForceIntra = RK_TRUE;
+    stChnAttr.unChnAttr.stOverlayChn.stQpInfo.bAbsQp = RK_FALSE;
+    stChnAttr.unChnAttr.stOverlayChn.stQpInfo.s32Qp = 0;
+    stChnAttr.unChnAttr.stOverlayChn.u32ColorLUT[0] = 0x00;
+    stChnAttr.unChnAttr.stOverlayChn.u32ColorLUT[1] = 0xFFFFFF;
+    stChnAttr.unChnAttr.stOverlayChn.stInvertColor.bInvColEn = RK_FALSE;
+    stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Width = 16;
+    stChnAttr.unChnAttr.stOverlayChn.stInvertColor.stInvColArea.u32Height = 16;
+    stChnAttr.unChnAttr.stOverlayChn.stInvertColor.enChgMod = LESSTHAN_LUM_THRESH;
+    stChnAttr.unChnAttr.stOverlayChn.stInvertColor.u32LumThresh = 100;
+    ret = RK_MPI_RGN_AttachToChn((RGN_HANDLE)rgnHandle, &stChn, &stChnAttr);
+    if (ret != 0) { fprintf(stderr, "[ERROR] RGN_AttachToChn(%d): %#x\n", rgnHandle, ret); return ret; }
+    printf("[INFO] RGN %d attached to (mod=%d,dev=%d,chn=%d)\n", rgnHandle, modId, devId, chnId);
+    return 0;
+}
+
+RKNS_S32 rockit_rgn_create(const RKNSLaunchModule *module,
+                                 RKNSLaunchModuleState *state) {
+    printf("[INFO] Creating RGN module: devId=%d, chnId=%d\n",
+           module->devId, module->chnId);
+
+    state->chn.enModId = (RKNS_MOD_ID_E)RK_ID_RGN;
+    state->chn.s32DevId = module->devId;
+    state->chn.s32ChnId = module->chnId;
+    state->created = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 rockit_rgn_destroy(const RKNSLaunchModule *module,
+                                  RKNSLaunchModuleState *state) {
+    if (state->created) {
+        printf("[INFO] Destroying RGN module: devId=%d, chnId=%d\n",
+               module->devId, module->chnId);
+        rgn_destroy(module->chnId);
+        state->created = RKNS_FALSE;
+    }
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 rockit_rgn_start(const RKNSLaunchModule *module,
+                                RKNSLaunchModuleState *state) {
+    (void)module;
+    /* Create and attach RGN after VO started */
+    {
+        RockitRGNConfig *cfg = (RockitRGNConfig *)module->configBuf;
+        struct { unsigned int w, h, fmt; } rgnCfg = { cfg->w, cfg->h, cfg->fmt };
+        int ret = rgn_create(&rgnCfg, 0, module->chnId);
+        if (ret == 0) {
+            ret = rgn_attach(module->chnId, RK_ID_VO, cfg->vo_dev_id, cfg->vo_chn_id);
+            if (ret != 0) {
+                fprintf(stderr, "[ERROR] RGN attach failed: %d\n", ret);
+                rgn_destroy(module->chnId);
+                state->created = RKNS_FALSE;
+                return RKNS_FAILURE;
+            }
+            else
+                printf("[INFO] RGN handle=%d attached to VO\n", (int)module->chnId);
+        } else {
+            fprintf(stderr, "[ERROR] RGN create failed: %d\n", ret);
+            state->created = RKNS_FALSE;
+            return RKNS_FAILURE;
+        }
+    }
+    state->started = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 rockit_rgn_stop(const RKNSLaunchModule *module,
+                               RKNSLaunchModuleState *state) {
+    RockitRGNConfig *cfg = (RockitRGNConfig *)module->configBuf;
+    rgn_detach(module->chnId, RK_ID_VO, cfg->vo_dev_id, cfg->vo_chn_id);
     state->started = RKNS_FALSE;
     return RKNS_SUCCESS;
 }
@@ -1831,6 +2912,10 @@ static const RKNSLaunchModuleOps g_moduleOps[] = {
       rockit_vi_create,    rockit_vi_destroy,    rockit_vi_start,    rockit_vi_stop },
     { RKNS_LAUNCH_MOD_RK_VO,    "VO",       rockit_vo_parse_config,
       rockit_vo_create,    rockit_vo_destroy,    rockit_vo_start,    rockit_vo_stop },
+    { RKNS_LAUNCH_MOD_RK_VPSS,  "VPSS",     rockit_vpss_parse_config,
+      rockit_vpss_create,  rockit_vpss_destroy,  rockit_vpss_start,  rockit_vpss_stop },
+    { RKNS_LAUNCH_MOD_RK_RGN,   "RGN",      rockit_rgn_parse_config,
+      rockit_rgn_create,   rockit_rgn_destroy,   rockit_rgn_start,   rockit_rgn_stop },
     { RKNS_LAUNCH_MOD_RK_AI,    "AI",       rockit_ai_parse_config,
       rockit_ai_create,    rockit_ai_destroy,    rockit_ai_start,    rockit_ai_stop },
 };
@@ -2160,6 +3245,19 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // 排序：Rockit pipeline 优先创建（RKNNStream INPUT 可能依赖 Rockit VPSS）
+    for (i = 0; i < (RKNS_S32)pipelineCount - 1; i++) {
+        RKNS_S32 j;
+        for (j = i + 1; j < (RKNS_S32)pipelineCount; j++) {
+            if (pipelineContexts[j].desc->type == RKNS_LAUNCH_PIPELINE_TYPE_ROCKIT &&
+                pipelineContexts[i].desc->type != RKNS_LAUNCH_PIPELINE_TYPE_ROCKIT) {
+                RKNSLaunchPipelineContext tmp = pipelineContexts[i];
+                pipelineContexts[i] = pipelineContexts[j];
+                pipelineContexts[j] = tmp;
+            }
+        }
+    }
+
     // 检测是否有 Rockit 和 RKNS pipeline
     for (i = 0; i < pipelineCount; i++) {
         if (pipelineContexts[i].desc->type == RKNS_LAUNCH_PIPELINE_TYPE_ROCKIT) {
@@ -2228,7 +3326,7 @@ int main(int argc, char *argv[]) {
     // 设置终端为非阻塞模式
     set_nonblocking(fd);
 
-    // 创建所有 pipeline
+    // 创建所有 pipeline（Rockit 优先）
     for (i = 0; i < pipelineCount; i++) {
         ret = create_pipeline(pipelineContexts[i].desc, &pipelineContexts[i].state, g_config.verbose);
         if (ret != RKNS_SUCCESS) {

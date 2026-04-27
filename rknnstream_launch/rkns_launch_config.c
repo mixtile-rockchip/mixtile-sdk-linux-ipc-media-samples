@@ -141,15 +141,17 @@ RKNS_MODEL_TYPE_E parse_model_type(const char *type_str) {
 /**
  * @brief 解析像素格式
  */
-RKNS_OVERLAY_PIXEL_FMT_E parse_pixel_format(const char *fmt_str) {
+RockXPixelFormat  parse_pixel_format(const char *fmt_str) {
     if (strcmp(fmt_str, "NV12") == 0) {
-        return RKNS_OVERLAY_PIXFMT_NV12;
+        return ROCKX_PIXEL_FORMAT_YUV420SP_NV12;
     } else if (strcmp(fmt_str, "RGB888") == 0) {
-        return RKNS_OVERLAY_PIXFMT_RGB888;
-    } else if (strcmp(fmt_str, "ARGB8888") == 0) {
-        return RKNS_OVERLAY_PIXFMT_ARGB8888;
+        return ROCKX_PIXEL_FORMAT_RGB888;
+    } else if (strcmp(fmt_str, "BGRA8888") == 0) {
+        return ROCKX_PIXEL_FORMAT_BGRA8888;
+    } else if (strcmp(fmt_str, "RGBA8888") == 0) {
+        return ROCKX_PIXEL_FORMAT_RGBA8888;
     }
-    return RKNS_OVERLAY_PIXFMT_NV12; // 默认
+    return ROCKX_PIXEL_FORMAT_YUV420SP_NV12; // 默认
 }
 
 /**
@@ -668,8 +670,8 @@ RKNS_S32 rkns_launch_save_config_to_yaml(const RKNSLaunchConfig *config,
     if (config->enableOverlay) {
         RKNS_U32 i;
         fprintf(fp, "  pixel_format: \"%s\"\n",
-                config->pixelFormat == RKNS_OVERLAY_PIXFMT_NV12 ? "NV12" :
-                config->pixelFormat == RKNS_OVERLAY_PIXFMT_RGB888 ? "RGB888" : "ARGB8888");
+                config->pixelFormat == ROCKX_PIXEL_FORMAT_YUV420SP_NV12 ? "NV12" :
+                config->pixelFormat == ROCKX_PIXEL_FORMAT_RGB888 ? "RGB888" : "ARGB8888");
         fprintf(fp, "  max_box_per_frame: %u\n", config->overlayAttr.maxBoxPerFrame);
         fprintf(fp, "  line_width: %u\n", config->overlayAttr.lineWidth);
         fprintf(fp, "  text_scale: %u\n", config->overlayAttr.textScale);
@@ -748,17 +750,17 @@ void init_default_config(RKNSLaunchConfig *config) {
 
     // Overlay 配置
     config->enableOverlay = RKNS_TRUE;
-    config->pixelFormat = RKNS_OVERLAY_PIXFMT_NV12;
+    config->pixelFormat = ROCKX_PIXEL_FORMAT_YUV420SP_NV12;
 
     // Overlay 属性默认值
     config->overlayAttr.width = config->width;
     config->overlayAttr.height = config->height;
     config->overlayAttr.stride = config->width;
-    config->overlayAttr.pixelFmt = RKNS_OVERLAY_PIXFMT_NV12;
+    config->overlayAttr.pixelFmt = ROCKX_PIXEL_FORMAT_YUV420SP_NV12;
     config->overlayAttr.bgColor.a = 0xFF;
     config->overlayAttr.bgColor.r = 0;
     config->overlayAttr.bgColor.g = 0;
-    config->overlayAttr.bgColor.b = 0;
+    config->overlayAttr.bgColor.b = 0;  
     config->overlayAttr.maxBoxPerFrame = 32;
     config->overlayAttr.lineWidth = 2;
     config->overlayAttr.textScale = 1;
@@ -898,8 +900,8 @@ void print_config(const RKNSLaunchConfig *config) {
     if (config->enableOverlay) {
         RKNS_U32 i;
         printf("[INFO]   Pixel Format: %s\n",
-               config->pixelFormat == RKNS_OVERLAY_PIXFMT_NV12 ? "NV12" :
-               config->pixelFormat == RKNS_OVERLAY_PIXFMT_RGB888 ? "RGB888" : "ARGB8888");
+               config->pixelFormat == ROCKX_PIXEL_FORMAT_YUV420SP_NV12 ? "NV12" :
+               config->pixelFormat == ROCKX_PIXEL_FORMAT_RGB888 ? "RGB888" : "ARGB8888");
         printf("[INFO]   MaxBoxPerFrame: %u\n", config->overlayAttr.maxBoxPerFrame);
         printf("[INFO]   LineWidth: %u, TextScale: %u\n",
                config->overlayAttr.lineWidth, config->overlayAttr.textScale);
