@@ -160,6 +160,7 @@ Data Storage:
 */
 
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <pthread.h>
@@ -197,6 +198,7 @@ Data Storage:
 static volatile RK_BOOL g_quit = RK_FALSE;           // Application exit flag
 static RK_BOOL g_enable_switch = RK_FALSE;           // Enable VO dynamic switching
 static RK_BOOL g_enable_snapshot = RK_FALSE;         // Enable JPEG capture function
+static RK_BOOL g_fast_preview_mode = RK_FALSE;       // Enable AHD fastboot preview path
 static RK_U32 g_snapshot_interval = 5;               // JPEG capture interval in seconds
 
 // VI input resolution configuration
@@ -206,6 +208,8 @@ static RK_U32 g_in_h = 1080;    // VI input height
 // VO display resolution configuration (default portrait 1080x1920)
 static RK_U32 g_disp_w = 1080;  // VO display width
 static RK_U32 g_disp_h = 1920;  // VO display height
+static RK_BOOL g_vo_rotation_set = RK_FALSE;
+static ROTATION_E g_vo_rotation = ROTATION_0;  // Optional VO rotation override
 
 // VO display mode enumeration
 typedef enum {
@@ -283,16 +287,18 @@ typedef struct {
 	int vpssGrp;            // Corresponding VPSS group number
 } VI_CHN_INFO;
 
-// VI channel mapping for 2x TP2815 AHD decoders
+// Default VI channel mapping for 2x TP2815 AHD decoders. Newer fastboot
+// kernels may renumber video nodes, so this table can be overridden at runtime
+// from stream_cif_mipi_id* sysfs names; older EVB flows keep using this map.
 static VI_CHN_INFO g_chnInfo[MAX_VI_CHN] = {
-    {0, "/dev/video1", false, 0},   // TP2815#0 Channel 0
-    {1, "/dev/video2", false, 1},   // TP2815#0 Channel 1
-    {2, "/dev/video3", false, 2},   // TP2815#0 Channel 2
-    {3, "/dev/video4", false, 3},   // TP2815#0 Channel 3
-    {4, "/dev/video11", false, 4},  // TP2815#1 Channel 0
-    {5, "/dev/video12", false, 5},  // TP2815#1 Channel 1
-    {6, "/dev/video13", false, 6},  // TP2815#1 Channel 2
-    {7, "/dev/video14", false, 7},  // TP2815#1 Channel 3
+	{0, "/dev/video1", false, 0},   // TP2815#0 Channel 0
+	{1, "/dev/video2", false, 1},   // TP2815#0 Channel 1
+	{2, "/dev/video3", false, 2},   // TP2815#0 Channel 2
+	{3, "/dev/video4", false, 3},   // TP2815#0 Channel 3
+	{4, "/dev/video11", false, 4},  // TP2815#1 Channel 0
+	{5, "/dev/video12", false, 5},  // TP2815#1 Channel 1
+	{6, "/dev/video13", false, 6},  // TP2815#1 Channel 2
+	{7, "/dev/video14", false, 7},  // TP2815#1 Channel 3
 };
 
 // VPSS thread context structure
@@ -335,6 +341,129 @@ static void sig_handler(int sig) {
 static RK_BOOL check_device_exists(const char *dev_name) {
 	struct stat st;
 	return (stat(dev_name, &st) == 0) ? RK_TRUE : RK_FALSE;
+}
+
+static ROTATION_E get_vo_rotation(RK_U32 width, RK_U32 height) {
+	if (g_vo_rotation_set)
+		return g_vo_rotation;
+
+	return (width == 1080 && height == 1920) ? ROTATION_270 : ROTATION_0;
+}
+
+static void reset_vi_channel_defaults(void) {
+	static const char *default_devs[MAX_VI_CHN] = {
+		"/dev/video1", "/dev/video2", "/dev/video3", "/dev/video4",
+		"/dev/video11", "/dev/video12", "/dev/video13", "/dev/video14",
+	};
+
+	for (int i = 0; i < MAX_VI_CHN; ++i) {
+		g_chnInfo[i].chnId = i;
+		g_chnInfo[i].isActive = false;
+		g_chnInfo[i].vpssGrp = i;
+		snprintf(g_chnInfo[i].deviceName, sizeof(g_chnInfo[i].deviceName),
+		         "%s", default_devs[i]);
+	}
+}
+
+static int activate_default_vi_channels(int requested) {
+	int active = 0;
+
+	reset_vi_channel_defaults();
+	for (int i = 0; i < requested && i < MAX_VI_CHN; ++i) {
+		if (!check_device_exists(g_chnInfo[i].deviceName)) {
+			printf("Default VI channel %d device %s not found\n",
+			       i, g_chnInfo[i].deviceName);
+			continue;
+		}
+		g_chnInfo[i].isActive = true;
+		printf("VI channel %d uses default %s\n",
+		       i, g_chnInfo[i].deviceName);
+		active++;
+	}
+
+	return active;
+}
+
+typedef struct {
+	int streamId;
+	int videoId;
+	char devName[64];
+} VI_STREAM_NODE;
+
+static int compare_stream_node(const void *a, const void *b) {
+	const VI_STREAM_NODE *na = (const VI_STREAM_NODE *)a;
+	const VI_STREAM_NODE *nb = (const VI_STREAM_NODE *)b;
+
+	if (na->streamId != nb->streamId)
+		return na->streamId - nb->streamId;
+	return na->videoId - nb->videoId;
+}
+
+static int detect_vi_stream_channels(int requested) {
+	VI_STREAM_NODE nodes[MAX_VI_CHN];
+	int count = 0;
+	DIR *dir;
+	struct dirent *entry;
+
+	memset(nodes, 0, sizeof(nodes));
+	reset_vi_channel_defaults();
+
+	dir = opendir("/sys/class/video4linux");
+	if (!dir) {
+		printf("Failed to open /sys/class/video4linux: %s\n", strerror(errno));
+		return 0;
+	}
+
+	while ((entry = readdir(dir)) != NULL) {
+		int videoId;
+		int streamId;
+		char namePath[128];
+		char name[64];
+		FILE *fp;
+
+		if (sscanf(entry->d_name, "video%d", &videoId) != 1)
+			continue;
+
+		snprintf(namePath, sizeof(namePath), "/sys/class/video4linux/%s/name",
+		         entry->d_name);
+		fp = fopen(namePath, "r");
+		if (!fp)
+			continue;
+		if (!fgets(name, sizeof(name), fp)) {
+			fclose(fp);
+			continue;
+		}
+		fclose(fp);
+
+		name[strcspn(name, "\r\n")] = '\0';
+		if (sscanf(name, "stream_cif_mipi_id%d", &streamId) != 1)
+			continue;
+		if (count >= MAX_VI_CHN)
+			continue;
+
+		nodes[count].streamId = streamId;
+		nodes[count].videoId = videoId;
+		snprintf(nodes[count].devName, sizeof(nodes[count].devName),
+		         "/dev/video%d", videoId);
+		count++;
+	}
+	closedir(dir);
+
+	qsort(nodes, count, sizeof(nodes[0]), compare_stream_node);
+
+	int active = 0;
+	for (int i = 0; i < count && active < requested && active < MAX_VI_CHN; ++i) {
+		if (!check_device_exists(nodes[i].devName))
+			continue;
+		g_chnInfo[active].isActive = true;
+		snprintf(g_chnInfo[active].deviceName, sizeof(g_chnInfo[active].deviceName),
+		         "%s", nodes[i].devName);
+		printf("VI channel %d uses %s (stream_cif_mipi_id%d)\n",
+		       active, g_chnInfo[active].deviceName, nodes[i].streamId);
+		active++;
+	}
+
+	return active;
 }
 
 /**
@@ -820,7 +949,7 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 		stChnAttr.u32FgAlpha = 255;             // Fully opaque
 		stChnAttr.u32BgAlpha = 0;
 		// Critical fix: Explicitly set correct rotation angle
-		stChnAttr.enRotation = (g_disp_w == 1080 && g_disp_h == 1920) ? ROTATION_270 : ROTATION_0;
+		stChnAttr.enRotation = get_vo_rotation(g_disp_w, g_disp_h);
 		printf("Single mode: Channel %d rotation set to %d (display %dx%d)\n",
 		       targetChn, stChnAttr.enRotation, g_disp_w, g_disp_h);
 
@@ -867,7 +996,7 @@ static int vo_switch_mode(int VoLayer, VO_DISPLAY_MODE_E newMode, int targetChn,
 			stChnAttr.u32FgAlpha = 255;                         // Fully opaque
 			stChnAttr.u32BgAlpha = 0;
 			// Critical fix: Explicitly set correct rotation angle
-			stChnAttr.enRotation = (g_disp_w == 1080 && g_disp_h == 1920) ? ROTATION_270 : ROTATION_0;
+			stChnAttr.enRotation = get_vo_rotation(g_disp_w, g_disp_h);
 			printf("Multi mode: Channel %d rotation set to %d (display %dx%d)\n",
 			       i, stChnAttr.enRotation, g_disp_w, g_disp_h);
 
@@ -916,8 +1045,8 @@ static int vi_chn_init(int channelId, const char *video_dev, int width, int heig
 	int ret;
 	VI_CHN_ATTR_S stChnAttr;
 	memset(&stChnAttr, 0, sizeof(stChnAttr));
-	strncpy(stChnAttr.stIspOpt.aEntityName, video_dev,
-	        sizeof(stChnAttr.stIspOpt.aEntityName) - 1);
+	snprintf(stChnAttr.stIspOpt.aEntityName, sizeof(stChnAttr.stIspOpt.aEntityName),
+	         "%s", video_dev);
 	stChnAttr.stIspOpt.u32BufCount = 8;
 	stChnAttr.stIspOpt.enCaptureType = VI_V4L2_CAPTURE_TYPE_VIDEO_CAPTURE;
 	stChnAttr.stIspOpt.bNoUseLibV4L2 = RK_FALSE;
@@ -933,6 +1062,27 @@ static int vi_chn_init(int channelId, const char *video_dev, int width, int heig
 	if (ret != RK_SUCCESS)
 		return ret;
 	ret = RK_MPI_VI_EnableChn(s32PipeId, channelId);
+	if (ret == RK_SUCCESS)
+		return RK_SUCCESS;
+	RK_MPI_VI_DisableChn(s32PipeId, channelId);
+	return ret;
+}
+
+static int vi_chn_init_with_retry(int channelId, const char *video_dev,
+                                  int width, int height) {
+	const int maxAttempts = 10;
+	int ret = RK_FAILURE;
+
+	for (int attempt = 1; attempt <= maxAttempts && !g_quit; ++attempt) {
+		ret = vi_chn_init(channelId, video_dev, width, height);
+		if (ret == RK_SUCCESS)
+			return RK_SUCCESS;
+
+		printf("VI channel %d init failed on %s: 0x%x (attempt %d/%d)\n",
+		       channelId, video_dev, ret, attempt, maxAttempts);
+		usleep(100 * 1000);
+	}
+
 	return ret;
 }
 
@@ -955,9 +1105,13 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 	VO_CHN_ATTR_S stChnAttr;
 	GRID_LAYOUT_S layout;
 
-	ret = RK_MPI_VO_BindLayer(VoLayer, VoDev, VO_LAYER_MODE_VIDEO);
-	if (ret != RK_SUCCESS)
+	ret = RK_MPI_VO_BindLayer(VoLayer, VoDev,
+	                          g_fast_preview_mode ? VO_LAYER_MODE_GRAPHIC :
+	                                                VO_LAYER_MODE_VIDEO);
+	if (ret != RK_SUCCESS) {
+		printf("RK_MPI_VO_BindLayer(layer=%d, dev=%d) failed: 0x%x\n", VoLayer, VoDev, ret);
 		return ret;
+	}
 
 	memset(&stVoPubAttr, 0, sizeof(stVoPubAttr));
 	memset(&stLayerAttr, 0, sizeof(stLayerAttr));
@@ -965,20 +1119,44 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 
 	stVoPubAttr.enIntfType = IntfType;
 	stVoPubAttr.enIntfSync = VO_OUTPUT_DEFAULT;
-	RK_MPI_VO_SetPubAttr(VoDev, &stVoPubAttr);
-	RK_MPI_VO_Enable(VoDev);
+	ret = RK_MPI_VO_SetPubAttr(VoDev, &stVoPubAttr);
+	if (ret != RK_SUCCESS) {
+		printf("RK_MPI_VO_SetPubAttr(dev=%d, intf=0x%x) failed: 0x%x\n", VoDev, IntfType, ret);
+		return ret;
+	}
+
+	ret = RK_MPI_VO_Enable(VoDev);
+	if (ret != RK_SUCCESS) {
+		printf("RK_MPI_VO_Enable(dev=%d) failed: 0x%x\n", VoDev, ret);
+		return ret;
+	}
 
 	stLayerAttr.enPixFormat = RK_FMT_RGB888;
+	stLayerAttr.enCompressMode = g_fast_preview_mode ? COMPRESS_AFBC_16x16 :
+	                                                   COMPRESS_MODE_NONE;
 	stLayerAttr.stDispRect.s32X = 0;
 	stLayerAttr.stDispRect.s32Y = 0;
 	stLayerAttr.stDispRect.u32Width = Width;
 	stLayerAttr.stDispRect.u32Height = Height;
 	stLayerAttr.stImageSize.u32Width = Width;
 	stLayerAttr.stImageSize.u32Height = Height;
-	stLayerAttr.u32DispFrmRt = 30;
-	RK_MPI_VO_SetLayerAttr(VoLayer, &stLayerAttr);
-	RK_MPI_VO_SetLayerSpliceMode(VoLayer, VO_SPLICE_MODE_RGA);
-	RK_MPI_VO_EnableLayer(VoLayer);
+	stLayerAttr.u32DispFrmRt = g_fast_preview_mode ? 25 : 30;
+	ret = RK_MPI_VO_SetLayerAttr(VoLayer, &stLayerAttr);
+	if (ret != RK_SUCCESS) {
+		printf("RK_MPI_VO_SetLayerAttr(layer=%d, %dx%d) failed: 0x%x\n",
+		       VoLayer, Width, Height, ret);
+		return ret;
+	}
+
+	ret = RK_MPI_VO_SetLayerSpliceMode(VoLayer, VO_SPLICE_MODE_RGA);
+	if (ret != RK_SUCCESS)
+		printf("RK_MPI_VO_SetLayerSpliceMode(layer=%d) warning: 0x%x\n", VoLayer, ret);
+
+	ret = RK_MPI_VO_EnableLayer(VoLayer);
+	if (ret != RK_SUCCESS) {
+		printf("RK_MPI_VO_EnableLayer(layer=%d) failed: 0x%x\n", VoLayer, ret);
+		return ret;
+	}
 
 	// Use dedicated grid layout calculation function
 	if (calculate_grid_layout(numChannels, Width, Height, &layout) != 0) {
@@ -1001,13 +1179,24 @@ static int vo_init(int VoLayer, int VoDev, int Width, int Height, int IntfType, 
 		stChnAttr.u32FgAlpha = 255;
 		stChnAttr.u32BgAlpha = 0;
 		stChnAttr.u32Priority = i;  // Set priority same as channel ID for easy switching
-		stChnAttr.enRotation = (Width == 1080 && Height == 1920) ? ROTATION_270 : ROTATION_0;
+		stChnAttr.enRotation = get_vo_rotation(Width, Height);
 
 		printf("VO Channel %d: position(%d,%d), size(%dx%d), rotation=%d\n",
 		       i, winX, winY, layout.winWidth, layout.winHeight, stChnAttr.enRotation);
 
-		RK_MPI_VO_SetChnAttr(VoLayer, i, &stChnAttr);
-		RK_MPI_VO_EnableChn(VoLayer, i);
+		ret = RK_MPI_VO_SetChnAttr(VoLayer, i, &stChnAttr);
+		if (ret != RK_SUCCESS) {
+			printf("RK_MPI_VO_SetChnAttr(layer=%d, chn=%d) failed: 0x%x\n",
+			       VoLayer, i, ret);
+			return ret;
+		}
+
+		ret = RK_MPI_VO_EnableChn(VoLayer, i);
+		if (ret != RK_SUCCESS) {
+			printf("RK_MPI_VO_EnableChn(layer=%d, chn=%d) failed: 0x%x\n",
+			       VoLayer, i, ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -1439,12 +1628,14 @@ static void *vo_switch_thread(void *arg) {
  * @param n: Program name
  */
 static void print_usage(const char *n) {
-	printf("usage: %s [-w in_w] [-h in_h] [-W vo_w] [-H vo_h] [-n num_channels] [-s switch_mode] [-p snapshot_mode] [-i snapshot_interval]\n", n);
+	printf("usage: %s [-w in_w] [-h in_h] [-W vo_w] [-H vo_h] [-n num_channels] [-f] [-r rotation] [-s switch_mode] [-p snapshot_mode] [-i snapshot_interval]\n", n);
 	printf("  -w: VI input width (default: 1920)\n");
 	printf("  -h: VI input height (default: 1080)\n");
 	printf("  -W: VO display width (default: 1080)\n");
 	printf("  -H: VO display height (default: 1920)\n");
 	printf("  -n: Number of VI/VPSS channels (1-8, default: 4)\n");
+	printf("  -f: Enable fast preview mode for AHD fastboot images\n");
+	printf("  -r: VO rotation angle override (0/90/180/270)\n");
 	printf("  -s: Enable VO dynamic switch (0=disabled, 1=enabled, default: 0)\n");
 	printf("  -p: Enable JPEG capture function (0=disabled, 1=enabled, default: 0)\n");
 	printf("  -i: JPEG capture interval in seconds (default: 5)\n");
@@ -1461,6 +1652,31 @@ static void print_usage(const char *n) {
 	printf("  %s -n 4 -p 1 -i 3                 # Quad view with JPEG capture every 3 seconds\n", n);
 	printf("  %s -w 1920 -h 1080 -W 1080 -H 1920 -n 4 -s 1  # Full parameter example\n", n);
 	printf("  %s -n 8 -p 1                      # Eight channels with JPEG capture\n", n);
+}
+
+static int parse_rotation(const char *arg, ROTATION_E *rotation) {
+	int value = atoi(arg);
+
+	switch (value) {
+	case 0:
+		*rotation = ROTATION_0;
+		return 0;
+	case 90:
+	case 1:
+		*rotation = ROTATION_90;
+		return 0;
+	case 180:
+	case 2:
+		*rotation = ROTATION_180;
+		return 0;
+	case 270:
+	case 3:
+		*rotation = ROTATION_270;
+		return 0;
+	default:
+		printf("Invalid rotation %d. Use 0, 90, 180, or 270.\n", value);
+		return -1;
+	}
 }
 
 /**
@@ -1480,9 +1696,26 @@ static void print_usage(const char *n) {
  */
 int main(int argc, char *argv[]) {
 	int c;
+	int ret = RK_SUCCESS;
 	int num_channels = 4;  // Default 4 channels
 
-	while ((c = getopt(argc, argv, "w:h:W:H:n:s:p:i:?")) != -1) {
+	RK_BOOL vi_started[MAX_VI_CHN] = {RK_FALSE};
+	RK_BOOL vpss_started[MAX_VPSS_GRP] = {RK_FALSE};
+	RK_BOOL vi_vpss_bound[MAX_VI_CHN] = {RK_FALSE};
+	RK_BOOL vpss_vo_bound[MAX_VI_CHN] = {RK_FALSE};
+	RK_BOOL vo_started = RK_FALSE;
+	venc_ctx_t vencCtx[MAX_VPSS_GRP * 2] = {0}; // 2 encoders per group (main/sub)
+	pthread_t vencThreads[MAX_VPSS_GRP * 2] = {0};
+	int venc_count = 0;
+	vpss_thread_ctx_t vpssCtx[MAX_VPSS_GRP] = {0};
+	pthread_t vpssThreads[MAX_VPSS_GRP] = {0};
+	pthread_t snapshotThread = 0;
+	pthread_t voSwitchThread = 0;
+
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
+
+	while ((c = getopt(argc, argv, "w:h:W:H:n:fr:s:p:i:?")) != -1) {
 		switch (c) {
 		case 'w':
 			g_in_w = atoi(optarg);
@@ -1502,6 +1735,16 @@ int main(int argc, char *argv[]) {
 				printf("Invalid channel number. Range: 1-%d\n", MAX_VI_CHN);
 				return -1;
 			}
+			break;
+		case 'f':
+			g_fast_preview_mode = RK_TRUE;
+			printf("AHD fast preview mode ENABLED\n");
+			break;
+		case 'r':
+			if (parse_rotation(optarg, &g_vo_rotation) != 0)
+				return -1;
+			g_vo_rotation_set = RK_TRUE;
+			printf("VO rotation: %s (%d)\n", optarg, g_vo_rotation);
 			break;
 		case 's':
 			g_enable_switch = (atoi(optarg) == 1) ? RK_TRUE : RK_FALSE;
@@ -1533,17 +1776,28 @@ int main(int argc, char *argv[]) {
 	if (RK_MPI_SYS_Init() != RK_SUCCESS)
 		return -1;
 
-	// Probe devices and initialize VI
 	int active = 0;
-	for (int i = 0; i < num_channels; ++i) {
-		g_chnInfo[i].isActive = check_device_exists(g_chnInfo[i].deviceName);
-		if (g_chnInfo[i].isActive)
-			active++;
+	if (g_fast_preview_mode) {
+		// Prefer stable stream_cif sysfs names; fall back to the historical
+		// hard-coded /dev/video map for older EVB firmware.
+		active = detect_vi_stream_channels(num_channels);
+		if (active == 0) {
+			printf("No stream_cif_mipi_id* VI nodes found, falling back to default video map\n");
+			active = activate_default_vi_channels(num_channels);
+		}
+	} else {
+		reset_vi_channel_defaults();
+		for (int i = 0; i < num_channels; ++i) {
+			g_chnInfo[i].isActive = check_device_exists(g_chnInfo[i].deviceName);
+			if (g_chnInfo[i].isActive)
+				active++;
+		}
 	}
 
 	printf("Found %d active VI channels\n", active);
 	if (active == 0) {
 		printf("No VI devices found!\n");
+		ret = RK_FAILURE;
 		goto cleanup;
 	}
 
@@ -1552,22 +1806,36 @@ int main(int argc, char *argv[]) {
 	// Initialize VI channels
 	for (int i = 0; i < num_channels; ++i) {
 		if (g_chnInfo[i].isActive) {
-			if (vi_chn_init(i, g_chnInfo[i].deviceName, g_in_w, g_in_h) != RK_SUCCESS) {
-				printf("Failed to init VI channel %d\n", i);
+			ret = g_fast_preview_mode ?
+			      vi_chn_init_with_retry(i, g_chnInfo[i].deviceName, g_in_w, g_in_h) :
+			      vi_chn_init(i, g_chnInfo[i].deviceName, g_in_w, g_in_h);
+			if (ret != RK_SUCCESS) {
+				printf("Failed to init VI channel %d: 0x%x\n", i, ret);
+				if (!g_fast_preview_mode) {
+					ret = RK_SUCCESS;
+					continue;
+				}
+				g_chnInfo[i].isActive = RK_FALSE;
+				active--;
+				g_active_channels = active;
+				goto resource_cleanup;
 			}
+			vi_started[i] = RK_TRUE;
 		}
 	}
 
-	// Save one frame from each VI channel
-	for (int i = 0; i < num_channels; ++i) {
-		if (!g_chnInfo[i].isActive)
-			continue;
-		VIDEO_FRAME_INFO_S f;
-		if (RK_MPI_VI_GetChnFrame(s32PipeId, i, &f, 2000) == RK_SUCCESS) {
-			char path[128];
-			snprintf(path, sizeof(path), "/data/simple_multi_ahd_vpss_test/vi_ch%d_0.yuv", i);
-			save_yuv_one(path, &f);
-			RK_MPI_VI_ReleaseChnFrame(s32PipeId, i, &f);
+	if (!g_fast_preview_mode) {
+		// Save one frame from each VI channel, preserving the original test flow.
+		for (int i = 0; i < num_channels; ++i) {
+			if (!g_chnInfo[i].isActive)
+				continue;
+			VIDEO_FRAME_INFO_S f;
+			if (RK_MPI_VI_GetChnFrame(s32PipeId, i, &f, 2000) == RK_SUCCESS) {
+				char path[128];
+				snprintf(path, sizeof(path), "/data/simple_multi_ahd_vpss_test/vi_ch%d_0.yuv", i);
+				save_yuv_one(path, &f);
+				RK_MPI_VI_ReleaseChnFrame(s32PipeId, i, &f);
+			}
 		}
 	}
 
@@ -1575,7 +1843,8 @@ int main(int argc, char *argv[]) {
 	GRID_LAYOUT_S voLayout;
 	if (calculate_grid_layout(active, g_disp_w, g_disp_h, &voLayout) != 0) {
 		printf("Failed to calculate VO grid layout\n");
-		goto cleanup;
+		ret = RK_FAILURE;
+		goto resource_cleanup;
 	}
 	RK_U32 vo_unit_w = voLayout.winWidth;
 	RK_U32 vo_unit_h = voLayout.winHeight;
@@ -1583,7 +1852,16 @@ int main(int argc, char *argv[]) {
 	// Initialize VPSS groups
 	for (int i = 0; i < num_channels; ++i) {
 		if (g_chnInfo[i].isActive) {
-			vpss_group_init(i, g_in_w, g_in_h, vo_unit_w, vo_unit_h);
+			ret = vpss_group_init(i, g_in_w, g_in_h, vo_unit_w, vo_unit_h);
+			if (ret != RK_SUCCESS) {
+				printf("Failed to init VPSS group %d: 0x%x\n", i, ret);
+				if (!g_fast_preview_mode) {
+					ret = RK_SUCCESS;
+					continue;
+				}
+				goto resource_cleanup;
+			}
+			vpss_started[i] = RK_TRUE;
 		}
 	}
 
@@ -1593,14 +1871,46 @@ int main(int argc, char *argv[]) {
 			continue;
 		MPP_CHN_S vi = {.enModId = RK_ID_VI, .s32DevId = s32PipeId, .s32ChnId = i};
 		MPP_CHN_S vpss = {.enModId = RK_ID_VPSS, .s32DevId = i, .s32ChnId = 0};
-		RK_MPI_SYS_Bind(&vi, &vpss);
+		ret = RK_MPI_SYS_Bind(&vi, &vpss);
+		if (ret != RK_SUCCESS) {
+			printf("Failed to bind VI chn %d to VPSS grp %d: 0x%x\n", i, i, ret);
+			if (!g_fast_preview_mode) {
+				ret = RK_SUCCESS;
+				continue;
+			}
+			goto resource_cleanup;
+		}
+		vi_vpss_bound[i] = RK_TRUE;
 	}
 
-	// Create encoders and bind
-	venc_ctx_t vencCtx[MAX_VPSS_GRP * 2]; // 2 encoders per group (main/sub)
-	pthread_t vencThreads[MAX_VPSS_GRP * 2];
-	int venc_count = 0;
+	if (g_fast_preview_mode) {
+		// Initialize VO before encoders so the boot preview appears as early as possible.
+		ret = vo_init(g_VoLayer, g_VoDev, g_disp_w, g_disp_h, g_IntfType, active);
+		if (ret != RK_SUCCESS) {
+			printf("Failed to init VO: 0x%x\n", ret);
+			goto resource_cleanup;
+		}
+		vo_started = RK_TRUE;
 
+		// Bind VPSS ch3 to VO
+		for (int i = 0; i < num_channels; ++i) {
+			if (!g_chnInfo[i].isActive)
+				continue;
+			MPP_CHN_S vpss_vo = {.enModId = RK_ID_VPSS, .s32DevId = i, .s32ChnId = 3};
+			MPP_CHN_S vo = {.enModId = RK_ID_VO, .s32DevId = g_VoLayer, .s32ChnId = i};
+			ret = RK_MPI_SYS_Bind(&vpss_vo, &vo);
+			if (ret != RK_SUCCESS) {
+				printf("Failed to bind VPSS grp %d ch3 to VO chn %d: 0x%x\n", i, i, ret);
+				goto resource_cleanup;
+			}
+			vpss_vo_bound[i] = RK_TRUE;
+		}
+
+		printf("Preview path initialized, displaying %dx%d grid (%d channels)\n",
+		       voLayout.columns, voLayout.rows, active);
+	}
+
+	// Create encoders and bind after preview is already running.
 	for (int i = 0; i < num_channels; ++i) {
 		if (!g_chnInfo[i].isActive)
 			continue;
@@ -1638,21 +1948,33 @@ int main(int argc, char *argv[]) {
 		venc_count++;
 	}
 
-	// Initialize VO
-	vo_init(g_VoLayer, g_VoDev, g_disp_w, g_disp_h, g_IntfType, active);
+	if (!g_fast_preview_mode) {
+		// Initialize VO after encoder setup, preserving the original test flow.
+		ret = vo_init(g_VoLayer, g_VoDev, g_disp_w, g_disp_h, g_IntfType, active);
+		if (ret == RK_SUCCESS) {
+			vo_started = RK_TRUE;
+		} else {
+			printf("Failed to init VO: 0x%x\n", ret);
+			ret = RK_SUCCESS;
+		}
 
-	// Bind VPSS ch3 to VO
-	for (int i = 0; i < num_channels; ++i) {
-		if (!g_chnInfo[i].isActive)
-			continue;
-		MPP_CHN_S vpss_vo = {.enModId = RK_ID_VPSS, .s32DevId = i, .s32ChnId = 3};
-		MPP_CHN_S vo = {.enModId = RK_ID_VO, .s32DevId = g_VoLayer, .s32ChnId = i};
-		RK_MPI_SYS_Bind(&vpss_vo, &vo);
+		// Bind VPSS ch3 to VO
+		for (int i = 0; i < num_channels; ++i) {
+			if (!g_chnInfo[i].isActive)
+				continue;
+			MPP_CHN_S vpss_vo = {.enModId = RK_ID_VPSS, .s32DevId = i, .s32ChnId = 3};
+			MPP_CHN_S vo = {.enModId = RK_ID_VO, .s32DevId = g_VoLayer, .s32ChnId = i};
+			ret = RK_MPI_SYS_Bind(&vpss_vo, &vo);
+			if (ret == RK_SUCCESS) {
+				vpss_vo_bound[i] = RK_TRUE;
+			} else {
+				printf("Failed to bind VPSS grp %d ch3 to VO chn %d: 0x%x\n", i, i, ret);
+				ret = RK_SUCCESS;
+			}
+		}
 	}
 
 	// Start VPSS ch2 threads
-	vpss_thread_ctx_t vpssCtx[MAX_VPSS_GRP];
-	pthread_t vpssThreads[MAX_VPSS_GRP];
 	for (int i = 0; i < num_channels; ++i) {
 		if (!g_chnInfo[i].isActive)
 			continue;
@@ -1666,7 +1988,6 @@ int main(int argc, char *argv[]) {
 	       voLayout.columns, voLayout.rows, active);
 
 	// Create JPEG encoder for jpeg capture (if enabled)
-	pthread_t snapshotThread;
 	if (g_enable_snapshot) {
 		if (jpeg_venc_create(VENC_CHN_JPEG, g_in_w, g_in_h) == 0) {
 			pthread_create(&snapshotThread, NULL, snapshot_thread, &active);
@@ -1679,8 +2000,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Start VO switching control thread (only when enabled)
-	pthread_t voSwitchThread;
-
 	if (g_enable_switch) {
 		pthread_create(&voSwitchThread, NULL, vo_switch_thread, &active);
 		printf("VO Dynamic Switch Mode - automatic switching every 5 seconds\n");
@@ -1736,6 +2055,7 @@ int main(int argc, char *argv[]) {
 	}
 	printf("All VENC OSD destroyed\n");
 
+resource_cleanup:
 	// Step 5: Unbind all connections
 	printf("Unbinding all connections...\n");
 	for (int i = 0; i < num_channels; ++i) {
@@ -1747,25 +2067,32 @@ int main(int argc, char *argv[]) {
 		MPP_CHN_S vpss_vo = {.enModId = RK_ID_VPSS, .s32DevId = i, .s32ChnId = 3};
 		MPP_CHN_S vo = {.enModId = RK_ID_VO, .s32DevId = g_VoLayer, .s32ChnId = i};
 
-		RK_MPI_SYS_UnBind(&vpss_vo, &vo);
-		RK_MPI_SYS_UnBind(&vi, &vpss);
+		if (vpss_vo_bound[i])
+			RK_MPI_SYS_UnBind(&vpss_vo, &vo);
+		if (vi_vpss_bound[i])
+			RK_MPI_SYS_UnBind(&vi, &vpss);
 	}
 
 	// Step 6: Close VO
-	printf("Closing VO...\n");
-	for (int i = 0; i < active; ++i) {
-		RK_MPI_VO_DisableChn(g_VoLayer, i);
+	if (vo_started) {
+		printf("Closing VO...\n");
+		for (int i = 0; i < active; ++i) {
+			RK_MPI_VO_DisableChn(g_VoLayer, i);
+		}
+		RK_MPI_VO_DisableLayer(g_VoLayer);
+		RK_MPI_VO_Disable(g_VoDev);
+		RK_MPI_VO_UnBindLayer(g_VoLayer, g_VoDev);
+		RK_MPI_VO_CloseFd();
+		printf("VO closed\n");
 	}
-	RK_MPI_VO_DisableLayer(g_VoLayer);
-	RK_MPI_VO_Disable(g_VoDev);
-	RK_MPI_VO_UnBindLayer(g_VoLayer, g_VoDev);
-	RK_MPI_VO_CloseFd();
-	printf("VO closed\n");
 
 	// Step 7: Destroy VENC channels (already stopped and joined)
-	printf("Destroying VENC channels...\n");
-	for (int i = 0; i < venc_count; ++i) {
-		RK_MPI_VENC_DestroyChn(i);
+	if (venc_count > 0) {
+		printf("Destroying VENC channels...\n");
+		for (int i = 0; i < venc_count; ++i) {
+			RK_MPI_VENC_DestroyChn(i);
+		}
+		printf("VENC channels destroyed\n");
 	}
 
 	// Destroy JPEG encoder
@@ -1773,30 +2100,30 @@ int main(int argc, char *argv[]) {
 		RK_MPI_VENC_DestroyChn(VENC_CHN_JPEG);
 		printf("JPEG encoder destroyed\n");
 	}
-	printf("VENC channels destroyed\n");
 
 	// Step 8: Stop and destroy VPSS
 	printf("Stopping VPSS...\n");
 	for (int i = 0; i < num_channels; ++i) {
-		if (g_chnInfo[i].isActive) {
-			RK_MPI_VPSS_StopGrp(i);
-			for (int ch = 0; ch < 5; ++ch) {
-				RK_MPI_VPSS_DisableChn(i, ch);
-			}
-			RK_MPI_VPSS_DestroyGrp(i);
+		if (!vpss_started[i])
+			continue;
+		RK_MPI_VPSS_StopGrp(i);
+		for (int ch = 0; ch < 5; ++ch) {
+			RK_MPI_VPSS_DisableChn(i, ch);
 		}
+		RK_MPI_VPSS_DestroyGrp(i);
 	}
 	printf("VPSS stopped\n");
 
 	// Step 9: Close VI channels
 	printf("Closing VI...\n");
 	for (int i = 0; i < num_channels; ++i) {
-		RK_MPI_VI_DisableChn(s32PipeId, i);
+		if (vi_started[i])
+			RK_MPI_VI_DisableChn(s32PipeId, i);
 	}
 	printf("VI closed\n");
 
 cleanup:
 	printf("System cleanup complete\n");
 	RK_MPI_SYS_Exit();
-	return 0;
+	return (ret == RK_SUCCESS) ? 0 : -1;
 }
