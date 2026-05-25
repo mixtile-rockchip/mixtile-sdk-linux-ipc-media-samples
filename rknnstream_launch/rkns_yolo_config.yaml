@@ -51,7 +51,7 @@ pipelines:
 
       # 推理模块
       - name: "INFER"
-        # ========== 通道列表（INFER无设备参数，所有参数在通道中配置） ==========
+        # ========== 通道列表（INFER无设备参数，所有参数在通道中配置）==========
         channels:
           - chn_id: 0
             chn_config:
@@ -67,6 +67,14 @@ pipelines:
               model_path: "/userdata/rockx_data/model/yolov8s-640x640-w8a8-1"
               # 模型授权配置
               model_auth_config: ""
+              # RKNN 版本号（可选，0表示使用默认）
+              rknn_version: 2
+              # RKNN 核心 ID（可选，0表示使用默认）
+              core_mask: 0
+              # 设备 IP 地址（可选，用于远程推理）
+              device_addr: ""
+              # 设备端口号（可选，用于远程推理）
+              port: 0
               # 置信度阈值
               confidence_threshold: 0.5
               # 输入队列数量
@@ -222,6 +230,8 @@ pipelines:
                   # 输出分辨率
                   width: 1088
                   height: 1920
+                  # 像素格式 (可选: NV12 / RGB888)
+                  pixel_format: "NV12"
                   # 缓冲区数量
                   buffer_count: 6
                   # 通道深度（队列深度）
@@ -231,6 +241,8 @@ pipelines:
                   # 输出分辨率
                   width: 640
                   height: 480
+                  # 像素格式 (可选: NV12 / RGB888)
+                  pixel_format: "RGB888"
                   # 缓冲区数量
                   buffer_count: 4
                   # 通道深度（队列深度）

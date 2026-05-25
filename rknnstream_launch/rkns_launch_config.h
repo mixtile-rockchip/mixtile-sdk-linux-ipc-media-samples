@@ -118,6 +118,7 @@ typedef struct _RockitVPSSChnConfig {
     RKNS_U32 height;
     RKNS_U32 depth;
     RKNS_U32 bufferCount;
+    RKNS_U32 pixelFormat;  /* 像素格式，使用 PIXEL_FORMAT_E */
 } RockitVPSSChnConfig;
 
 typedef struct _RockitVPSSGrpConfig {

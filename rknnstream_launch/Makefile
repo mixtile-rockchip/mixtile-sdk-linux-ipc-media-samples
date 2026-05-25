@@ -36,8 +36,7 @@ RKNS_INC_FLAGS += -I$(RKNS_INSTALL)/include
 # 库文件路径
 RKNS_LD_FLAGS := -L$(RKNS_BUILD)
 RKNS_LD_FLAGS += -L$(RKNS_INSTALL)/lib
-RKNS_LD_FLAGS += -lrkns -lrockchip_osal -lrockx2 -lrockx_modules_open
-RKNS_LD_FLAGS += -lrknn3_api -lrknnrt -lrockx_aicore -lrknn3_api_native -lrknn3_api_rkcp
+RKNS_LD_FLAGS += -lrkns -lrockchip_osal -lrockx2 -lrockx_modules_open -lrockx_aicore
 RKNS_LD_FLAGS += -lrockit
 RKNS_LD_FLAGS += -lpthread -lm -ldl
 RKNS_LD_FLAGS += -Wl,-rpath-link,$(RKNS_INSTALL)/lib -Wl,--allow-shlib-undefined

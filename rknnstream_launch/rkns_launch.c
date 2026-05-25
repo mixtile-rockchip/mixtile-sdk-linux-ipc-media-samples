@@ -570,7 +570,7 @@ static RKNS_S32 alm_parse_model_config(YamlDocument *doc, const char *base_path,
 
 /**
  * @brief DETECT 模型属性解析（YoloV8/YoloX 等）
- * YAML 字段：model_name, weight_path, rknn_version, core_mask
+ * YAML 字段：model_name, weight_path, rknn_version, core_mask, device_addr, port
  */
 static RKNS_S32 detect_parse_model_config(YamlDocument *doc, const char *base_path,
                                           RKNS_INFER_ATTR_S *attr,
@@ -587,9 +587,6 @@ static RKNS_S32 detect_parse_model_config(YamlDocument *doc, const char *base_pa
 
     snprintf(path, sizeof(path), "%s.rknn_version", base_path);
     m->u32RknnVersion = (RKNS_U32)yaml_get_int(doc, path, 0);
-
-    snprintf(path, sizeof(path), "%s.core_mask", base_path);
-    m->u32CoreMask = (RKNS_U32)yaml_get_int(doc, path, 0);
 
     return RKNS_SUCCESS;
 }
@@ -1902,6 +1899,24 @@ RKNS_S32 rockit_vo_stop(const RKNSLaunchModule *module,
 
 /* ---------- Rockit VPSS 模块 ---------- */
 
+static PIXEL_FORMAT_E parse_vpss_pixel_format(const char *fmt_str) {
+    if (strcmp(fmt_str, "NV12") == 0) {
+        return RK_FMT_YUV420SP;
+    } else if (strcmp(fmt_str, "RGB888") == 0) {
+        return RK_FMT_RGB888;
+    }
+    return RK_FMT_YUV420SP; /* 默认格式 */
+}
+
+static const char *vpss_pixel_format_to_string(PIXEL_FORMAT_E fmt) {
+    if (fmt == RK_FMT_YUV420SP) {
+        return "NV12";
+    } else if (fmt == RK_FMT_RGB888) {
+        return "RGB888";
+    }
+    return "NV12"; /* 默认格式名称 */
+}
+
 RKNS_S32 rockit_vpss_parse_config(YamlDocument *doc, const char *base_path,
                                         RKNSLaunchModule *module) {
     RockitVPSSConfig *cfg = MODULE_CONFIG(module, RockitVPSSConfig);
@@ -1978,6 +1993,10 @@ RKNS_S32 rockit_vpss_parse_config(YamlDocument *doc, const char *base_path,
 
             snprintf(path, sizeof(path), "%s.groups.%d.channels.%d.chn_config.depth", base_path, gi, ci);
             chn->depth = (RKNS_U32)yaml_get_int(doc, path, 4);
+
+            snprintf(path, sizeof(path), "%s.groups.%d.channels.%d.chn_config.pixel_format", base_path, gi, ci);
+            const char *fmt_str = yaml_get_string(doc, path, "NV12");
+            chn->pixelFormat = (RKNS_U32)parse_vpss_pixel_format(fmt_str);
         }
     }
 
@@ -1990,8 +2009,9 @@ RKNS_S32 rockit_vpss_parse_config(YamlDocument *doc, const char *base_path,
                gi, grp->grpId, grp->maxWidth, grp->maxHeight, grp->frameRate);
         for (ci = 0; ci < (int)grp->chnCount; ci++) {
             RockitVPSSChnConfig *chn = &grp->chnConfigs[ci];
-            printf("[INFO]     Channel[%d]: chn_id=%d, %ux%u, buffer_count=%u, depth=%u\n",
-                   ci, chn->chnId, chn->width, chn->height, chn->bufferCount, chn->depth);
+            printf("[INFO]     Channel[%d]: chn_id=%d, %ux%u, buffer_count=%u, depth=%u, pixel_format=%s\n",
+                   ci, chn->chnId, chn->width, chn->height, chn->bufferCount, chn->depth,
+                   vpss_pixel_format_to_string((PIXEL_FORMAT_E)chn->pixelFormat));
         }
     }
 
@@ -2062,7 +2082,7 @@ RKNS_S32 rockit_vpss_create(const RKNSLaunchModule *module,
             rkos_memset(&stVpssChnAttr, 0, sizeof(stVpssChnAttr));
             stVpssChnAttr.u32Width = chn->width;
             stVpssChnAttr.u32Height = chn->height;
-            stVpssChnAttr.enPixelFormat = RK_FMT_YUV420SP;
+            stVpssChnAttr.enPixelFormat = (PIXEL_FORMAT_E)chn->pixelFormat;
             stVpssChnAttr.u32Depth = chn->depth;
 
             ret = RK_MPI_VPSS_SetChnAttr(grp->grpId, chn->chnId, &stVpssChnAttr);
@@ -2080,8 +2100,9 @@ RKNS_S32 rockit_vpss_create(const RKNSLaunchModule *module,
             }
 
             state->vpssState.chnEnabled[gi][ci] = RKNS_TRUE;
-            printf("[INFO]   VPSS channel enabled: grp=%d, chn=%d, %ux%u, depth=%u\n",
-                   grp->grpId, chn->chnId, chn->width, chn->height, chn->depth);
+            printf("[INFO]   VPSS channel enabled: grp=%d, chn=%d, %ux%u, depth=%u, pixel_format=%s\n",
+                   grp->grpId, chn->chnId, chn->width, chn->height, chn->depth,
+                   vpss_pixel_format_to_string((PIXEL_FORMAT_E)chn->pixelFormat));
         }
 
         /* 5. 启动 Group */
