@@ -1,0 +1,313 @@
+# ============================================================
+# RKNNStream ASR + LLM 配置文件
+# 版本: 1.0.0
+# 描述: 配置 Rockit 音频输入、RKNNStream ASR 推理和 LLM 对话 pipeline
+# ============================================================
+
+# Pipeline 列表
+pipelines:
+  # Pipeline 1: Rockit 音频采集
+  - name: "rockit_audio_pipeline"
+    type: "rockit"
+    enabled: true
+    # 模块列表
+    modules:
+      # AI 模块（音频输入）
+      - name: "AI"
+        # ========== 声卡列表 ==========
+        devices:
+          # 声卡1配置
+          - dev_id: 0
+            dev_config:
+              # 声卡名（hw:卡号,设备号）
+              source_type: "hw:1,0"
+              # 声卡采样率（Hz）
+              sample_rate: 16000
+              # 声卡声道数（1=单声道/Mono, 2=立体声/Stereo）
+              channels: 2
+              # 声卡采样位宽（bit）
+              bit_width: 16
+              # 通道映射使能开关（true=启用多通道+声道映射，false=单通道模式）
+              channel_map_enable: false
+            # 该声卡的通道列表
+            channels:
+              - chn_id: 0
+                chn_config:
+                  # ========== 通道音频参数（与声卡硬件参数对应） ==========
+                  # 通道采样率（Hz）
+                  sample_rate: 16000
+                  # 通道声道数（1=单声道/Mono, 2=立体声/Stereo）
+                  channels: 1
+                  # 通道采样位宽（bit）
+                  bit_width: 16
+                  # ========== 通道处理参数 ==========
+                  # 帧时间（毫秒为单位）
+                  frame_time: 3000
+                  # 缓冲区数量
+                  buffer_count: 2
+                  # 通道深度（队列深度）
+                  depth: 0
+                  # ========== 声道映射配置 ==========
+                  channel_map: [0]
+                  # ========== 轨道模式配置 ==========
+                  track_mode: 8
+                  # ========== VQE 配置（声音质量增强） ==========
+                  # VQE 配置文件路径
+                  vqe_config_path: "/userdata/config_aivqe.json"
+
+  # Pipeline 2: RKNNStream 框架 pipeline（ASR + LLM 推理）
+  - name: "rknnstream_asr_llm_pipeline"
+    type: "rknnstream"
+    enabled: true
+
+    # 模块列表
+    modules:
+      # 输入模块（从 Rockit AI 取流）
+      - name: "INPUT"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 输入源类型
+              type: "ROCKIT"
+              # 操作类型：AI取流
+              op_type: "AI_CAPTURE"
+              # 源帧率（0表示不控制）
+              src_frame_rate: 0
+              # 目标帧率（0表示不控制）
+              dst_frame_rate: 0
+              # 观察深度
+              depth: 0
+              # 隐式绑定：指定源模块信息（Rockit AI 模块）
+              source:
+                module: "AI"
+                dev_id: 0
+                chn_id: 0
+
+      # VOICE 模块（VAD 语音活动检测）
+      - name: "VOICE"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # VOICE 类型
+              type: "VAD"
+              # 缓冲区数量
+              buf_count: 10
+              # 缓冲区大小
+              buf_size: 320
+              # 观察深度
+              depth: 1
+              # 输入队列长度
+              input_queue_len: 10
+              # VAD 特有参数
+              energy_threshold: -50
+              min_silence_ms: 300
+              min_voice_ms: 100
+              frame_duration_ms: 10
+              window_duration_ms: 20
+              step_duration_ms: 10
+
+      # BUSINESS 模块（控制音频输出）
+      - name: "BUSINESS"
+        # ========== 组列表 ==========
+        groups:
+          - grp_id: 0
+            grp_config:
+              # BUSINESS 类型
+              type: "SWITCH"
+              frame_time: 3000
+              # ONOFF RECOMBINE BYPASS
+              mode: "RECOMBINE"
+            # 该组的通道列表
+            channels:
+              - chn_id: 0
+              - chn_id: 1
+
+      # 推理模块 1（ASR）
+      - name: "INFER"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 模型类型
+              model_type: "ALM"
+              # 模块名称
+              module_name: "WhisperASR"
+              # 模型路径
+              model_path: "/userdata/rockx_data/whisper_asr"
+              # 模型授权配置
+              model_auth_config: ""
+              # 置信度阈值
+              confidence_threshold: 0.5
+              # 输入队列数量
+              input_queue_count: 3
+              # 输出缓冲数量
+              output_buffer_count: 3
+              # 源帧率（0表示不控制）
+              src_frame_rate: 0
+              # 目标帧率（0表示不控制）
+              dst_frame_rate: 0
+              # 观察深度
+              depth: 0
+              # ALM 模型特有属性
+              alm_task: "zh"
+              alm_encoder_model: "whisper-large-v3-turbo-encoder.rknn"
+              alm_decoder_model: "whisper-large-v3-turbo-decoder.rknn"
+              alm_mel_filters: "mel_128_filters.txt"
+              alm_vocab: "vocab_zh.txt"
+              # 缓存时间（毫秒）
+              frame_time: 3000
+          - chn_id: 1
+            chn_config:
+              # 模型类型
+              model_type: "LLM"
+              # 模块名称
+              module_name: "RKNN3LLM"
+              # 模型路径
+              model_path: "/userdata/rockx_data/model/Qwen2.5-0.5B"
+              # 模型授权配置
+              model_auth_config: ""
+              # 模型名称
+              llm_model_name: "Qwen2.5-0.5B"
+              # 设备索引
+              llm_device_num: 0
+              # 采样参数
+              llm_top_k: 1
+              llm_top_p: 0.9
+              llm_temperature: 1.0
+              llm_max_new_tokens: 256
+              llm_max_context_len: 2048
+              # 对话模板
+              llm_system_prompt: "你是一个乐于助人的AI助手。"
+              llm_prompt_prefix: "<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n"
+              llm_prompt_postfix: "<|im_end|>\n<|im_start|>assistant\n"
+              # 其他参数
+              confidence_threshold: 0.5
+              input_queue_count: 3
+              output_buffer_count: 3
+              src_frame_rate: 0
+              dst_frame_rate: 0
+              depth: 0
+
+      # 输出模块（打印 INFER 输出）
+      - name: "OUTPUT"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 输出类型
+              type: "APP"
+              # 操作类型
+              op_type: "PRINT"
+              # 观察深度
+              watch_depth: 1
+          - chn_id: 1
+            chn_config:
+              # 输出类型
+              type: "APP"
+              # 操作类型
+              op_type: "PRINT"
+              # 观察深度
+              watch_depth: 1
+
+    # 绑定关系列表
+    bindings:
+      # INPUT -> BUSINESS (CHN 0) 绑定
+      - name: "input_to_business_chn0"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "BUSINESS"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # INPUT -> VOICE 绑定
+      - name: "input_to_voice"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "VOICE"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # VOICE -> BUSINESS (CHN 1) 绑定
+      - name: "voice_to_business_chn1"
+        src_module: "VOICE"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "BUSINESS"
+        dst_dev_id: 0
+        dst_chn_id: 1
+
+      # BUSINESS (CHN 0) -> INFER 绑定 (ASR)
+      - name: "business_to_asr"
+        src_module: "BUSINESS"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "INFER"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # INFER (ASR) -> INFER (LLM) 绑定
+      - name: "asr_to_llm"
+        src_module: "INFER"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "INFER"
+        dst_dev_id: 0
+        dst_chn_id: 1
+
+      # INFER (ASR) -> OUTPUT 绑定（查看 ALM 输出）
+      - name: "asr_to_output"
+        src_module: "INFER"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "OUTPUT"
+        dst_dev_id: 0
+        dst_chn_id: 1
+
+      # INFER (LLM) -> OUTPUT 绑定
+      - name: "llm_to_output"
+        src_module: "INFER"
+        src_dev_id: 0
+        src_chn_id: 1
+        dst_module: "OUTPUT"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+# ============================================================
+# 系统配置
+# ============================================================
+system:
+  # 日志级别
+  log_level: "INFO"
+  # 日志输出
+  log_output: "CONSOLE"
+  # 缓冲区数量
+  buffer_count: 8
+
+# ============================================================
+# 调试配置
+# ============================================================
+debug:
+  # 是否启用调试模式
+  enabled: false
+  # 调试输出目录
+  output_dir: "/tmp/rkns_debug"
+  # 是否保存中间结果
+  save_intermediate: false
+
+# ============================================================
+# VAD (语音活动检测) 配置
+# ============================================================
+vad:
+  # 是否启用 VAD
+  enabled: true
+  # 静音阈值（dB）
+  silence_threshold: -40
+  # 最小语音长度（毫秒）
+  min_speech_duration: 200
+  # 最大静音长度（毫秒）
+  max_silence_duration: 500
+

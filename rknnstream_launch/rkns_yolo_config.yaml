@@ -71,10 +71,6 @@ pipelines:
               rknn_version: 2
               # RKNN 核心 ID（可选，0表示使用默认）
               core_mask: 0
-              # 设备 IP 地址（可选，用于远程推理）
-              device_addr: ""
-              # 设备端口号（可选，用于远程推理）
-              port: 0
               # 置信度阈值
               confidence_threshold: 0.5
               # 输入队列数量
@@ -106,7 +102,7 @@ pipelines:
               # 线宽
               line_width: 2
               # 文字缩放
-              text_scale: 1
+              text_scale: 3
               # ========== 绘制规则（RKNS_OVERLAY_RULE_S） ==========
               # 是否绘制检测框
               enable_box: true
@@ -116,24 +112,21 @@ pipelines:
               global_score_threshold: 0.4
               # 按类别的绘制规则
               rules:
-                - class_name: "face"
-                  enable: true
+                - enable: true
                   score_threshold: 0.3
                   color:
                     r: 255
                     g: 0
                     b: 0
                     a: 255
-                - class_name: "body"
-                  enable: true
+                - enable: true
                   score_threshold: 0.5
                   color:
                     r: 0
                     g: 255
                     b: 0
                     a: 255
-                - class_name: "car"
-                  enable: true
+                - enable: true
                   score_threshold: 0.6
                   color:
                     r: 0

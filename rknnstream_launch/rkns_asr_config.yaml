@@ -129,6 +129,46 @@ pipelines:
                 dev_id: 0
                 chn_id: 0
 
+      # VOICE 模块（VAD 语音活动检测）
+      - name: "VOICE"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # VOICE 类型
+              type: "VAD"
+              # 缓冲区数量
+              buf_count: 10
+              # 缓冲区大小
+              buf_size: 320
+              # 观察深度
+              depth: 1
+              # 输入队列长度
+              input_queue_len: 10
+              # VAD 特有参数
+              energy_threshold: -50
+              min_silence_ms: 300
+              min_voice_ms: 100
+              frame_duration_ms: 10
+              window_duration_ms: 20
+              step_duration_ms: 10
+
+      # BUSINESS 模块（控制音频输出）
+      - name: "BUSINESS"
+        # ========== 组列表 ==========
+        groups:
+          - grp_id: 0
+            grp_config:
+              # BUSINESS 类型
+              type: "SWITCH"
+              frame_time: 3000
+              # ONOFF RECOMBINE BYPASS
+              mode: "RECOMBINE"
+            # 该组的通道列表
+            channels:
+              - chn_id: 0
+              - chn_id: 1
+
       # 推理模块（ASR）
       - name: "INFER"
         # ========== 通道列表（INFER无设备参数，所有参数在通道中配置） ==========
@@ -182,9 +222,36 @@ pipelines:
 
     # 绑定关系列表
     bindings:
-      # INPUT -> INFER 绑定
-      - name: "input_to_infer"
+      # INPUT -> BUSINESS (CHN 0) 绑定
+      - name: "input_to_business_chn0"
         src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "BUSINESS"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # INPUT -> VOICE 绑定
+      - name: "input_to_voice"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "VOICE"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # VOICE -> BUSINESS (CHN 1) 绑定
+      - name: "voice_to_business_chn1"
+        src_module: "VOICE"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "BUSINESS"
+        dst_dev_id: 0
+        dst_chn_id: 1
+
+      # BUSINESS (CHN 0) -> INFER 绑定
+      - name: "business_to_infer"
+        src_module: "BUSINESS"
         src_dev_id: 0
         src_chn_id: 0
         dst_module: "INFER"

@@ -33,6 +33,8 @@
 #include <pthread.h>
 
 #include "rkns.h"
+#include "rkns_api_voice.h"
+#include "rkns_api_business.h"
 #include "rk_osal.h"
 #include "rkns_launch_config.h"
 #include "rockx.h"
@@ -214,125 +216,54 @@ static RKNS_S32 parse_arguments(RKNSLaunchConfig *config, int argc, char *argv[]
             break;
 
         case 's':  // scenario
-            if (strcmp(optarg, "detection") == 0) {
-                config->scenario = RKNS_LAUNCH_SCENARIO_DETECTION;
-            } else if (strcmp(optarg, "face") == 0) {
-                config->scenario = RKNS_LAUNCH_SCENARIO_FACE;
-            } else if (strcmp(optarg, "segment") == 0) {
-                config->scenario = RKNS_LAUNCH_SCENARIO_SEGMENT;
-            } else if (strcmp(optarg, "track") == 0) {
-                config->scenario = RKNS_LAUNCH_SCENARIO_TRACK;
-            } else if (strcmp(optarg, "custom") == 0) {
-                config->scenario = RKNS_LAUNCH_SCENARIO_CUSTOM;
-            } else {
-                fprintf(stderr, "Error: Invalid scenario type: %s\n", optarg);
-                return RKNS_FAILURE;
-            }
             break;
 
         case 'i':  // input type
-            if (strcmp(optarg, "ROCKIT") == 0) {
-                config->inputType = RKNS_INPUT_SOURCE_ROCKIT;
-            } else if (strcmp(optarg, "GSTREAMER") == 0) {
-                config->inputType = RKNS_INPUT_SOURCE_GSTREAMER;
-            } else if (strcmp(optarg, "OPENCV") == 0) {
-                config->inputType = RKNS_INPUT_SOURCE_OPENCV;
-            } else if (strcmp(optarg, "CUSTOM") == 0) {
-                config->inputType = RKNS_INPUT_SOURCE_CUSTOM;
-            } else {
-                fprintf(stderr, "Error: Invalid input type: %s\n", optarg);
-                return RKNS_FAILURE;
-            }
             break;
 
         case 0x100:  // input-path
-            rkos_strncpy(config->inputPath, optarg, MAX_PATH - 1);
             break;
 
         case 'W':  // width
-            config->width = atoi(optarg);
             break;
 
         case 'H':  // height
-            config->height = atoi(optarg);
             break;
 
         case 'F':  // fps
-            config->frameRate = atoi(optarg);
             break;
 
         case 'm':  // model type
-            if (strcmp(optarg, "ALM") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_ALM;
-            } else if (strcmp(optarg, "CLASSIFY") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_CLASSIFY;
-            } else if (strcmp(optarg, "DETECT") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_DETECT;
-            } else if (strcmp(optarg, "LLM") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_LLM;
-            } else if (strcmp(optarg, "SEGMENT") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_SEGMENT;
-            } else if (strcmp(optarg, "TRACK") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_TRACK;
-            } else if (strcmp(optarg, "TTA") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_TTA;
-            } else if (strcmp(optarg, "VLM") == 0) {
-                config->modelType = RKNS_MODEL_TYPE_VLM;
-            } else {
-                fprintf(stderr, "Error: Invalid model type: %s\n", optarg);
-                return RKNS_FAILURE;
-            }
             break;
 
         case 0x101:  // model-path
-            rkos_strncpy(config->modelPath, optarg, MAX_MODEL_PATH - 1);
             break;
 
         case 'c':  // confidence
-            config->confidenceThreshold = atof(optarg);
             break;
 
         case 0x102:  // enable-overlay
-            config->enableOverlay = RKNS_TRUE;
             break;
 
         case 0x103:  // disable-overlay
-            config->enableOverlay = RKNS_FALSE;
             break;
 
         case 'o':  // output type
-            if (strcmp(optarg, "APP") == 0) {
-                config->outputType = RKNS_OUTPUT_TYPE_APP;
-            } else if (strcmp(optarg, "ROCKIT") == 0) {
-                config->outputType = RKNS_OUTPUT_TYPE_ROCKIT;
-            } else if (strcmp(optarg, "GSTREAM") == 0) {
-                config->outputType = RKNS_OUTPUT_TYPE_GSTREAM;
-            } else if (strcmp(optarg, "OPENCV") == 0) {
-                config->outputType = RKNS_OUTPUT_TYPE_OPENCV;
-            } else {
-                fprintf(stderr, "Error: Invalid output type: %s\n", optarg);
-                return RKNS_FAILURE;
-            }
             break;
 
         case 0x104:  // output-path
-            rkos_strncpy(config->outputPath, optarg, MAX_PATH - 1);
             break;
 
         case 0x105:  // watch-depth
-            config->watchDepth = atoi(optarg);
             break;
 
         case 't':  // timeout
-            config->timeout = atoi(optarg);
             break;
 
         case 0x106:  // profiling
-            config->enableProfiling = RKNS_TRUE;
             break;
 
         case 'v':  // verbose
-            config->verbose = RKNS_TRUE;
             break;
 
         case 'h':  // help
@@ -508,6 +439,478 @@ RKNS_S32 input_stop(const RKNSLaunchModule *module,
     return ret;
 }
 
+/* ---------- VOICE 模块 ---------- */
+
+RKNS_S32 voice_parse_config(YamlDocument *doc, const char *base_path,
+                                      RKNSLaunchModule *module) {
+    RKNSVoiceParam *param = MODULE_CONFIG(module, RKNSVoiceParam);
+    char path[512];
+    const char *str;
+
+    rkos_memset(param, 0, sizeof(RKNSVoiceParam));
+
+    /* 解析 type */
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.type", base_path);
+    str = yaml_get_string(doc, path, "VAD");
+    if (strcmp(str, "VAD") == 0) {
+        param->type = RKNS_VOICE_TYPE_VAD;
+    } else {
+        param->type = RKNS_VOICE_TYPE_MAX;
+    }
+
+    /* 解析通用参数 */
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.buf_count", base_path);
+    param->bufCount = yaml_get_int(doc, path, 10);
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.buf_size", base_path);
+    param->bufSize = yaml_get_int(doc, path, 320);
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.depth", base_path);
+    param->depth = yaml_get_int(doc, path, 1);
+    snprintf(path, sizeof(path), "%s.channels.0.chn_config.input_queue_len", base_path);
+    param->inputQueueLen = yaml_get_int(doc, path, 10);
+
+    /* 解析 VAD 特有参数 */
+    if (param->type == RKNS_VOICE_TYPE_VAD) {
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.energy_threshold", base_path);
+        param->vadParam.energyThreshold = (float)yaml_get_float(doc, path, 0.1f);
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.min_silence_ms", base_path);
+        param->vadParam.minSilenceMs = yaml_get_int(doc, path, 100);
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.min_voice_ms", base_path);
+        param->vadParam.minVoiceMs = yaml_get_int(doc, path, 100);
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.frame_time", base_path);
+        param->vadParam.frameDurationMs = yaml_get_int(doc, path, 10);
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.window_duration_ms", base_path);
+        param->vadParam.windowDurationMs = yaml_get_int(doc, path, 20);
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.step_duration_ms", base_path);
+        param->vadParam.stepDurationMs = yaml_get_int(doc, path, 10);
+    }
+
+    /* 获取通道 ID */
+    snprintf(path, sizeof(path), "%s.channels.0.chn_id", base_path);
+    module->chnId = (RKNS_S32)yaml_get_int(doc, path, 0);
+
+    /* 打印 VOICE 模块配置参数 */
+    printf("[INFO] VOICE Module Config:\n");
+    printf("[INFO]   chn_id: %d\n", module->chnId);
+    printf("[INFO]   type: %s\n", param->type == RKNS_VOICE_TYPE_VAD ? "VAD" : "UNKNOWN");
+    printf("[INFO]   buf_count: %d\n", param->bufCount);
+    printf("[INFO]   buf_size: %d\n", param->bufSize);
+    printf("[INFO]   depth: %d\n", param->depth);
+    printf("[INFO]   input_queue_len: %d\n", param->inputQueueLen);
+    if (param->type == RKNS_VOICE_TYPE_VAD) {
+        printf("[INFO]   energy_threshold: %.2f\n", param->vadParam.energyThreshold);
+        printf("[INFO]   min_silence_ms: %d\n", param->vadParam.minSilenceMs);
+        printf("[INFO]   min_voice_ms: %d\n", param->vadParam.minVoiceMs);
+        printf("[INFO]   frame_duration_ms: %d\n", param->vadParam.frameDurationMs);
+        printf("[INFO]   window_duration_ms: %d\n", param->vadParam.windowDurationMs);
+        printf("[INFO]   step_duration_ms: %d\n", param->vadParam.stepDurationMs);
+    }
+
+    module->configParsed = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 voice_create(const RKNSLaunchModule *module,
+                              RKNSLaunchModuleState *state) {
+    RKNSVoiceParam *param = MODULE_CONFIG(module, RKNSVoiceParam);
+    RKNS_S32 ret;
+
+    ret = RKNS_VOICE_CreateChn(module->devId, module->chnId, param);
+    if (ret != RKNS_SUCCESS) {
+        fprintf(stderr, "[ERROR] RKNS_VOICE_CreateChn failed: %d\n", ret);
+        return ret;
+    }
+    state->chn.enModId = RKNS_ID_VOICE;
+    state->chn.s32DevId = module->devId;
+    state->chn.s32ChnId = module->chnId;
+    state->created = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 voice_destroy(const RKNSLaunchModule *module,
+                               RKNSLaunchModuleState *state) {
+    if (state->created) {
+        RKNS_VOICE_DestroyChn(module->devId, module->chnId);
+        state->created = RKNS_FALSE;
+    }
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 voice_start(const RKNSLaunchModule *module,
+                             RKNSLaunchModuleState *state) {
+    RKNS_S32 ret = RKNS_VOICE_StartChn(module->devId, module->chnId);
+    if (ret == RKNS_SUCCESS) state->started = RKNS_TRUE;
+    return ret;
+}
+
+RKNS_S32 voice_stop(const RKNSLaunchModule *module,
+                            RKNSLaunchModuleState *state) {
+    RKNS_S32 ret = RKNS_VOICE_StopChn(module->devId, module->chnId);
+    if (ret == RKNS_SUCCESS) state->started = RKNS_FALSE;
+    return ret;
+}
+
+/* ---------- BUSINESS 模块 ---------- */
+
+RKNS_S32 business_parse_config(YamlDocument *doc, const char *base_path,
+                                          RKNSLaunchModule *module) {
+    BusinessConfig *cfg = MODULE_CONFIG(module, BusinessConfig);
+    char path[512], grp_base[512], chn_base[512];
+    const char *str;
+    int g, c, ret = RKNS_SUCCESS;
+    int grp_count = 0, chn_count;
+
+    rkos_memset(cfg, 0, sizeof(BusinessConfig));
+
+    /* 先统计 group 数量 */
+    snprintf(path, sizeof(path), "%s.groups", base_path);
+    grp_count = yaml_get_count(doc, path);
+    if (grp_count <= 0) grp_count = 1;
+
+    /* 动态分配 group 配置数组 */
+    cfg->grpCount = grp_count;
+    cfg->grpConfigs = (BusinessGroupConfig *)rkos_kmalloc(
+        sizeof(BusinessGroupConfig) * grp_count);
+    if (!cfg->grpConfigs) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for BUSINESS group configs\n");
+        return RKNS_FAILURE;
+    }
+    rkos_memset(cfg->grpConfigs, 0, sizeof(BusinessGroupConfig) * grp_count);
+
+    /* 解析每个 group */
+    for (g = 0; g < grp_count; g++) {
+        BusinessGroupConfig *grp = &cfg->grpConfigs[g];
+        snprintf(grp_base, sizeof(grp_base), "%s.groups.%d", base_path, g);
+
+        /* 获取 group ID */
+        snprintf(path, sizeof(path), "%s.grp_id", grp_base);
+        grp->grpId = (RKNS_S32)yaml_get_int(doc, path, g);
+
+        /* 初始化 param */
+        rkos_memset(&grp->param, 0, sizeof(RKNSBusinessParam));
+
+        /* 解析 type - 这是 group 的属性 */
+        snprintf(path, sizeof(path), "%s.grp_config.type", grp_base);
+        str = yaml_get_string(doc, path, "SWITCH");
+        if (strcmp(str, "SPLITTER") == 0) {
+            grp->param.type = RKNS_BUSINESS_TYPE_SPLITTER;
+        } else if (strcmp(str, "MERGER") == 0) {
+            grp->param.type = RKNS_BUSINESS_TYPE_MERGER;
+        } else if (strcmp(str, "SWITCH") == 0) {
+            grp->param.type = RKNS_BUSINESS_TYPE_SWITCH;
+        } else {
+            grp->param.type = RKNS_BUSINESS_TYPE_MAX;
+        }
+
+        /* 解析各类型的参数 */
+        if (grp->param.type == RKNS_BUSINESS_TYPE_SPLITTER) {
+            snprintf(path, sizeof(path), "%s.grp_config.output_count", grp_base);
+            grp->param.splitter.outputCount = yaml_get_int(doc, path, 1);
+        } else if (grp->param.type == RKNS_BUSINESS_TYPE_MERGER) {
+            snprintf(path, sizeof(path), "%s.grp_config.input_count", grp_base);
+            grp->param.merger.inputCount = yaml_get_int(doc, path, 1);
+        } else if (grp->param.type == RKNS_BUSINESS_TYPE_SWITCH) {
+            snprintf(path, sizeof(path), "%s.grp_config.frame_time", grp_base);
+            grp->param.switchParam.frameDurationMs = yaml_get_int(doc, path, 10);
+            snprintf(path, sizeof(path), "%s.grp_config.mode", grp_base);
+            str = yaml_get_string(doc, path, "ONOFF");
+            if (strcmp(str, "BYPASS") == 0) {
+                grp->param.switchParam.mode = RKNS_BUSINESS_SWITCH_MODE_BYPASS;
+            } else if (strcmp(str, "ONOFF") == 0) {
+                grp->param.switchParam.mode = RKNS_BUSINESS_SWITCH_MODE_ONOFF;
+            } else if (strcmp(str, "RECOMBINE") == 0) {
+                grp->param.switchParam.mode = RKNS_BUSINESS_SWITCH_MODE_RECOMBINE;
+            }
+        }
+
+        /* 使用 yaml_get_count 获取该 group 的 channels 数量 */
+        snprintf(path, sizeof(path), "%s.channels", grp_base);
+        chn_count = yaml_get_count(doc, path);
+        if (chn_count <= 0) {
+            chn_count = 1;
+        }
+
+        grp->chnCount = chn_count;
+        if (chn_count > 0) {
+            /* 动态分配该 group 的 channel 配置数组 */
+            grp->chnConfigs = (BusinessChannelConfig *)rkos_kmalloc(
+                sizeof(BusinessChannelConfig) * chn_count);
+            if (!grp->chnConfigs) {
+                fprintf(stderr, "[ERROR] Failed to allocate memory for BUSINESS channel configs\n");
+                /* 清理已分配的内存 */
+                for (int j = 0; j <= g; j++) {
+                    BusinessGroupConfig *temp_grp = &cfg->grpConfigs[j];
+                    if (temp_grp->chnConfigs) {
+                        rkos_kfree(temp_grp->chnConfigs);
+                        temp_grp->chnConfigs = NULL;
+                    }
+                }
+                rkos_kfree(cfg->grpConfigs);
+                cfg->grpConfigs = NULL;
+                cfg->grpCount = 0;
+                return RKNS_FAILURE;
+            }
+            rkos_memset(grp->chnConfigs, 0, sizeof(BusinessChannelConfig) * chn_count);
+
+            /* 解析该 group 的每个 channel */
+            for (c = 0; c < chn_count; c++) {
+                BusinessChannelConfig *chn = &grp->chnConfigs[c];
+                snprintf(chn_base, sizeof(chn_base), "%s.channels.%d", grp_base, c);
+
+                /* 获取 channel ID */
+                snprintf(path, sizeof(path), "%s.chn_id", chn_base);
+                chn->chnId = (RKNS_S32)yaml_get_int(doc, path, c);
+
+                /* channel 暂时没有特殊的 chn_config 配置，就简单解析 */
+            }
+        }
+
+        /* 打印 BUSINESS group 配置参数 */
+        printf("[INFO] BUSINESS Group %d Config:\n", g);
+        printf("[INFO]   grp_id: %d\n", grp->grpId);
+        printf("[INFO]   type: ");
+        if (grp->param.type == RKNS_BUSINESS_TYPE_SPLITTER) printf("SPLITTER\n");
+        else if (grp->param.type == RKNS_BUSINESS_TYPE_MERGER) printf("MERGER\n");
+        else if (grp->param.type == RKNS_BUSINESS_TYPE_SWITCH) printf("SWITCH\n");
+        else printf("UNKNOWN\n");
+        if (grp->param.type == RKNS_BUSINESS_TYPE_SPLITTER) {
+            printf("[INFO]   output_count: %d\n", grp->param.splitter.outputCount);
+        } else if (grp->param.type == RKNS_BUSINESS_TYPE_MERGER) {
+            printf("[INFO]   input_count: %d\n", grp->param.merger.inputCount);
+        } else if (grp->param.type == RKNS_BUSINESS_TYPE_SWITCH) {
+            printf("[INFO]   frame_time: %d\n", grp->param.switchParam.frameDurationMs);
+            printf("[INFO]   mode: ");
+            if (grp->param.switchParam.mode == RKNS_BUSINESS_SWITCH_MODE_BYPASS) printf("BYPASS\n");
+            else if (grp->param.switchParam.mode == RKNS_BUSINESS_SWITCH_MODE_ONOFF) printf("ONOFF\n");
+            else if (grp->param.switchParam.mode == RKNS_BUSINESS_SWITCH_MODE_RECOMBINE) printf("RECOMBINE\n");
+        }
+        printf("[INFO]   channel_count: %d\n", grp->chnCount);
+    }
+
+    module->configParsed = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+static void business_free_config(BusinessConfig *cfg) {
+    if (cfg->grpConfigs) {
+        for (int j = 0; j < (int)cfg->grpCount; j++) {
+            BusinessGroupConfig *grp = &cfg->grpConfigs[j];
+            if (grp->chnConfigs) {
+                rkos_kfree(grp->chnConfigs);
+                grp->chnConfigs = NULL;
+            }
+        }
+        rkos_kfree(cfg->grpConfigs);
+        cfg->grpConfigs = NULL;
+    }
+    cfg->grpCount = 0;
+}
+
+RKNS_S32 business_create(const RKNSLaunchModule *module,
+                                RKNSLaunchModuleState *state) {
+    BusinessConfig *cfg = MODULE_CONFIG(module, BusinessConfig);
+    RKNSLaunchBusinessState *biz_state = &state->bizState;
+    int g, c, ret;
+
+    rkos_memset(biz_state, 0, sizeof(RKNSLaunchBusinessState));
+
+    /* 初始化 group count */
+    biz_state->grpCount = cfg->grpCount;
+    if (biz_state->grpCount == 0) {
+        fprintf(stderr, "[ERROR] No BUSINESS groups to create\n");
+        business_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+
+    /* 动态分配 group enable 数组 */
+    biz_state->grpEnabled = (RKNS_BOOL *)rkos_kmalloc(
+        sizeof(RKNS_BOOL) * biz_state->grpCount);
+    if (!biz_state->grpEnabled) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for BUSINESS group state\n");
+        business_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(biz_state->grpEnabled, 0, sizeof(RKNS_BOOL) * biz_state->grpCount);
+
+    /* 动态分配 channel count 数组 */
+    biz_state->chnCount = (RKNS_U32 *)rkos_kmalloc(
+        sizeof(RKNS_U32) * biz_state->grpCount);
+    if (!biz_state->chnCount) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for BUSINESS channel count\n");
+        rkos_kfree(biz_state->grpEnabled);
+        biz_state->grpEnabled = NULL;
+        business_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(biz_state->chnCount, 0, sizeof(RKNS_U32) * biz_state->grpCount);
+
+    /* 动态分配 channel enable 二维数组 */
+    biz_state->chnEnabled = (RKNS_BOOL **)rkos_kmalloc(
+        sizeof(RKNS_BOOL *) * biz_state->grpCount);
+    if (!biz_state->chnEnabled) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for BUSINESS channel state\n");
+        rkos_kfree(biz_state->grpEnabled);
+        rkos_kfree(biz_state->chnCount);
+        biz_state->grpEnabled = NULL;
+        biz_state->chnCount = NULL;
+        business_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(biz_state->chnEnabled, 0, sizeof(RKNS_BOOL *) * biz_state->grpCount);
+
+    /* 为每个 group 创建 BUSINESS 组 */
+    for (g = 0; g < (int)cfg->grpCount; g++) {
+        BusinessGroupConfig *grp = &cfg->grpConfigs[g];
+        ret = RKNS_BUSINESS_CreateGroup(grp->grpId, &grp->param);
+        if (ret != RKNS_SUCCESS) {
+            fprintf(stderr, "[ERROR] RKNS_BUSINESS_CreateGroup failed for group %d: %d\n",
+                    g, ret);
+            /* 清理已创建的组 */
+            for (int j = 0; j < g; j++) {
+                RKNS_BUSINESS_DestroyGroup(cfg->grpConfigs[j].grpId);
+            }
+            /* 释放已分配的内存 */
+            for (int j = 0; j < g; j++) {
+                if (biz_state->chnEnabled[j]) {
+                    rkos_kfree(biz_state->chnEnabled[j]);
+                }
+            }
+            rkos_kfree(biz_state->chnEnabled);
+            rkos_kfree(biz_state->chnCount);
+            rkos_kfree(biz_state->grpEnabled);
+            biz_state->chnEnabled = NULL;
+            biz_state->chnCount = NULL;
+            biz_state->grpEnabled = NULL;
+            business_free_config(cfg);
+            return ret;
+        }
+        biz_state->grpEnabled[g] = RKNS_TRUE;
+        biz_state->chnCount[g] = grp->chnCount;
+
+        /* 如果这个 group 有 channels，分配 channel enable 数组 */
+        if (grp->chnCount > 0) {
+            biz_state->chnEnabled[g] = (RKNS_BOOL *)rkos_kmalloc(
+                sizeof(RKNS_BOOL) * grp->chnCount);
+            if (!biz_state->chnEnabled[g]) {
+                fprintf(stderr, "[ERROR] Failed to allocate memory for BUSINESS channel state\n");
+                /* 清理已创建的组 */
+                for (int j = 0; j <= g; j++) {
+                    RKNS_BUSINESS_DestroyGroup(cfg->grpConfigs[j].grpId);
+                }
+                /* 释放已分配的内存 */
+                for (int j = 0; j < g; j++) {
+                    if (biz_state->chnEnabled[j]) {
+                        rkos_kfree(biz_state->chnEnabled[j]);
+                    }
+                }
+                rkos_kfree(biz_state->chnEnabled);
+                rkos_kfree(biz_state->chnCount);
+                rkos_kfree(biz_state->grpEnabled);
+                biz_state->chnEnabled = NULL;
+                biz_state->chnCount = NULL;
+                biz_state->grpEnabled = NULL;
+                business_free_config(cfg);
+                return RKNS_FAILURE;
+            }
+            rkos_memset(biz_state->chnEnabled[g], 0, sizeof(RKNS_BOOL) * grp->chnCount);
+
+            /* 暂时通道不需要创建，因为 BUSINESS 的 API 主要是基于 group 的 */
+            for (c = 0; c < (int)grp->chnCount; c++) {
+                biz_state->chnEnabled[g][c] = RKNS_TRUE;
+            }
+        }
+    }
+
+    state->chn.enModId = RKNS_ID_BUSINESS;
+    state->chn.s32DevId = module->devId;
+    if (cfg->grpCount > 0 && cfg->grpConfigs[0].chnCount > 0) {
+        state->chn.s32ChnId = cfg->grpConfigs[0].chnConfigs[0].chnId;
+    } else if (cfg->grpCount > 0) {
+        state->chn.s32ChnId = cfg->grpConfigs[0].grpId;
+    }
+    state->created = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 business_destroy(const RKNSLaunchModule *module,
+                                 RKNSLaunchModuleState *state) {
+    BusinessConfig *cfg = MODULE_CONFIG(module, BusinessConfig);
+    RKNSLaunchBusinessState *biz_state = &state->bizState;
+
+    if (state->created) {
+        /* 销毁所有 BUSINESS 组 */
+        for (int g = 0; g < (int)cfg->grpCount; g++) {
+            if (biz_state->grpEnabled[g]) {
+                RKNS_BUSINESS_DestroyGroup(cfg->grpConfigs[g].grpId);
+                biz_state->grpEnabled[g] = RKNS_FALSE;
+            }
+        }
+        /* 释放状态内存 */
+        for (int g = 0; g < (int)biz_state->grpCount; g++) {
+            if (biz_state->chnEnabled[g]) {
+                rkos_kfree(biz_state->chnEnabled[g]);
+            }
+        }
+        if (biz_state->chnEnabled) {
+            rkos_kfree(biz_state->chnEnabled);
+            biz_state->chnEnabled = NULL;
+        }
+        if (biz_state->chnCount) {
+            rkos_kfree(biz_state->chnCount);
+            biz_state->chnCount = NULL;
+        }
+        if (biz_state->grpEnabled) {
+            rkos_kfree(biz_state->grpEnabled);
+            biz_state->grpEnabled = NULL;
+        }
+        biz_state->grpCount = 0;
+        state->created = RKNS_FALSE;
+    }
+
+    /* 释放配置内存 */
+    business_free_config(cfg);
+
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 business_start(const RKNSLaunchModule *module,
+                                RKNSLaunchModuleState *state) {
+    BusinessConfig *cfg = MODULE_CONFIG(module, BusinessConfig);
+    RKNSLaunchBusinessState *biz_state = &state->bizState;
+    RKNS_S32 ret;
+
+    for (int g = 0; g < (int)cfg->grpCount; g++) {
+        if (biz_state->grpEnabled[g]) {
+            ret = RKNS_BUSINESS_StartGroup(cfg->grpConfigs[g].grpId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[ERROR] RKNS_BUSINESS_StartGroup failed for group %d: %d\n",
+                        g, ret);
+                return ret;
+            }
+        }
+    }
+    state->started = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 business_stop(const RKNSLaunchModule *module,
+                               RKNSLaunchModuleState *state) {
+    BusinessConfig *cfg = MODULE_CONFIG(module, BusinessConfig);
+    RKNSLaunchBusinessState *biz_state = &state->bizState;
+    RKNS_S32 ret;
+
+    for (int g = 0; g < (int)cfg->grpCount; g++) {
+        if (biz_state->grpEnabled[g]) {
+            ret = RKNS_BUSINESS_StopGroup(cfg->grpConfigs[g].grpId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[WARNING] RKNS_BUSINESS_StopGroup failed for group %d: %d\n",
+                        g, ret);
+            }
+        }
+    }
+    state->started = RKNS_FALSE;
+    return RKNS_SUCCESS;
+}
+
 /* ---------- INFER 模块 ---------- */
 
 /**
@@ -544,7 +947,7 @@ static RKNS_S32 alm_parse_model_config(YamlDocument *doc, const char *base_path,
                                        char *str_pool, size_t pool_size,
                                        size_t *offset) {
     RKNS_ALM_MODEL_ATTR_S *m = &attr->stAlmAttr;
-    char path[256];
+    char path[512];
 
     snprintf(path, sizeof(path), "%s.alm_task", base_path);
     str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pTask);
@@ -570,14 +973,14 @@ static RKNS_S32 alm_parse_model_config(YamlDocument *doc, const char *base_path,
 
 /**
  * @brief DETECT 模型属性解析（YoloV8/YoloX 等）
- * YAML 字段：model_name, weight_path, rknn_version, core_mask, device_addr, port
+ * YAML 字段：model_name, weight_path, rknn_version, core_mask
  */
 static RKNS_S32 detect_parse_model_config(YamlDocument *doc, const char *base_path,
                                           RKNS_INFER_ATTR_S *attr,
                                           char *str_pool, size_t pool_size,
                                           size_t *offset) {
     RKNS_DETECT_MODEL_ATTR_S *m = &attr->stDetectAttr;
-    char path[256];
+    char path[512];
 
     snprintf(path, sizeof(path), "%s.model_name", base_path);
     str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pModelName);
@@ -587,6 +990,55 @@ static RKNS_S32 detect_parse_model_config(YamlDocument *doc, const char *base_pa
 
     snprintf(path, sizeof(path), "%s.rknn_version", base_path);
     m->u32RknnVersion = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+    snprintf(path, sizeof(path), "%s.core_mask", base_path);
+    m->u32CoreMask = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+    return RKNS_SUCCESS;
+}
+
+/**
+ * @brief LLM 模型属性解析
+ * YAML 字段：llm_model_name, llm_device_num, llm_top_k, llm_top_p, 
+ *            llm_temperature, llm_max_new_tokens, llm_max_context_len,
+ *            llm_system_prompt, llm_prompt_prefix, llm_prompt_postfix
+ */
+static RKNS_S32 llm_parse_model_config(YamlDocument *doc, const char *base_path,
+                                       RKNS_INFER_ATTR_S *attr,
+                                       char *str_pool, size_t pool_size,
+                                       size_t *offset) {
+    RKNS_LLM_MODEL_ATTR_S *m = &attr->stLlmAttr;
+    char path[512];
+
+    snprintf(path, sizeof(path), "%s.llm_model_name", base_path);
+    str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pModelName);
+
+    snprintf(path, sizeof(path), "%s.llm_device_num", base_path);
+    m->s32DeviceNum = (RKNS_S32)yaml_get_int(doc, path, 0);
+
+    snprintf(path, sizeof(path), "%s.llm_top_k", base_path);
+    m->s32TopK = (RKNS_S32)yaml_get_int(doc, path, 1);
+
+    snprintf(path, sizeof(path), "%s.llm_top_p", base_path);
+    m->fTopP = (RKNS_FLOAT)yaml_get_float(doc, path, 0.9);
+
+    snprintf(path, sizeof(path), "%s.llm_temperature", base_path);
+    m->fTemperature = (RKNS_FLOAT)yaml_get_float(doc, path, 1.0);
+
+    snprintf(path, sizeof(path), "%s.llm_max_new_tokens", base_path);
+    m->s32MaxNewTokens = (RKNS_S32)yaml_get_int(doc, path, 256);
+
+    snprintf(path, sizeof(path), "%s.llm_max_context_len", base_path);
+    m->s32MaxContextLen = (RKNS_S32)yaml_get_int(doc, path, 2048);
+
+    snprintf(path, sizeof(path), "%s.llm_system_prompt", base_path);
+    str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pSystemPrompt);
+
+    snprintf(path, sizeof(path), "%s.llm_prompt_prefix", base_path);
+    str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pPromptPrefix);
+
+    snprintf(path, sizeof(path), "%s.llm_prompt_postfix", base_path);
+    str_pool_alloc(doc, path, str_pool, pool_size, offset, &m->pPromptPostfix);
 
     return RKNS_SUCCESS;
 }
@@ -611,7 +1063,7 @@ static const struct {
     { RKNS_MODEL_TYPE_ALM,      alm_parse_model_config },
     { RKNS_MODEL_TYPE_CLASSIFY, NULL },  /* 预留 */
     { RKNS_MODEL_TYPE_DETECT,   detect_parse_model_config },
-    { RKNS_MODEL_TYPE_LLM,      NULL },  /* 预留 */
+    { RKNS_MODEL_TYPE_LLM,      llm_parse_model_config },
     { RKNS_MODEL_TYPE_SEGMENT,  NULL },  /* 预留 */
     { RKNS_MODEL_TYPE_TRACK,    NULL },  /* 预留 */
     { RKNS_MODEL_TYPE_TTA,      NULL },  /* 预留 */
@@ -632,122 +1084,230 @@ static ModelConfigParseFunc find_model_config_parser(RKNS_MODEL_TYPE_E type) {
 
 RKNS_S32 infer_parse_config(YamlDocument *doc, const char *base_path,
                                     RKNSLaunchModule *module) {
-    RKNS_INFER_ATTR_S *attr = MODULE_CONFIG(module, RKNS_INFER_ATTR_S);
-    char path[256];
-    const char *str;
+    InferConfig *cfg = MODULE_CONFIG(module, InferConfig);
+    char path[512];
+    int chn_count;
+    int ci;
 
-    rkos_memset(attr, 0, sizeof(RKNS_INFER_ATTR_S));
+    rkos_memset(cfg, 0, sizeof(InferConfig));
 
-    /* INFER 模块无设备参数，所有参数在 channels 下配置 */
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.model_type", base_path);
-    str = yaml_get_string(doc, path, "DETECT");
-    attr->enModelType = parse_model_type(str);
+    /* ========== 获取通道数量并分配内存 ========== */
+    snprintf(path, sizeof(path), "%s.channels", base_path);
+    chn_count = yaml_get_count(doc, path);
+    if (chn_count <= 0) chn_count = 1;
 
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.input_queue_count", base_path);
-    attr->u32InputQueueCnt = (RKNS_U32)yaml_get_int(doc, path, 3);
+    cfg->chnCount = (RKNS_U32)chn_count;
+    cfg->chnConfigs = (InferChannelConfig*)rkos_kmalloc(sizeof(InferChannelConfig) * chn_count);
+    if (!cfg->chnConfigs) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for %d INFER channels\n", chn_count);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(cfg->chnConfigs, 0, sizeof(InferChannelConfig) * chn_count);
 
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.output_buffer_count", base_path);
-    attr->u32BufferCnt = (RKNS_U32)yaml_get_int(doc, path, 3);
+    /* ========== 解析每个通道 ========== */
+    for (ci = 0; ci < chn_count; ci++) {
+        InferChannelConfig *chn = &cfg->chnConfigs[ci];
+        char chn_base[512];
+        snprintf(chn_base, sizeof(chn_base), "%s.channels.%d", base_path, ci);
 
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.depth", base_path);
-    attr->depth = (RKNS_U32)yaml_get_int(doc, path, 0);
+        /* 获取通道 ID */
+        snprintf(path, sizeof(path), "%s.chn_id", chn_base);
+        chn->chnId = (RKNS_S32)yaml_get_int(doc, path, ci);
 
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.src_frame_rate", base_path);
-    attr->s32SrcFrameRate = (RKNS_S32)yaml_get_int(doc, path, 0);
-
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.dst_frame_rate", base_path);
-    attr->s32DstFrameRate = (RKNS_S32)yaml_get_int(doc, path, 0);
-
-    /* 字符串池：stModelAttr 和模型特有属性的 char* 指针都指向此区域 */
-    {
-        size_t attr_size = sizeof(RKNS_INFER_ATTR_S);
-        char *str_pool = (char *)module->configBuf + attr_size;
-        size_t pool_remain = RKNS_MODULE_CONFIG_SIZE - attr_size;
+        /* 为每个通道分配独立的字符串池 */
+        chn->strPoolSize = RKNS_MODULE_CONFIG_SIZE / 2;
+        chn->strPool = (char*)rkos_kmalloc(chn->strPoolSize);
+        if (!chn->strPool) {
+            fprintf(stderr, "[ERROR] Failed to allocate string pool for INFER channel %d\n", ci);
+            /* 释放已分配的资源 */
+            for (int j = 0; j <= ci; j++) {
+                if (cfg->chnConfigs[j].strPool) {
+                    rkos_kfree(cfg->chnConfigs[j].strPool);
+                }
+            }
+            rkos_kfree(cfg->chnConfigs);
+            cfg->chnConfigs = NULL;
+            cfg->chnCount = 0;
+            return RKNS_FAILURE;
+        }
+        rkos_memset(chn->strPool, 0, chn->strPoolSize);
         size_t offset = 0;
 
-        /* 公共属性：stModelAttr */
-        snprintf(path, sizeof(path), "%s.channels.0.chn_config.module_name", base_path);
-        str_pool_alloc(doc, path, str_pool, pool_remain, &offset,
+        RKNS_INFER_ATTR_S *attr = &chn->attr;
+
+        /* 解析模型类型 */
+        snprintf(path, sizeof(path), "%s.chn_config.model_type", chn_base);
+        const char *model_type_str = yaml_get_string(doc, path, "DETECT");
+        attr->enModelType = parse_model_type(model_type_str);
+
+        /* 解析公共参数 */
+        snprintf(path, sizeof(path), "%s.chn_config.input_queue_count", chn_base);
+        attr->u32InputQueueCnt = (RKNS_U32)yaml_get_int(doc, path, 3);
+
+        snprintf(path, sizeof(path), "%s.chn_config.output_buffer_count", chn_base);
+        attr->u32BufferCnt = (RKNS_U32)yaml_get_int(doc, path, 3);
+
+        snprintf(path, sizeof(path), "%s.chn_config.depth", chn_base);
+        attr->depth = (RKNS_U32)yaml_get_int(doc, path, 0);
+
+        snprintf(path, sizeof(path), "%s.chn_config.src_frame_rate", chn_base);
+        attr->s32SrcFrameRate = (RKNS_S32)yaml_get_int(doc, path, 0);
+
+        snprintf(path, sizeof(path), "%s.chn_config.dst_frame_rate", chn_base);
+        attr->s32DstFrameRate = (RKNS_S32)yaml_get_int(doc, path, 0);
+
+        /* 解析 stModelAttr 的字符串属性 */
+        snprintf(path, sizeof(path), "%s.chn_config.module_name", chn_base);
+        str_pool_alloc(doc, path, chn->strPool, chn->strPoolSize, &offset,
                        &attr->stModelAttr.pModuleName);
 
-        snprintf(path, sizeof(path), "%s.channels.0.chn_config.model_path", base_path);
-        str_pool_alloc(doc, path, str_pool, pool_remain, &offset,
+        snprintf(path, sizeof(path), "%s.chn_config.model_path", chn_base);
+        str_pool_alloc(doc, path, chn->strPool, chn->strPoolSize, &offset,
                        &attr->stModelAttr.pDataPath);
 
-        snprintf(path, sizeof(path), "%s.channels.0.chn_config.model_auth_config", base_path);
-        str_pool_alloc(doc, path, str_pool, pool_remain, &offset,
+        snprintf(path, sizeof(path), "%s.chn_config.model_auth_config", chn_base);
+        str_pool_alloc(doc, path, chn->strPool, chn->strPoolSize, &offset,
                        &attr->stModelAttr.pAuthConfig);
 
-        /* 模型特有属性：通过注册表按 enModelType 查找对应解析函数 */
-        {
-            ModelConfigParseFunc model_parse = find_model_config_parser(attr->enModelType);
-            if (model_parse) {
-                /* 使用 channels.0.chn_config 作为基础路径 */
-                char chn_config_path[256];
-                snprintf(chn_config_path, sizeof(chn_config_path), "%s.channels.0.chn_config", base_path);
-                model_parse(doc, chn_config_path, attr, str_pool, pool_remain, &offset);
-            }
+        /* 解析模型特有属性 */
+        ModelConfigParseFunc model_parse = find_model_config_parser(attr->enModelType);
+        if (model_parse) {
+            char chn_config_path[512];
+            snprintf(chn_config_path, sizeof(chn_config_path), "%s.chn_config", chn_base);
+            model_parse(doc, chn_config_path, attr, chn->strPool, chn->strPoolSize, &offset);
         }
     }
 
-    /* 获取通道 ID */
-    snprintf(path, sizeof(path), "%s.channels.0.chn_id", base_path);
-    module->chnId = (RKNS_S32)yaml_get_int(doc, path, 0);
-
-    /* 打印 INFER 模块配置参数 */
+    /* ========== 打印配置 ========== */
     printf("[INFO] INFER Module Config:\n");
-    printf("[INFO]   chn_id: %d\n", module->chnId);
-    printf("[INFO]   model_type: %d\n", attr->enModelType);
-    printf("[INFO]   module_name: %s\n", attr->stModelAttr.pModuleName ? attr->stModelAttr.pModuleName : "(null)");
-    printf("[INFO]   model_path: %s\n", attr->stModelAttr.pDataPath ? attr->stModelAttr.pDataPath : "(null)");
-    printf("[INFO]   input_queue_count: %u\n", attr->u32InputQueueCnt);
-    printf("[INFO]   output_buffer_count: %u\n", attr->u32BufferCnt);
-    printf("[INFO]   depth: %u\n", attr->depth);
-    printf("[INFO]   src_frame_rate: %d\n", attr->s32SrcFrameRate);
-    printf("[INFO]   dst_frame_rate: %d\n", attr->s32DstFrameRate);
-    if (attr->enModelType == RKNS_MODEL_TYPE_ALM) {
-        printf("[INFO]   ALM Model Attr:\n");
-        printf("[INFO]     task: %s\n", attr->stAlmAttr.pTask ? attr->stAlmAttr.pTask : "(null)");
-        printf("[INFO]     encoder_model: %s\n", attr->stAlmAttr.pEncoderModelName ? attr->stAlmAttr.pEncoderModelName : "(null)");
-        printf("[INFO]     decoder_model: %s\n", attr->stAlmAttr.pDecoderModelName ? attr->stAlmAttr.pDecoderModelName : "(null)");
-        printf("[INFO]     mel_filters: %s\n", attr->stAlmAttr.pMelFiltersName ? attr->stAlmAttr.pMelFiltersName : "(null)");
-        printf("[INFO]     vocab: %s\n", attr->stAlmAttr.pVocabName ? attr->stAlmAttr.pVocabName : "(null)");
-        printf("[INFO]     cache_time: %u ms\n", attr->stAlmAttr.u32CacheTime);
-    }
-    if (attr->enModelType == RKNS_MODEL_TYPE_DETECT) {
-        printf("[INFO]   DETECT Model Attr:\n");
-        printf("[INFO]     model_name: %s\n", attr->stDetectAttr.pModelName ? attr->stDetectAttr.pModelName : "(null)");
-        printf("[INFO]     weight_path: %s\n", attr->stDetectAttr.pWeightPath ? attr->stDetectAttr.pWeightPath : "(null)");
-        printf("[INFO]     rknn_version: %u\n", attr->stDetectAttr.u32RknnVersion);
-        printf("[INFO]     core_mask: 0x%x\n", attr->stDetectAttr.u32CoreMask);
+    printf("[INFO]   Total channels: %u\n", cfg->chnCount);
+    for (ci = 0; ci < (int)cfg->chnCount; ci++) {
+        InferChannelConfig *chn = &cfg->chnConfigs[ci];
+        RKNS_INFER_ATTR_S *attr = &chn->attr;
+        printf("[INFO]   Channel[%d]: chn_id=%d, model_type=%s, module_name=%s\n",
+               ci, chn->chnId, g_modelTypeStr[attr->enModelType],
+               attr->stModelAttr.pModuleName ? attr->stModelAttr.pModuleName : "(null)");
+        printf("[INFO]     input_queue_count: %u, output_buffer_count: %u, depth: %u\n",
+               attr->u32InputQueueCnt, attr->u32BufferCnt, attr->depth);
+        
+        if (attr->enModelType == RKNS_MODEL_TYPE_ALM) {
+            printf("[INFO]     ALM Model: task=%s, encoder=%s, decoder=%s\n",
+                   attr->stAlmAttr.pTask ? attr->stAlmAttr.pTask : "(null)",
+                   attr->stAlmAttr.pEncoderModelName ? attr->stAlmAttr.pEncoderModelName : "(null)",
+                   attr->stAlmAttr.pDecoderModelName ? attr->stAlmAttr.pDecoderModelName : "(null)");
+        } else if (attr->enModelType == RKNS_MODEL_TYPE_DETECT) {
+            printf("[INFO]     DETECT Model: model_name=%s, rknn_ver=%u, core_mask=0x%x\n",
+                   attr->stDetectAttr.pModelName ? attr->stDetectAttr.pModelName : "(null)",
+                   attr->stDetectAttr.u32RknnVersion,
+                   attr->stDetectAttr.u32CoreMask);
+        } else if (attr->enModelType == RKNS_MODEL_TYPE_LLM) {
+            printf("[INFO]     LLM Model: model_name=%s, device_num=%d, temp=%.2f\n",
+                   attr->stLlmAttr.pModelName ? attr->stLlmAttr.pModelName : "(null)",
+                   attr->stLlmAttr.s32DeviceNum,
+                   attr->stLlmAttr.fTemperature);
+        }
     }
 
     module->configParsed = RKNS_TRUE;
     return RKNS_SUCCESS;
 }
 
+static void infer_free_config(InferConfig *cfg) {
+    if (cfg->chnConfigs != NULL) {
+        for (int ci = 0; ci < (int)cfg->chnCount; ci++) {
+            if (cfg->chnConfigs[ci].strPool != NULL) {
+                rkos_kfree(cfg->chnConfigs[ci].strPool);
+            }
+        }
+        rkos_kfree(cfg->chnConfigs);
+        cfg->chnConfigs = NULL;
+        cfg->chnCount = 0;
+    }
+}
+
 RKNS_S32 infer_create(const RKNSLaunchModule *module,
                               RKNSLaunchModuleState *state) {
-    const RKNS_INFER_ATTR_S *attr = MODULE_CONFIG(module, RKNS_INFER_ATTR_S);
+    const InferConfig *cfg = MODULE_CONFIG(module, InferConfig);
     RKNS_S32 ret;
+    int ci;
 
-    /* INFER API 只接收 chnId，不接收 devId */
-    ret = RKNS_INFER_CreateChn((INFER_CHN)module->chnId, attr);
-    if (ret != RKNS_SUCCESS) {
-        fprintf(stderr, "[ERROR] RKNS_INFER_CreateChn failed: %d\n", ret);
-        return ret;
+    rkos_memset(&state->inferState, 0, sizeof(state->inferState));
+    state->inferState.chnCount = cfg->chnCount;
+    
+    /* 动态分配状态数组 */
+    if (cfg->chnCount > 0) {
+        state->inferState.chnEnabled = (RKNS_BOOL*)rkos_kmalloc(sizeof(RKNS_BOOL) * cfg->chnCount);
+        if (!state->inferState.chnEnabled) {
+            fprintf(stderr, "[ERROR] Failed to allocate memory for INFER channel states\n");
+            infer_free_config((InferConfig*)cfg);
+            return RKNS_FAILURE;
+        }
+        rkos_memset(state->inferState.chnEnabled, 0, sizeof(RKNS_BOOL) * cfg->chnCount);
     }
-    state->chn.enModId = RKNS_ID_INFER;
-    state->chn.s32DevId = module->devId;
-    state->chn.s32ChnId = module->chnId;
+
+    for (ci = 0; ci < (int)cfg->chnCount; ci++) {
+        const InferChannelConfig *chn = &cfg->chnConfigs[ci];
+        
+        /* 创建 INFER 通道 */
+        ret = RKNS_INFER_CreateChn((INFER_CHN)chn->chnId, &chn->attr);
+        if (ret != RKNS_SUCCESS) {
+            fprintf(stderr, "[ERROR] RKNS_INFER_CreateChn failed for channel %d: %d\n", ci, ret);
+            /* 销毁已创建的通道 */
+            for (int j = 0; j < ci; j++) {
+                if (state->inferState.chnEnabled[j]) {
+                    RKNS_INFER_DestroyChn((INFER_CHN)cfg->chnConfigs[j].chnId);
+                    state->inferState.chnEnabled[j] = RKNS_FALSE;
+                }
+            }
+            /* 释放状态数组 */
+            if (state->inferState.chnEnabled) {
+                rkos_kfree(state->inferState.chnEnabled);
+                state->inferState.chnEnabled = NULL;
+            }
+            state->inferState.chnCount = 0;
+            /* 释放配置内存 */
+            infer_free_config((InferConfig*)cfg);
+            return ret;
+        }
+        
+        state->inferState.chnEnabled[ci] = RKNS_TRUE;
+        printf("[INFO] INFER channel %d created (chn_id=%d)\n", ci, chn->chnId);
+    }
+
+    /* 设置默认通道信息（保持向后兼容） */
+    if (cfg->chnCount > 0) {
+        state->chn.enModId = RKNS_ID_INFER;
+        state->chn.s32DevId = module->devId;
+        state->chn.s32ChnId = cfg->chnConfigs[0].chnId;
+    }
     state->created = RKNS_TRUE;
     return RKNS_SUCCESS;
 }
 
 RKNS_S32 infer_destroy(const RKNSLaunchModule *module,
                                RKNSLaunchModuleState *state) {
+    const InferConfig *cfg = MODULE_CONFIG(module, InferConfig);
+    
     if (state->created) {
-        RKNS_INFER_DestroyChn((INFER_CHN)module->chnId);
+        /* 销毁所有 INFER 通道 */
+        for (int ci = (int)cfg->chnCount - 1; ci >= 0; ci--) {
+            if (state->inferState.chnEnabled && state->inferState.chnEnabled[ci]) {
+                RKNS_INFER_DestroyChn((INFER_CHN)cfg->chnConfigs[ci].chnId);
+                state->inferState.chnEnabled[ci] = RKNS_FALSE;
+                printf("[INFO] INFER channel %d destroyed (chn_id=%d)\n", ci, cfg->chnConfigs[ci].chnId);
+            }
+        }
+        
+        /* 释放状态数组 */
+        if (state->inferState.chnEnabled != NULL) {
+            rkos_kfree(state->inferState.chnEnabled);
+            state->inferState.chnEnabled = NULL;
+        }
+        
+        /* 释放配置内存 */
+        infer_free_config((InferConfig*)cfg);
+        
+        rkos_memset(&state->inferState, 0, sizeof(state->inferState));
         state->created = RKNS_FALSE;
     }
     return RKNS_SUCCESS;
@@ -755,16 +1315,41 @@ RKNS_S32 infer_destroy(const RKNSLaunchModule *module,
 
 RKNS_S32 infer_start(const RKNSLaunchModule *module,
                              RKNSLaunchModuleState *state) {
-    RKNS_S32 ret = RKNS_INFER_StartChn((INFER_CHN)module->chnId);
-    if (ret == RKNS_SUCCESS) state->started = RKNS_TRUE;
-    return ret;
+    const InferConfig *cfg = MODULE_CONFIG(module, InferConfig);
+    RKNS_S32 ret;
+    
+    for (int ci = 0; ci < (int)cfg->chnCount; ci++) {
+        if (state->inferState.chnEnabled && state->inferState.chnEnabled[ci]) {
+            ret = RKNS_INFER_StartChn((INFER_CHN)cfg->chnConfigs[ci].chnId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[ERROR] RKNS_INFER_StartChn failed for channel %d: %d\n", ci, ret);
+                return ret;
+            }
+            printf("[INFO] INFER channel %d started (chn_id=%d)\n", ci, cfg->chnConfigs[ci].chnId);
+        }
+    }
+    state->started = RKNS_TRUE;
+    return RKNS_SUCCESS;
 }
 
 RKNS_S32 infer_stop(const RKNSLaunchModule *module,
                             RKNSLaunchModuleState *state) {
-    RKNS_S32 ret = RKNS_INFER_StopChn((INFER_CHN)module->chnId);
-    if (ret == RKNS_SUCCESS) state->started = RKNS_FALSE;
-    return ret;
+    const InferConfig *cfg = MODULE_CONFIG(module, InferConfig);
+    RKNS_S32 ret;
+    
+    for (int ci = (int)cfg->chnCount - 1; ci >= 0; ci--) {
+        if (state->inferState.chnEnabled && state->inferState.chnEnabled[ci]) {
+            ret = RKNS_INFER_StopChn((INFER_CHN)cfg->chnConfigs[ci].chnId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[ERROR] RKNS_INFER_StopChn failed for channel %d: %d\n", ci, ret);
+                /* 继续停止其他通道 */
+            } else {
+                printf("[INFO] INFER channel %d stopped (chn_id=%d)\n", ci, cfg->chnConfigs[ci].chnId);
+            }
+        }
+    }
+    state->started = RKNS_FALSE;
+    return RKNS_SUCCESS;
 }
 
 /* ---------- GRAPHICS 模块 ---------- */
@@ -803,7 +1388,15 @@ RKNS_S32 graphics_parse_config(YamlDocument *doc, const char *base_path,
     str = yaml_get_string(doc, path, "NV12");
     param->attr.pixelFmt = parse_pixel_format(str);
 
-    param->attr.bgColor.a = 0x00;
+    /* 背景色 */
+    snprintf(path, sizeof(path), "%s.bg_color.r", chn_path);
+    param->attr.bgColor.r = (RKNS_U8)yaml_get_int(doc, path, 0);
+    snprintf(path, sizeof(path), "%s.bg_color.g", chn_path);
+    param->attr.bgColor.g = (RKNS_U8)yaml_get_int(doc, path, 0);
+    snprintf(path, sizeof(path), "%s.bg_color.b", chn_path);
+    param->attr.bgColor.b = (RKNS_U8)yaml_get_int(doc, path, 0);
+    snprintf(path, sizeof(path), "%s.bg_color.a", chn_path);
+    param->attr.bgColor.a = (RKNS_U8)yaml_get_int(doc, path, 0x00);
 
     snprintf(path, sizeof(path), "%s.max_box_per_frame", chn_path);
     param->attr.maxBoxPerFrame = (RKNS_U32)yaml_get_int(doc, path, 32);
@@ -824,6 +1417,9 @@ RKNS_S32 graphics_parse_config(YamlDocument *doc, const char *base_path,
     snprintf(path, sizeof(path), "%s.global_score_threshold", chn_path);
     rule->globalScoreThreshold = (RKNS_FLOAT)yaml_get_float(doc, path, 0.4);
 
+    snprintf(path, sizeof(path), "%s.text_scale", chn_path);
+    rule->textScale = (RKNS_U32)yaml_get_int(doc, path, 1);
+
     /* 解析 overlay rules 子列表 */
     snprintf(path, sizeof(path), "%s.rules", chn_path);
     rule_count = yaml_get_count(doc, path);
@@ -832,10 +1428,6 @@ RKNS_S32 graphics_parse_config(YamlDocument *doc, const char *base_path,
         rule->clsNum = (RKNS_U32)rule_count;
         for (ri = 0; ri < rule_count; ri++) {
             RKNS_OVERLAY_RULE_ITEM_S *item = &rule->clsRule[ri];
-
-            snprintf(path, sizeof(path), "%s.rules.%d.class_name", chn_path, ri);
-            str = yaml_get_string(doc, path, "unknown");
-            rkos_strncpy(item->clsName, str, RKNS_OVERLAY_MAX_NAME_LEN - 1);
 
             snprintf(path, sizeof(path), "%s.rules.%d.enable", chn_path, ri);
             item->enable = (RKNS_BOOL)yaml_get_bool(doc, path, 1);
@@ -866,19 +1458,22 @@ RKNS_S32 graphics_parse_config(YamlDocument *doc, const char *base_path,
     printf("[INFO]   pixel_format: %s\n",
            param->attr.pixelFmt == ROCKX_PIXEL_FORMAT_YUV420SP_NV12 ? "NV12" :
            param->attr.pixelFmt == ROCKX_PIXEL_FORMAT_RGB888 ? "RGB888" : "ARGB8888");
+    printf("[INFO]   bg_color: A=%u, R=%u, G=%u, B=%u\n",
+           param->attr.bgColor.a, param->attr.bgColor.r,
+           param->attr.bgColor.g, param->attr.bgColor.b);
     printf("[INFO]   max_box_per_frame: %u\n", param->attr.maxBoxPerFrame);
     printf("[INFO]   line_width: %u\n", param->attr.lineWidth);
-    printf("[INFO]   text_scale: %u\n", param->attr.textScale);
+    printf("[INFO]   text_scale: %u (attr)\n", param->attr.textScale);
     printf("[INFO]   enable_box: %s\n", rule->enableBox ? "true" : "false");
     printf("[INFO]   enable_text: %s\n", rule->enableText ? "true" : "false");
     printf("[INFO]   global_score_threshold: %.2f\n", rule->globalScoreThreshold);
+    printf("[INFO]   text_scale: %u (rule)\n", rule->textScale);
     printf("[INFO]   rules_count: %u\n", rule->clsNum);
     if (rule->clsNum > 0) {
         RKNS_U32 ri;
         for (ri = 0; ri < rule->clsNum; ri++) {
             const RKNS_OVERLAY_RULE_ITEM_S *item = &rule->clsRule[ri];
             printf("[INFO]   rules[%u]:\n", ri);
-            printf("[INFO]     class_name: %s\n", item->clsName);
             printf("[INFO]     enable: %s\n", item->enable ? "true" : "false");
             printf("[INFO]     score_threshold: %.2f\n", item->scoreThreshold);
             printf("[INFO]     color: A=%d, R=%d, G=%d, B=%d\n",
@@ -945,136 +1540,342 @@ RKNS_S32 graphics_stop(const RKNSLaunchModule *module,
 
 /* ---------- OUTPUT 模块 ---------- */
 
+/**
+ * @brief 辅助函数：将字符串从 YAML 复制到字符串池，并设置指针
+ */
+static RKNS_S32 output_str_pool_alloc(YamlDocument *doc, const char *path,
+                                char *strPool, size_t poolSize,
+                                size_t *offset, char **pptr) {
+    const char *str = yaml_get_string(doc, path, NULL);
+    if (!str) {
+        *pptr = NULL;
+        return RKNS_SUCCESS;
+    }
+
+    size_t len = strlen(str) + 1;
+    if (*offset + len > poolSize) {
+        fprintf(stderr, "[ERROR] String pool overflow for %s\n", path);
+        return RKNS_FAILURE;
+    }
+
+    memcpy(strPool + *offset, str, len);
+    *pptr = strPool + *offset;
+    *offset += len;
+    return RKNS_SUCCESS;
+}
+
 RKNS_S32 output_parse_config(YamlDocument *doc, const char *base_path,
                                       RKNSLaunchModule *module) {
-    RKNSOutputParam *param = MODULE_CONFIG(module, RKNSOutputParam);
-    char path[256];
-    const char *str;
+    OutputConfig *cfg = MODULE_CONFIG(module, OutputConfig);
+    char path[512];
+    int chn_count;
+    int ci;
 
-    rkos_memset(param, 0, sizeof(RKNSOutputParam));
+    rkos_memset(cfg, 0, sizeof(OutputConfig));
 
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.type", base_path);
-    str = yaml_get_string(doc, path, "APP");
-    param->type = parse_output_type(str);
+    /* ========== 获取通道数量并分配内存 ========== */
+    snprintf(path, sizeof(path), "%s.channels", base_path);
+    chn_count = yaml_get_count(doc, path);
+    if (chn_count <= 0) chn_count = 1;
 
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.watch_depth", base_path);
-    param->watchDepth = (int)yaml_get_int(doc, path, 1);
+    cfg->chnCount = (RKNS_U32)chn_count;
+    cfg->chnConfigs = (OutputChannelConfig *)rkos_kmalloc(sizeof(OutputChannelConfig) * chn_count);
+    if (!cfg->chnConfigs) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for %d OUTPUT channels\n", chn_count);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(cfg->chnConfigs, 0, sizeof(OutputChannelConfig) * chn_count);
 
-    /* 操作类型（APP 类型时有效） */
-    snprintf(path, sizeof(path), "%s.channels.0.chn_config.op_type", base_path);
-    str = yaml_get_string(doc, path, "PRINT");
-    if (param->type == RKNS_OUTPUT_TYPE_APP) {
-        if (strcmp(str, "SAVE_FILE") == 0) {
-            param->app.cmd = RKNS_APP_CMD_SAVE_FILE;
-        } else {
-            param->app.cmd = RKNS_APP_CMD_PRINT;
+    /* ========== 解析每个通道 ========== */
+    for (ci = 0; ci < chn_count; ci++) {
+        OutputChannelConfig *chn = &cfg->chnConfigs[ci];
+        char chn_base[512];
+        snprintf(chn_base, sizeof(chn_base), "%s.channels.%d", base_path, ci);
+
+        /* 获取通道 ID */
+        snprintf(path, sizeof(path), "%s.chn_id", chn_base);
+        chn->chnId = (RKNS_S32)yaml_get_int(doc, path, ci);
+
+        /* 为每个通道分配独立的字符串池 */
+        chn->strPoolSize = RKNS_MODULE_CONFIG_SIZE / 2;
+        chn->strPool = (char *)rkos_kmalloc(chn->strPoolSize);
+        if (!chn->strPool) {
+            fprintf(stderr, "[ERROR] Failed to allocate string pool for OUTPUT channel %d\n", ci);
+            /* 释放已分配的资源 */
+            for (int j = 0; j <= ci; j++) {
+                if (cfg->chnConfigs[j].strPool) {
+                    rkos_kfree(cfg->chnConfigs[j].strPool);
+                }
+            }
+            rkos_kfree(cfg->chnConfigs);
+            cfg->chnConfigs = NULL;
+            cfg->chnCount = 0;
+            return RKNS_FAILURE;
         }
-    } else if (param->type == RKNS_OUTPUT_TYPE_ROCKIT) {
-        if (strcmp(str, "UPDATE_RGN") == 0) {
-            param->rockit.cmd = RKNS_ROCKIT_CMD_UPDATE_RGN;
-        } else if (strcmp(str, "SEND_VPSS") == 0) {
-            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VPSS;
-        } else if (strcmp(str, "SEND_VO") == 0) {
-            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
-        } else if (strcmp(str, "SEND_AO") == 0) {
-            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_AO;
-        } else if (strcmp(str, "SEND_AENC") == 0) {
-            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_AENC;
-        } else if (strcmp(str, "SEND_VENC") == 0) {
-            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VENC;
-        } else {
-            param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
+        rkos_memset(chn->strPool, 0, chn->strPoolSize);
+        size_t offset = 0;
+
+        RKNSOutputParam *param = &chn->param;
+
+        /* 解析通用参数 */
+        snprintf(path, sizeof(path), "%s.chn_config.type", chn_base);
+        const char *type_str = yaml_get_string(doc, path, "APP");
+        param->type = parse_output_type(type_str);
+
+        snprintf(path, sizeof(path), "%s.chn_config.watch_depth", chn_base);
+        param->watchDepth = (int)yaml_get_int(doc, path, 1);
+
+        /* 解析操作类型 */
+        snprintf(path, sizeof(path), "%s.chn_config.op_type", chn_base);
+        const char *op_str = yaml_get_string(doc, path, "PRINT");
+        if (param->type == RKNS_OUTPUT_TYPE_APP) {
+            if (strcmp(op_str, "SAVE_FILE") == 0) {
+                param->app.cmd = RKNS_APP_CMD_SAVE_FILE;
+                /* 可选：解析 filePath */
+                snprintf(path, sizeof(path), "%s.chn_config.file_path", chn_base);
+                output_str_pool_alloc(doc, path, chn->strPool, chn->strPoolSize, &offset,
+                                     &param->app.saveFile.filePath);
+            } else {
+                param->app.cmd = RKNS_APP_CMD_PRINT;
+            }
+        } else if (param->type == RKNS_OUTPUT_TYPE_ROCKIT) {
+            if (strcmp(op_str, "UPDATE_RGN") == 0) {
+                param->rockit.cmd = RKNS_ROCKIT_CMD_UPDATE_RGN;
+                snprintf(path, sizeof(path), "%s.chn_config.rgn_id", chn_base);
+                param->rockit.updateRgn.rgnId = yaml_get_int(doc, path, 0);
+            } else if (strcmp(op_str, "SEND_VPSS") == 0) {
+                param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VPSS;
+                snprintf(path, sizeof(path), "%s.chn_config.vpss_group_id", chn_base);
+                param->rockit.sendVpss.vpssGroupId = yaml_get_int(doc, path, 0);
+                snprintf(path, sizeof(path), "%s.chn_config.vpss_chn_id", chn_base);
+                param->rockit.sendVpss.vpssChnId = yaml_get_int(doc, path, 0);
+            } else if (strcmp(op_str, "SEND_VO") == 0) {
+                param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
+                snprintf(path, sizeof(path), "%s.chn_config.vo_layer_id", chn_base);
+                param->rockit.sendVo.volayerId = yaml_get_int(doc, path, 0);
+                snprintf(path, sizeof(path), "%s.chn_config.vo_chn_id", chn_base);
+                param->rockit.sendVo.voChnId = yaml_get_int(doc, path, 0);
+            } else if (strcmp(op_str, "SEND_AO") == 0) {
+                param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_AO;
+                snprintf(path, sizeof(path), "%s.chn_config.ao_chn_id", chn_base);
+                param->rockit.sendAo.aoChnId = yaml_get_int(doc, path, 0);
+            } else if (strcmp(op_str, "SEND_AENC") == 0) {
+                param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_AENC;
+                snprintf(path, sizeof(path), "%s.chn_config.aenc_chn_id", chn_base);
+                param->rockit.sendAenc.aencChnId = yaml_get_int(doc, path, 0);
+            } else if (strcmp(op_str, "SEND_VENC") == 0) {
+                param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VENC;
+                snprintf(path, sizeof(path), "%s.chn_config.venc_chn_id", chn_base);
+                param->rockit.sendVenc.vencChnId = yaml_get_int(doc, path, 0);
+            } else {
+                param->rockit.cmd = RKNS_ROCKIT_CMD_SEND_VO;
+                param->rockit.sendVo.volayerId = 0;
+                param->rockit.sendVo.voChnId = 0;
+            }
+        } else if (param->type == RKNS_OUTPUT_TYPE_GSTREAM) {
+            snprintf(path, sizeof(path), "%s.chn_config.pipeline", chn_base);
+            output_str_pool_alloc(doc, path, chn->strPool, chn->strPoolSize, &offset,
+                                 &param->gstream.pipeline);
+            snprintf(path, sizeof(path), "%s.chn_config.timeout", chn_base);
+            param->gstream.timeout = yaml_get_int(doc, path, 5000);
+        } else if (param->type == RKNS_OUTPUT_TYPE_OPENCV) {
+            snprintf(path, sizeof(path), "%s.chn_config.window_name", chn_base);
+            output_str_pool_alloc(doc, path, chn->strPool, chn->strPoolSize, &offset,
+                                 &param->opencv.windowName);
+            snprintf(path, sizeof(path), "%s.chn_config.width", chn_base);
+            param->opencv.width = yaml_get_int(doc, path, 640);
+            snprintf(path, sizeof(path), "%s.chn_config.height", chn_base);
+            param->opencv.height = yaml_get_int(doc, path, 480);
         }
     }
 
-    /* 打印 OUTPUT 模块配置参数 */
+    /* ========== 打印配置 ========== */
     printf("[INFO] OUTPUT Module Config:\n");
-    printf("[INFO]   chn_id: %d\n", module->chnId);
-    printf("[INFO]   output_type: %s\n",
-           param->type == RKNS_OUTPUT_TYPE_APP ? "APP" :
-           param->type == RKNS_OUTPUT_TYPE_ROCKIT ? "ROCKIT" :
-           param->type == RKNS_OUTPUT_TYPE_GSTREAM ? "GSTREAM" : "OPENCV");
-    printf("[INFO]   watch_depth: %d\n", param->watchDepth);
-    if (param->type == RKNS_OUTPUT_TYPE_APP) {
-        printf("[INFO]   op_type: %s\n",
-               param->app.cmd == RKNS_APP_CMD_PRINT ? "PRINT" : "SAVE_FILE");
-    } else if (param->type == RKNS_OUTPUT_TYPE_ROCKIT) {
-        printf("[INFO]   op_type: %s\n", str);
+    printf("[INFO]   Total channels: %u\n", cfg->chnCount);
+    for (ci = 0; ci < (int)cfg->chnCount; ci++) {
+        OutputChannelConfig *chn = &cfg->chnConfigs[ci];
+        RKNSOutputParam *param = &chn->param;
+        printf("[INFO]   Channel[%d]: chn_id=%d, output_type=%s\n",
+               ci, chn->chnId,
+               param->type == RKNS_OUTPUT_TYPE_APP ? "APP" :
+               param->type == RKNS_OUTPUT_TYPE_ROCKIT ? "ROCKIT" :
+               param->type == RKNS_OUTPUT_TYPE_GSTREAM ? "GSTREAM" : "OPENCV");
+        printf("[INFO]     watch_depth: %d\n", param->watchDepth);
     }
 
     module->configParsed = RKNS_TRUE;
     return RKNS_SUCCESS;
 }
 
+static void output_free_config(OutputConfig *cfg) {
+    if (cfg->chnConfigs != NULL) {
+        for (int ci = 0; ci < (int)cfg->chnCount; ci++) {
+            if (cfg->chnConfigs[ci].strPool != NULL) {
+                rkos_kfree(cfg->chnConfigs[ci].strPool);
+            }
+        }
+        rkos_kfree(cfg->chnConfigs);
+        cfg->chnConfigs = NULL;
+        cfg->chnCount = 0;
+    }
+}
+
 RKNS_S32 output_create(const RKNSLaunchModule *module,
                                RKNSLaunchModuleState *state) {
-    const RKNSOutputParam *param = MODULE_CONFIG(module, RKNSOutputParam);
-    RKNSOutputParam createParam;
+    const OutputConfig *cfg = MODULE_CONFIG(module, OutputConfig);
     RKNS_S32 ret;
+    int ci;
 
-    /* 复制一份可修改的 param */
-    rkos_memset(&createParam, 0, sizeof(createParam));
-    createParam.type = param->type;
-    createParam.watchDepth = param->watchDepth;
+    rkos_memset(&state->outputState, 0, sizeof(state->outputState));
+    state->outputState.chnCount = cfg->chnCount;
 
-    switch (createParam.type) {
-    case RKNS_OUTPUT_TYPE_APP:
-        // 使用解析出来的操作类型
-        createParam.app.cmd = param->app.cmd;
-        break;
-    case RKNS_OUTPUT_TYPE_ROCKIT:
-        createParam.rockit.cmd = param->rockit.cmd;
-        createParam.rockit.sendVo.volayerId = 0;
-        createParam.rockit.sendVo.voChnId = 0;
-        break;
-    case RKNS_OUTPUT_TYPE_GSTREAM:
-        createParam.gstream.pipeline = "autovideosink";
-        createParam.gstream.timeout = 5000;
-        break;
-    case RKNS_OUTPUT_TYPE_OPENCV:
-        createParam.opencv.windowName = "RKNNStream Launch";
-        createParam.opencv.width = 640;
-        createParam.opencv.height = 480;
-        break;
-    default:
-        fprintf(stderr, "[ERROR] Unsupported output type: %d\n", createParam.type);
-        return RKNS_FAILURE;
+    /* 动态分配状态数组 */
+    if (cfg->chnCount > 0) {
+        state->outputState.chnEnabled = (RKNS_BOOL *)rkos_kmalloc(sizeof(RKNS_BOOL) * cfg->chnCount);
+        if (!state->outputState.chnEnabled) {
+            fprintf(stderr, "[ERROR] Failed to allocate memory for OUTPUT channel states\n");
+            output_free_config((OutputConfig*)cfg);
+            return RKNS_FAILURE;
+        }
+        rkos_memset(state->outputState.chnEnabled, 0, sizeof(RKNS_BOOL) * cfg->chnCount);
     }
 
-    ret = RKNS_OUTPUT_CreateChn(module->devId, module->chnId, &createParam);
-    if (ret != RKNS_SUCCESS) {
-        fprintf(stderr, "[ERROR] RKNS_OUTPUT_CreateChn failed: %d\n", ret);
-        return ret;
+    for (ci = 0; ci < (int)cfg->chnCount; ci++) {
+        const OutputChannelConfig *chn = &cfg->chnConfigs[ci];
+        const RKNSOutputParam *param = &chn->param;
+        RKNSOutputParam createParam;
+
+        /* 复制一份可修改的 param */
+        rkos_memset(&createParam, 0, sizeof(createParam));
+        createParam.type = param->type;
+        createParam.watchDepth = param->watchDepth;
+
+        switch (createParam.type) {
+        case RKNS_OUTPUT_TYPE_APP:
+            createParam.app.cmd = param->app.cmd;
+            if (param->app.cmd == RKNS_APP_CMD_SAVE_FILE) {
+                createParam.app.saveFile.filePath = param->app.saveFile.filePath;
+            }
+            break;
+        case RKNS_OUTPUT_TYPE_ROCKIT:
+            createParam.rockit = param->rockit;
+            break;
+        case RKNS_OUTPUT_TYPE_GSTREAM:
+            createParam.gstream = param->gstream;
+            if (!createParam.gstream.pipeline) {
+                createParam.gstream.pipeline = "autovideosink";
+            }
+            break;
+        case RKNS_OUTPUT_TYPE_OPENCV:
+            createParam.opencv = param->opencv;
+            if (!createParam.opencv.windowName) {
+                createParam.opencv.windowName = "RKNNStream Launch";
+            }
+            break;
+        default:
+            fprintf(stderr, "[ERROR] Unsupported output type: %d\n", createParam.type);
+            ret = RKNS_FAILURE;
+            goto error_cleanup;
+        }
+
+        ret = RKNS_OUTPUT_CreateChn(module->devId, chn->chnId, &createParam);
+        if (ret != RKNS_SUCCESS) {
+            fprintf(stderr, "[ERROR] RKNS_OUTPUT_CreateChn failed for channel %d: %d\n", ci, ret);
+            goto error_cleanup;
+        }
+
+        state->outputState.chnEnabled[ci] = RKNS_TRUE;
+        printf("[INFO] OUTPUT channel %d created (chn_id=%d)\n", ci, chn->chnId);
     }
-    state->chn.enModId = RKNS_ID_OUTPUT;
-    state->chn.s32DevId = module->devId;
-    state->chn.s32ChnId = module->chnId;
+
+    /* 设置默认通道信息（保持向后兼容） */
+    if (cfg->chnCount > 0) {
+        state->chn.enModId = RKNS_ID_OUTPUT;
+        state->chn.s32DevId = module->devId;
+        state->chn.s32ChnId = cfg->chnConfigs[0].chnId;
+    }
     state->created = RKNS_TRUE;
     return RKNS_SUCCESS;
+
+error_cleanup:
+    for (int j = 0; j < ci; j++) {
+        if (state->outputState.chnEnabled[j]) {
+            RKNS_OUTPUT_DestroyChn(module->devId, cfg->chnConfigs[j].chnId);
+            state->outputState.chnEnabled[j] = RKNS_FALSE;
+        }
+    }
+    if (state->outputState.chnEnabled) {
+        rkos_kfree(state->outputState.chnEnabled);
+        state->outputState.chnEnabled = NULL;
+    }
+    state->outputState.chnCount = 0;
+    output_free_config((OutputConfig*)cfg);
+    return RKNS_FAILURE;
 }
 
 RKNS_S32 output_destroy(const RKNSLaunchModule *module,
                                 RKNSLaunchModuleState *state) {
+    const OutputConfig *cfg = MODULE_CONFIG(module, OutputConfig);
+
     if (state->created) {
-        RKNS_OUTPUT_DestroyChn(module->devId, module->chnId);
+        /* 销毁所有 OUTPUT 通道 */
+        for (int ci = (int)cfg->chnCount - 1; ci >= 0; ci--) {
+            if (state->outputState.chnEnabled && state->outputState.chnEnabled[ci]) {
+                RKNS_OUTPUT_DestroyChn(module->devId, cfg->chnConfigs[ci].chnId);
+                state->outputState.chnEnabled[ci] = RKNS_FALSE;
+                printf("[INFO] OUTPUT channel %d destroyed (chn_id=%d)\n", ci, cfg->chnConfigs[ci].chnId);
+            }
+        }
+
+        /* 释放状态数组 */
+        if (state->outputState.chnEnabled != NULL) {
+            rkos_kfree(state->outputState.chnEnabled);
+            state->outputState.chnEnabled = NULL;
+        }
+
+        /* 释放配置内存 */
+        output_free_config((OutputConfig*)cfg);
+
         state->created = RKNS_FALSE;
     }
     return RKNS_SUCCESS;
 }
 
-/* ---------- OUTPUT 模块 ---------- */
-
 RKNS_S32 output_start(const RKNSLaunchModule *module,
                               RKNSLaunchModuleState *state) {
-    RKNS_S32 ret = RKNS_OUTPUT_StartChn(module->devId, module->chnId);
-    if (ret == RKNS_SUCCESS) state->started = RKNS_TRUE;
+    const OutputConfig *cfg = MODULE_CONFIG(module, OutputConfig);
+    RKNS_S32 ret = RKNS_SUCCESS;
+    int ci;
+
+    for (ci = 0; ci < (int)cfg->chnCount; ci++) {
+        if (state->outputState.chnEnabled && state->outputState.chnEnabled[ci]) {
+            ret = RKNS_OUTPUT_StartChn(module->devId, cfg->chnConfigs[ci].chnId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[ERROR] RKNS_OUTPUT_StartChn failed for channel %d: %d\n", ci, ret);
+                return ret;
+            }
+        }
+    }
+    state->started = RKNS_TRUE;
     return ret;
 }
 
 RKNS_S32 output_stop(const RKNSLaunchModule *module,
                              RKNSLaunchModuleState *state) {
-    RKNS_S32 ret = RKNS_OUTPUT_StopChn(module->devId, module->chnId);
-    if (ret == RKNS_SUCCESS) state->started = RKNS_FALSE;
+    const OutputConfig *cfg = MODULE_CONFIG(module, OutputConfig);
+    RKNS_S32 ret = RKNS_SUCCESS;
+    int ci;
+
+    for (ci = (int)cfg->chnCount - 1; ci >= 0; ci--) {
+        if (state->outputState.chnEnabled && state->outputState.chnEnabled[ci]) {
+            ret = RKNS_OUTPUT_StopChn(module->devId, cfg->chnConfigs[ci].chnId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[ERROR] RKNS_OUTPUT_StopChn failed for channel %d: %d\n", ci, ret);
+                /* 继续尝试停止其他通道，不中断 */
+            }
+        }
+    }
+    state->started = RKNS_FALSE;
     return ret;
 }
 
@@ -2919,25 +3720,29 @@ RKNS_S32 rockit_ai_stop(const RKNSLaunchModule *module,
  * ============================================================ */
 
 static const RKNSLaunchModuleOps g_moduleOps[] = {
-    /* RKNS 模块 */
-    { RKNS_LAUNCH_MOD_INPUT,    "INPUT",    input_parse_config,
+    /* RKNS 模块 - 直接用原始 ID (RKNS_ID_XXX) */
+    { RKNS_ID_INPUT,    "INPUT",    input_parse_config,
       input_create,    input_destroy,    input_start,    input_stop    },
-    { RKNS_LAUNCH_MOD_INFER,    "INFER",    infer_parse_config,
+    { RKNS_ID_INFER,    "INFER",    infer_parse_config,
       infer_create,    infer_destroy,    infer_start,    infer_stop    },
-    { RKNS_LAUNCH_MOD_GRAPHICS, "GRAPHICS", graphics_parse_config,
+    { RKNS_ID_GRAPHICS, "GRAPHICS", graphics_parse_config,
       graphics_create, graphics_destroy, graphics_start, graphics_stop },
-    { RKNS_LAUNCH_MOD_OUTPUT,   "OUTPUT",   output_parse_config,
+    { RKNS_ID_OUTPUT,   "OUTPUT",   output_parse_config,
       output_create,   output_destroy,   output_start,   output_stop   },
-    /* Rockit 模块 */
-    { RKNS_LAUNCH_MOD_RK_VI,    "VI",       rockit_vi_parse_config,
+    { RKNS_ID_VOICE,    "VOICE",    voice_parse_config,
+      voice_create,    voice_destroy,    voice_start,    voice_stop    },
+    { RKNS_ID_BUSINESS, "BUSINESS", business_parse_config,
+      business_create, business_destroy, business_start, business_stop },
+    /* Rockit 模块 - 原始 ID (RK_ID_XXX) + 偏移 */
+    { RK_ID_VI + RKNS_LAUNCH_ROCKIT_ID_OFFSET,    "VI",       rockit_vi_parse_config,
       rockit_vi_create,    rockit_vi_destroy,    rockit_vi_start,    rockit_vi_stop },
-    { RKNS_LAUNCH_MOD_RK_VO,    "VO",       rockit_vo_parse_config,
+    { RK_ID_VO + RKNS_LAUNCH_ROCKIT_ID_OFFSET,    "VO",       rockit_vo_parse_config,
       rockit_vo_create,    rockit_vo_destroy,    rockit_vo_start,    rockit_vo_stop },
-    { RKNS_LAUNCH_MOD_RK_VPSS,  "VPSS",     rockit_vpss_parse_config,
+    { RK_ID_VPSS + RKNS_LAUNCH_ROCKIT_ID_OFFSET,  "VPSS",     rockit_vpss_parse_config,
       rockit_vpss_create,  rockit_vpss_destroy,  rockit_vpss_start,  rockit_vpss_stop },
-    { RKNS_LAUNCH_MOD_RK_RGN,   "RGN",      rockit_rgn_parse_config,
+    { RK_ID_RGN + RKNS_LAUNCH_ROCKIT_ID_OFFSET,   "RGN",      rockit_rgn_parse_config,
       rockit_rgn_create,   rockit_rgn_destroy,   rockit_rgn_start,   rockit_rgn_stop },
-    { RKNS_LAUNCH_MOD_RK_AI,    "AI",       rockit_ai_parse_config,
+    { RK_ID_AI + RKNS_LAUNCH_ROCKIT_ID_OFFSET,    "AI",       rockit_ai_parse_config,
       rockit_ai_create,    rockit_ai_destroy,    rockit_ai_start,    rockit_ai_stop },
 };
 #define MODULE_OPS_COUNT  (sizeof(g_moduleOps) / sizeof(g_moduleOps[0]))
@@ -2954,22 +3759,15 @@ const RKNSLaunchModuleOps *rkns_launch_find_module_ops(RKNSLaunchModId modId) {
 
 /* ID 映射辅助函数 */
 RKNS_BOOL rkns_launch_is_rockit_module(RKNSLaunchModId id) {
-    return (id >= 100 && id < RKNS_LAUNCH_MOD_BUTT) ? RKNS_TRUE : RKNS_FALSE;
+    return (id >= RKNS_LAUNCH_ROCKIT_ID_OFFSET) ? RKNS_TRUE : RKNS_FALSE;
 }
 
 RKNS_S32 rkns_launch_to_mpp_id(RKNSLaunchModId id) {
-    switch (id) {
-    case RKNS_LAUNCH_MOD_RK_VI:   return RK_ID_VI;
-    case RKNS_LAUNCH_MOD_RK_VO:   return RK_ID_VO;
-    case RKNS_LAUNCH_MOD_RK_VPSS: return RK_ID_VPSS;
-    case RKNS_LAUNCH_MOD_RK_RGN:  return RK_ID_RGN;
-    case RKNS_LAUNCH_MOD_RK_AI:   return RK_ID_AI;
-    default: return -1;
-    }
+    return (id >= RKNS_LAUNCH_ROCKIT_ID_OFFSET) ? (id - RKNS_LAUNCH_ROCKIT_ID_OFFSET) : -1;
 }
 
 RKNS_S32 rkns_launch_to_rkns_id(RKNSLaunchModId id) {
-    return (id < 100) ? (RKNS_S32)id : -1;
+    return (id < RKNS_LAUNCH_ROCKIT_ID_OFFSET && id >= 0) ? (RKNS_S32)id : -1;
 }
 
 /* ============================================================

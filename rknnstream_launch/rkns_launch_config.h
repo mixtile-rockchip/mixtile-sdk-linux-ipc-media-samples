@@ -55,34 +55,19 @@ extern "C" {
  * ============================================================ */
 
 /**
+ * @brief Rockit 模块 ID 偏移值
+ *
+ * Rockit 模块的原始 ID 加上该偏移值作为 Launch 层的模块 ID，
+ * 以避免与 RKNS 模块 ID 冲突。
+ */
+#define RKNS_LAUNCH_ROCKIT_ID_OFFSET  1000
+
+/**
  * @brief Launch 统一模块 ID
  *
- * RKNS 模块保持与 RKNS_MOD_ID_E 一致的值（0-14），
- * Rockit 模块从 100 开始避免冲突。
+ * 直接使用 RKNS 模块的原始 ID，Rockit 模块使用原始 ID + RKNS_LAUNCH_ROCKIT_ID_OFFSET
  */
-typedef enum _RKNSLaunchModId {
-    /* RKNS 模块 */
-    RKNS_LAUNCH_MOD_RKNS      = 0,
-    RKNS_LAUNCH_MOD_MB        = 1,
-    RKNS_LAUNCH_MOD_SYS       = 2,
-    RKNS_LAUNCH_MOD_COMPOSE   = 3,
-    RKNS_LAUNCH_MOD_EMBEDDING = 4,
-    RKNS_LAUNCH_MOD_GRAPHICS  = 5,
-    RKNS_LAUNCH_MOD_IMAGE     = 6,
-    RKNS_LAUNCH_MOD_INFER     = 7,
-    RKNS_LAUNCH_MOD_INPUT     = 8,
-    RKNS_LAUNCH_MOD_OUTPUT    = 9,
-    RKNS_LAUNCH_MOD_TEXT      = 10,
-    RKNS_LAUNCH_MOD_VOICE     = 11,
-    RKNS_LAUNCH_MOD_LOG       = 12,
-    /* Rockit 模块 */
-    RKNS_LAUNCH_MOD_RK_VI     = 100,
-    RKNS_LAUNCH_MOD_RK_VO     = 101,
-    RKNS_LAUNCH_MOD_RK_VPSS   = 102,
-    RKNS_LAUNCH_MOD_RK_RGN    = 103,
-    RKNS_LAUNCH_MOD_RK_AI     = 104,
-    RKNS_LAUNCH_MOD_BUTT,
-} RKNSLaunchModId;
+typedef RKNS_S32 RKNSLaunchModId;
 
 /* Rockit VI 层级配置（设备 > Pipe > 通道） */
 typedef struct _RockitVIChnConfig {
@@ -217,7 +202,7 @@ typedef struct _RockitAIConfig {
 } RockitAIConfig;
 
 /**
- * @brief RGN 模块配置（Rockit 专用）
+ * @brief RockX 图形检测引擎配置结构
  */
 typedef struct _RockitRGNConfig {
     unsigned int w;              /* 宽度 */
@@ -226,6 +211,109 @@ typedef struct _RockitRGNConfig {
     int vo_dev_id;               /* 绑定的 VO 设备 ID */
     int vo_chn_id;               /* 绑定的 VO 通道 ID */
 } RockitRGNConfig;
+
+/* ============================================================
+ * INFER 模块多通道配置
+ * ============================================================ */
+
+/**
+ * @brief 单个 INFER 通道配置
+ */
+typedef struct _InferChannelConfig {
+    RKNS_S32 chnId;
+    RKNS_INFER_ATTR_S attr;      /* INFER 通道属性 */
+    char *strPool;               /* 字符串池，供 attr 中的 char* 使用 */
+    size_t strPoolSize;          /* 字符串池大小 */
+} InferChannelConfig;
+
+/**
+ * @brief INFER 模块多通道配置
+ */
+typedef struct _InferConfig {
+    InferChannelConfig *chnConfigs;  /* 通道配置列表 */
+    RKNS_U32 chnCount;               /* 通道数量 */
+} InferConfig;
+
+/**
+ * @brief INFER 模块多通道状态
+ */
+typedef struct _RKNSLaunchInferState {
+    RKNS_BOOL *chnEnabled;      /* 通道启用状态数组（动态分配） */
+    RKNS_U32 chnCount;          /* 通道数量 */
+} RKNSLaunchInferState;
+
+/* ============================================================
+ * OUTPUT 模块多通道配置
+ * ============================================================ */
+
+/**
+ * @brief 单个 OUTPUT 通道配置
+ */
+typedef struct _OutputChannelConfig {
+    RKNS_S32 chnId;
+    RKNSOutputParam param;      /* OUTPUT 通道属性 */
+    char *strPool;              /* 字符串池，供 param 中的 char* 使用 */
+    size_t strPoolSize;         /* 字符串池大小 */
+} OutputChannelConfig;
+
+/**
+ * @brief OUTPUT 模块多通道配置
+ */
+typedef struct _OutputConfig {
+    OutputChannelConfig *chnConfigs;  /* 通道配置列表 */
+    RKNS_U32 chnCount;                /* 通道数量 */
+} OutputConfig;
+
+/**
+ * @brief OUTPUT 模块多通道状态
+ */
+typedef struct _RKNSLaunchOutputState {
+    RKNS_BOOL *chnEnabled;      /* 通道启用状态数组（动态分配） */
+    RKNS_U32 chnCount;          /* 通道数量 */
+} RKNSLaunchOutputState;
+
+/* ============================================================
+ * BUSINESS 模块多通道/组配置
+ * ============================================================ */
+
+/**
+ * @brief 单个 BUSINESS 通道配置
+ */
+typedef struct _BusinessChannelConfig {
+    RKNS_S32 chnId;             /* 通道 ID */
+    char *strPool;              /* 字符串池，供 param 中的 char* 使用 */
+    size_t strPoolSize;         /* 字符串池大小 */
+} BusinessChannelConfig;
+
+/**
+ * @brief 单个 BUSINESS 组配置
+ */
+typedef struct _BusinessGroupConfig {
+    RKNS_S32 grpId;             /* 组 ID */
+    RKNSBusinessParam param;    /* BUSINESS 组属性 */
+    char *strPool;              /* 字符串池，供 param 中的 char* 使用 */
+    size_t strPoolSize;         /* 字符串池大小 */
+    BusinessChannelConfig *chnConfigs;  /* 该组的通道配置列表 */
+    RKNS_U32 chnCount;                  /* 该组的通道数量 */
+} BusinessGroupConfig;
+
+/**
+ * @brief BUSINESS 模块多组配置
+ */
+typedef struct _BusinessConfig {
+    BusinessGroupConfig *grpConfigs;  /* 组配置列表 */
+    RKNS_U32 grpCount;                  /* 组数量 */
+} BusinessConfig;
+
+/**
+ * @brief BUSINESS 模块多组状态
+ */
+typedef struct _RKNSLaunchBusinessState {
+    RKNS_BOOL *grpEnabled;      /* 组启用状态数组（动态分配） */
+    RKNS_BOOL **chnEnabled;     /* 通道启用状态数组（动态分配，grpCount x chnCount） */
+    RKNS_U32 grpCount;          /* 组数量 */
+    RKNS_U32 *chnCount;         /* 每个组的通道数量 */
+} RKNSLaunchBusinessState;
 
 /**
  * @brief 应用场景类型
@@ -356,11 +444,14 @@ typedef struct _RKNSLaunchModuleState {
     RKNS_CHN_S chn;
     RKNS_BOOL created;
     RKNS_BOOL started;
-    /* VI/VPSS/VO/AI 模块使用多维状态 */
+    /* VI/VPSS/VO/AI/INFER/BUSINESS 模块使用多维状态 */
     RKNSLaunchVIState viState;
     RKNSLaunchVPSSState vpssState;
     RKNSLaunchVOState voState;
     RKNSLaunchAIState aiState;
+    RKNSLaunchInferState inferState;
+    RKNSLaunchOutputState outputState;
+    RKNSLaunchBusinessState bizState;
 } RKNSLaunchModuleState;
 
 /**
@@ -443,39 +534,6 @@ extern const char *g_scenarioStr[];
  * @brief RKNNStream Launch 配置结构体
  */
 typedef struct _RKNSLaunchConfig {
-    // 场景配置
-    RKNSLaunchScenario scenario;
-
-    // 输入配置
-    RKNSInputSourceType inputType;
-    char inputPath[MAX_PATH];
-    RKNS_U32 width;
-    RKNS_U32 height;
-    RKNS_U32 frameRate;
-
-    // 推理配置
-    RKNS_MODEL_TYPE_E modelType;
-    char modelPath[MAX_MODEL_PATH];
-    RKNS_FLOAT confidenceThreshold;
-    RKNS_U32 inputQueueCnt;
-    RKNS_U32 outputBufferCnt;
-
-    // Overlay 配置
-    RKNS_BOOL enableOverlay;
-    RockXPixelFormat pixelFormat;
-    RKNS_OVERLAY_ATTR_S overlayAttr;
-    RKNS_OVERLAY_RULE_S overlayRule;
-
-    // 输出配置
-    RKNSOutputType outputType;
-    char outputPath[MAX_PATH];
-    RKNS_S32 watchDepth;
-
-    // Rockit 特定配置
-    RKNSRockitCmd rockitCmd;
-    RKNS_S32 rockitLayerId;
-    RKNS_S32 rockitChnId;
-
     // 运行时配置
     RKNS_S32 timeout;
     RKNS_BOOL enableProfiling;
