@@ -25,6 +25,8 @@
 #include "rkns_api_infer.h"
 #include "rkns_api_output.h"
 #include "rkns_api_graphics.h"
+#include "rkns_api_text.h"
+#include "rkns_api_business.h"
 #include "yaml_parse.h"
 
 #ifdef __cplusplus
@@ -315,6 +317,50 @@ typedef struct _RKNSLaunchBusinessState {
     RKNS_U32 *chnCount;         /* 每个组的通道数量 */
 } RKNSLaunchBusinessState;
 
+
+/* ============================================================
+ * TEXT 模块多通道/组配置
+ * ============================================================ */
+
+/**
+ * @brief 单个 TEXT 通道配置
+ */
+typedef struct _TextChannelConfig {
+    RKNS_S32 chnId;             /* 通道 ID */
+    char *strPool;              /* 字符串池，供 param 中的 char* 使用 */
+    size_t strPoolSize;         /* 字符串池大小 */
+} TextChannelConfig;
+
+/**
+ * @brief 单个 TEXT 组配置
+ */
+typedef struct _TextGroupConfig {
+    RKNS_S32 grpId;             /* 组 ID */
+    RKNSTextParam param;        /* TEXT 组属性 */
+    char *strPool;              /* 字符串池，供 param 中的 char* 使用 */
+    size_t strPoolSize;         /* 字符串池大小 */
+    TextChannelConfig *chnConfigs;  /* 该组的通道配置列表 */
+    RKNS_U32 chnCount;                  /* 该组的通道数量 */
+} TextGroupConfig;
+
+/**
+ * @brief TEXT 模块多组配置
+ */
+typedef struct _TextConfig {
+    TextGroupConfig *grpConfigs;  /* 组配置列表 */
+    RKNS_U32 grpCount;                  /* 组数量 */
+} TextConfig;
+
+/**
+ * @brief TEXT 模块多组状态
+ */
+typedef struct _RKNSLaunchTextState {
+    RKNS_BOOL *grpEnabled;      /* 组启用状态数组（动态分配） */
+    RKNS_BOOL **chnEnabled;     /* 通道启用状态数组（动态分配，grpCount x chnCount） */
+    RKNS_U32 grpCount;          /* 组数量 */
+    RKNS_U32 *chnCount;         /* 每个组的通道数量 */
+} RKNSLaunchTextState;
+
 /**
  * @brief 应用场景类型
  */
@@ -444,7 +490,6 @@ typedef struct _RKNSLaunchModuleState {
     RKNS_CHN_S chn;
     RKNS_BOOL created;
     RKNS_BOOL started;
-    /* VI/VPSS/VO/AI/INFER/BUSINESS 模块使用多维状态 */
     RKNSLaunchVIState viState;
     RKNSLaunchVPSSState vpssState;
     RKNSLaunchVOState voState;
@@ -452,6 +497,7 @@ typedef struct _RKNSLaunchModuleState {
     RKNSLaunchInferState inferState;
     RKNSLaunchOutputState outputState;
     RKNSLaunchBusinessState bizState;
+    RKNSLaunchTextState textState;
 } RKNSLaunchModuleState;
 
 /**
@@ -531,6 +577,24 @@ extern const char *g_scenarioStr[];
  * ============================================================ */
 
 /**
+ * @brief UI 交互配置结构体
+ */
+typedef struct _RKNSLaunchUIConfig {
+    // 是否启用 UI 交互
+    RKNS_BOOL enabled;
+    
+    // 发送数据的模块配置
+    char sendModuleName[MAX_MODULE_NAME];
+    RKNS_S32 sendDevId;
+    RKNS_S32 sendChnId;
+    
+    // 接收数据的模块配置
+    char recvModuleName[MAX_MODULE_NAME];
+    RKNS_S32 recvDevId;
+    RKNS_S32 recvChnId;
+} RKNSLaunchUIConfig;
+
+/**
  * @brief RKNNStream Launch 配置结构体
  */
 typedef struct _RKNSLaunchConfig {
@@ -538,6 +602,9 @@ typedef struct _RKNSLaunchConfig {
     RKNS_S32 timeout;
     RKNS_BOOL enableProfiling;
     RKNS_BOOL verbose;
+
+    // UI 交互配置
+    RKNSLaunchUIConfig uiConfig;
 
     // Pipeline 配置（从 YAML pipelines[] 解析）
     RKNSLaunchPipelineDesc pipelines[MAX_PIPELINES];

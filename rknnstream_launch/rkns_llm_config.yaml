@@ -1,0 +1,194 @@
+# ============================================================
+# RKNNStream LLM 配置文件
+# 版本: 1.0.0
+# 描述: 配置纯文本 LLM 对话 pipeline
+# ============================================================
+
+# Pipeline 列表
+pipelines:
+  # Pipeline: RKNNStream 框架 pipeline（LLM 推理）
+  - name: "rknnstream_llm_pipeline"
+    type: "rknnstream"
+    enabled: true
+
+    # 模块列表
+    modules:
+      # 输入模块（APP 输入）
+      - name: "INPUT"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 输入源类型
+              type: "APP"
+              # 源帧率（0表示不控制）
+              src_frame_rate: 0
+              # 目标帧率（0表示不控制）
+              dst_frame_rate: 0
+              # 观察深度
+              depth: 1
+
+      # TEXT 模块（文本上下文管理）
+      - name: "TEXT"
+        # ========== 组列表 ==========
+        groups:
+          - grp_id: 0
+            grp_config:
+              # TEXT 类型
+              type: "CONTEXT"
+              max_context_size: 8192
+              system_prompt: "你是一个乐于助人的AI助手。"
+              mode: "DEFAULT"
+            # 该组的通道列表
+            channels:
+              - chn_id: 0
+              - chn_id: 1
+
+      # 推理模块（LLM）
+      - name: "INFER"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 模型类型
+              model_type: "LLM"
+              # 模块名称
+              module_name: "RKNN3LLM"
+              # 模型路径
+              model_path: "/userdata/rockx_data/model/Qwen2.5-0.5B"
+              # 模型授权配置
+              model_auth_config: ""
+              # LLM 模型特有属性
+              llm_model_name: "Qwen2.5-0.5B"
+              llm_device_num: 0
+              llm_top_k: 1
+              llm_top_p: 0.9
+              llm_temperature: 1.0
+              llm_max_new_tokens: 2560
+              llm_max_context_len: 20480
+              llm_system_prompt: "你是一个乐于助人的AI助手。"
+              llm_prompt_prefix: "<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n"
+              llm_prompt_postfix: "<|im_end|>\n<|im_start|>assistant\n"
+              # 其他参数
+              confidence_threshold: 0.5
+              input_queue_count: 3
+              output_buffer_count: 3
+              src_frame_rate: 0
+              dst_frame_rate: 0
+              depth: 0
+
+      # 输出模块（APP 输出）
+      - name: "OUTPUT"
+        # ========== 通道列表 ==========
+        channels:
+          - chn_id: 0
+            chn_config:
+              # 输出类型
+              type: "APP"
+              # 操作类型
+              op_type: "PRINT"
+              # 观察深度
+              watch_depth: 1
+          - chn_id: 1
+            chn_config:
+              # 输出类型
+              type: "APP"
+              # 操作类型
+              op_type: "PRINT"
+              # 观察深度
+              watch_depth: 1
+
+    # 绑定关系列表
+    bindings:
+      # INPUT -> TEXT (CHN 0) 绑定
+      - name: "input_to_text_chn0"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "TEXT"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # TEXT (CHN 0) -> INFER 绑定
+      - name: "text_to_llm"
+        src_module: "TEXT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "INFER"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # INFER -> TEXT (CHN 1) 绑定（更新上下文）
+      - name: "llm_to_text_chn1"
+        src_module: "INFER"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "TEXT"
+        dst_dev_id: 0
+        dst_chn_id: 1
+
+      # INFER -> OUTPUT (CHN 0) 绑定
+      - name: "llm_to_output_chn0"
+        src_module: "INFER"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "OUTPUT"
+        dst_dev_id: 0
+        dst_chn_id: 0
+
+      # INPUT -> OUTPUT (CHN 1) 绑定（回显输入）
+      - name: "input_to_output_chn1"
+        src_module: "INPUT"
+        src_dev_id: 0
+        src_chn_id: 0
+        dst_module: "OUTPUT"
+        dst_dev_id: 0
+        dst_chn_id: 1
+
+# ============================================================
+# 运行时配置
+# ============================================================
+runtime:
+  # 超时时间（秒），0 表示无限运行
+  timeout: 0
+  # 是否启用性能分析
+  profiling: false
+  # 是否输出详细日志
+  verbose: true
+
+# ============================================================
+# 系统配置
+# ============================================================
+system:
+  # 日志级别
+  log_level: "INFO"
+  # 日志输出
+  log_output: "CONSOLE"
+  # 缓冲区数量
+  buffer_count: 8
+  
+  # UI 交互配置 - 定义与用户交互的模块
+  ui_interaction:
+    # 是否启用 UI 交互（默认 true）
+    enabled: true
+    
+    # 发送模块 - 用户输入发送到这个模块
+    send_module: "INPUT"
+    send_dev_id: 0
+    send_chn_id: 0
+    
+    # 接收模块 - 从这个模块接收模块输出
+    recv_module: "OUTPUT"
+    recv_dev_id: 0
+    recv_chn_id: 0
+
+# ============================================================
+# 调试配置
+# ============================================================
+debug:
+  # 是否启用调试模式
+  enabled: false
+  # 调试输出目录
+  output_dir: "/tmp/rkns_debug"
+  # 是否保存中间结果
+  save_intermediate: false

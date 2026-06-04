@@ -31,14 +31,20 @@
 #include <fcntl.h>
 #include <time.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
 
 #include "rkns.h"
 #include "rkns_api_voice.h"
 #include "rkns_api_business.h"
+#include "rkns_api_text.h"
+#include "rkns_api_memory.h"
+#include "rkns_api_input.h"
+#include "rkns_api_output.h"
 #include "rk_osal.h"
 #include "rkns_launch_config.h"
 #include "rockx.h"
 #include "rockx_module_type.h"
+#include "rockx_value.h"
 #include "rkns_buf.h"
 
 /* Rockit MPI headers */
@@ -67,6 +73,11 @@
  * ============================================================ */
 
 /* ============================================================
+ * 前向声明
+ * ============================================================ */
+typedef struct _RKNSLaunchPipelineContext RKNSLaunchPipelineContext;
+
+/* ============================================================
  * 全局变量
  * ============================================================ */
 
@@ -74,10 +85,50 @@ static volatile RKNS_BOOL g_running = RKNS_TRUE;
 static volatile RKNS_BOOL g_exit = RKNS_FALSE;
 static RKNSLaunchConfig g_config;
 static struct termios g_old_termios;
+static RKNSLaunchPipelineContext *g_pipeline_contexts = NULL;
+static RKNS_U32 g_pipeline_count = 0;
 
 /* ============================================================
  * 工具函数
  * ============================================================ */
+
+/**
+ * @brief 创建包含文本的 RKNS 帧（来自官方 rkns_llm_demo.c）
+ */
+static int create_string_value_frame(const char *s, RKNS_HANDLE *phBuf)
+{
+    RKNSMemFrame frame_info;
+    size_t n;
+
+    if (!s || !phBuf) {
+        return -1;
+    }
+    n = strlen(s) + 1;
+
+    memset(&frame_info, 0, sizeof(frame_info));
+    frame_info.bufType = RKNS_BUF_TYPE_VALUE;
+    frame_info.size = (RKNS_U32)n;
+    frame_info.value.type = ROCKX_VALUE_TYPE_STRING;
+    frame_info.value.dtype = ROCKX_DATA_TYPE_UINT8;
+    frame_info.value.count = (RKNS_U32)(n - 1);
+    frame_info.value.elemSize = sizeof(char);
+    frame_info.value.needRelease = 0;
+
+    *phBuf = RKNS_MEM_CreateFrame(&frame_info);
+    if (!*phBuf) {
+        return -1;
+    }
+
+    if (RKNS_MEM_GetBufInfo(*phBuf, &frame_info) != RKNS_SUCCESS) {
+        RKNS_MEM_DestroyFrame(*phBuf);
+        *phBuf = 0;
+        return -1;
+    }
+
+    memcpy(frame_info.value.s, s, n);
+    RKNS_MEM_FlushBufCache(*phBuf);
+    return 0;
+}
 
 /**
  * @brief 信号处理函数
@@ -116,6 +167,179 @@ static void restore_terminal(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
     flags &= ~O_NONBLOCK;
     fcntl(fd, F_SETFL, flags);
+}
+
+/* ============================================================
+ * 聊天历史管理
+ * ============================================================ */
+
+#define MAX_HISTORY 100   // 最多保存100条历史记录
+#define MAX_MESSAGE_LEN 4096
+
+typedef enum {
+    MSG_TYPE_USER,
+    MSG_TYPE_LLM,
+    MSG_TYPE_SYSTEM
+} MessageType;
+
+typedef struct {
+    MessageType type;
+    char content[MAX_MESSAGE_LEN];
+} ChatMessage;
+
+static ChatMessage g_chat_history[MAX_HISTORY];
+static int g_history_count = 0;
+
+// 添加聊天消息到历史记录
+static void add_chat_message(MessageType type, const char *content) {
+    if (g_history_count < MAX_HISTORY) {
+        g_chat_history[g_history_count].type = type;
+        strncpy(g_chat_history[g_history_count].content, content, MAX_MESSAGE_LEN - 1);
+        g_chat_history[g_history_count].content[MAX_MESSAGE_LEN - 1] = '\0';
+        g_history_count++;
+    } else {
+        // 如果已满，移除最早的一条，添加新的到末尾
+        for (int i = 1; i < MAX_HISTORY; i++) {
+            g_chat_history[i - 1] = g_chat_history[i];
+        }
+        g_chat_history[MAX_HISTORY - 1].type = type;
+        strncpy(g_chat_history[MAX_HISTORY - 1].content, content, MAX_MESSAGE_LEN - 1);
+        g_chat_history[MAX_HISTORY - 1].content[MAX_MESSAGE_LEN - 1] = '\0';
+    }
+}
+
+// ANSI 转义序列辅助函数
+static void move_cursor_up(int lines) {
+    printf("\033[%dA", lines);
+}
+
+static void move_cursor_down(int lines) {
+    printf("\033[%dB", lines);
+}
+
+static void move_cursor_to_col(int col) {
+    printf("\033[%dG", col);
+}
+
+static void clear_line() {
+    printf("\033[2K");
+}
+
+static void clear_screen() {
+    printf("\033[2J\033[H");
+}
+
+// 获取终端行数
+static int get_terminal_lines() {
+    struct winsize w;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+        return 24; // 默认24行
+    }
+    return w.ws_row;
+}
+
+// 计算文本需要的行数
+static int count_text_lines(const char *text, int width) {
+    int lines = 1;
+    int current_len = 0;
+    
+    for (int i = 0; text[i] != '\0'; i++) {
+        if (text[i] == '\n') {
+            lines++;
+            current_len = 0;
+        } else {
+            current_len++;
+            if (current_len >= width) {
+                lines++;
+                current_len = 0;
+            }
+        }
+    }
+    return lines;
+}
+
+// 重新绘制整个聊天界面
+static void redraw_chat_interface(const char *input_buf, int input_pos) {
+    int term_lines = get_terminal_lines();
+    int term_cols = 80; // 默认列数
+    printf("\033[%dF", term_lines); //移动光标到左上角
+    printf("\n\033[J"); //清楚光标以下的所有内容
+    // 清除屏幕并移动光标到左上角
+    //clear_screen();
+    
+    // 打印标题
+    printf("=====================================================\n");
+    printf("  Chat with LLM (Press 'q' to exit)\n");
+    printf("=====================================================\n\n");
+    
+    // 计算聊天区域可用的行数（减去标题行和输入行）
+    int available_lines = term_lines - 7;
+    
+    // 从后往前打印历史记录，只显示能容纳的内容
+    int start_idx = 0;
+    int total_used_lines = 0;
+    
+    // 先计算需要显示哪些消息，跳过系统消息
+    for (int i = g_history_count - 1; i >= 0; i--) {
+        // 跳过系统消息
+        if (g_chat_history[i].type == MSG_TYPE_SYSTEM) {
+            continue;
+        }
+        
+        int msg_lines = 0;
+        switch (g_chat_history[i].type) {
+            case MSG_TYPE_USER:
+                msg_lines = 1 + count_text_lines(g_chat_history[i].content, term_cols - 6);
+                break;
+            case MSG_TYPE_LLM:
+                msg_lines = 1 + count_text_lines(g_chat_history[i].content, term_cols - 6);
+                break;
+            default:
+                continue;
+        }
+        
+        if (total_used_lines + msg_lines <= available_lines) {
+            total_used_lines += msg_lines;
+            start_idx = i;
+        } else {
+            break;
+        }
+    }
+    
+    // 打印历史记录，跳过系统消息
+    for (int i = start_idx; i < g_history_count; i++) {
+        // 跳过系统消息
+        if (g_chat_history[i].type == MSG_TYPE_SYSTEM) {
+            continue;
+        }
+        
+        switch (g_chat_history[i].type) {
+            case MSG_TYPE_USER:
+                printf("\033[32m[You]\033[0m: %s\n", g_chat_history[i].content);
+                break;
+            case MSG_TYPE_LLM:
+                printf("\033[34m[LLM]\033[0m: %s\n", g_chat_history[i].content);
+                break;
+            default:
+                break;
+        }
+    }
+    
+    // 打印分隔线和输入提示符
+    printf("\n");
+    printf("-----------------------------------------------------\n");
+    printf("> %s", input_buf);
+    
+    // 移动光标到正确的位置
+    if (input_pos < (int)strlen(input_buf)) {
+        // 需要把光标移回到 input_pos 的位置
+        int move_back = (int)strlen(input_buf) - input_pos;
+        if (move_back > 0) {
+            printf("\033[%dD", move_back); // 向左移动 move_back 列
+        }
+    }
+    
+    fflush(stdout);
 }
 
 /* ============================================================
@@ -316,6 +540,8 @@ typedef struct _RKNSLaunchPipelineContext {
     RKNS_BOOL started;
 } RKNSLaunchPipelineContext;
 
+
+
 /* ============================================================
  * 模块操作函数实现
  * ============================================================ */
@@ -364,9 +590,19 @@ RKNS_S32 input_parse_config(YamlDocument *doc, const char *base_path,
 
         /* 设置模块 ID 为 VPSS (RK_ID_VPSS = 5) */
         param->rockit.modId = RK_ID_VPSS;
-    } else {
-        /* 其他输入模式 - 使用自定义源 */
-        param->sourceType = RKNS_INPUT_SOURCE_CUSTOM;
+    } else if (param->sourceType == RKNS_INPUT_SOURCE_APP) {
+        /* APP 输入模式 */
+        /* 解析 path 参数（如果有的话，没有则为 NULL） */
+        snprintf(path, sizeof(path), "%s.channels.0.chn_config.path", base_path);
+        str = yaml_get_string(doc, path, "");
+        if (strlen(str) > 0) {
+            /* 如果有配置 path，设置它 */
+            /* 注意：这里需要处理内存分配，暂时设置为 NULL 表示不自动发帧 */
+            param->app.path = NULL;
+        } else {
+            /* 没有配置 path，设置为 NULL，不自动发帧 */
+            param->app.path = NULL;
+        }
     }
 
     /* 解析 depth 参数 */
@@ -380,8 +616,16 @@ RKNS_S32 input_parse_config(YamlDocument *doc, const char *base_path,
     /* 打印 INPUT 模块配置参数 */
     printf("[INFO] INPUT Module Config:\n");
     printf("[INFO]   chn_id: %d\n", module->chnId);
-    printf("[INFO]   source_type: %d (%s)\n", param->sourceType,
-           param->sourceType == RKNS_INPUT_SOURCE_ROCKIT ? "ROCKIT" : "CUSTOM");
+    const char *source_type_str = "UNKNOWN";
+    switch (param->sourceType) {
+        case RKNS_INPUT_SOURCE_ROCKIT: source_type_str = "ROCKIT"; break;
+        case RKNS_INPUT_SOURCE_GSTREAMER: source_type_str = "GSTREAMER"; break;
+        case RKNS_INPUT_SOURCE_OPENCV: source_type_str = "OPENCV"; break;
+        case RKNS_INPUT_SOURCE_APP: source_type_str = "APP"; break;
+        case RKNS_INPUT_SOURCE_CUSTOM: source_type_str = "CUSTOM"; break;
+        default: source_type_str = "UNKNOWN"; break;
+    }
+    printf("[INFO]   source_type: %d (%s)\n", param->sourceType, source_type_str);
     if (param->sourceType == RKNS_INPUT_SOURCE_ROCKIT) {
         if (param->rockit.modId == 10) {
             printf("[INFO]   op_type: AI_CAPTURE\n");
@@ -392,6 +636,8 @@ RKNS_S32 input_parse_config(YamlDocument *doc, const char *base_path,
         }
         printf("[INFO]   source.dev_id: %d\n", param->rockit.devId);
         printf("[INFO]   source.chn_id: %d\n", param->rockit.chnId);
+    } else if (param->sourceType == RKNS_INPUT_SOURCE_APP) {
+        printf("[INFO]   app.path: %s\n", param->app.path ? param->app.path : "(NULL - no auto frame)");
     }
     printf("[INFO]   depth: %u\n", param->watcherDepth);
 
@@ -903,6 +1149,369 @@ RKNS_S32 business_stop(const RKNSLaunchModule *module,
             ret = RKNS_BUSINESS_StopGroup(cfg->grpConfigs[g].grpId);
             if (ret != RKNS_SUCCESS) {
                 fprintf(stderr, "[WARNING] RKNS_BUSINESS_StopGroup failed for group %d: %d\n",
+                        g, ret);
+            }
+        }
+    }
+    state->started = RKNS_FALSE;
+    return RKNS_SUCCESS;
+}
+
+/* ---------- TEXT 模块 ---------- */
+
+RKNS_S32 text_parse_config(YamlDocument *doc, const char *base_path,
+                                          RKNSLaunchModule *module) {
+    TextConfig *cfg = MODULE_CONFIG(module, TextConfig);
+    char path[512], grp_base[512], chn_base[512];
+    const char *str;
+    int g, c, ret = RKNS_SUCCESS;
+    int grp_count = 0, chn_count;
+
+    rkos_memset(cfg, 0, sizeof(TextConfig));
+
+    /* 先统计 group 数量 */
+    snprintf(path, sizeof(path), "%s.groups", base_path);
+    grp_count = yaml_get_count(doc, path);
+    if (grp_count <= 0) grp_count = 1;
+
+    /* 动态分配 group 配置数组 */
+    cfg->grpCount = grp_count;
+    cfg->grpConfigs = (TextGroupConfig *)rkos_kmalloc(
+        sizeof(TextGroupConfig) * grp_count);
+    if (!cfg->grpConfigs) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for TEXT group configs\n");
+        return RKNS_FAILURE;
+    }
+    rkos_memset(cfg->grpConfigs, 0, sizeof(TextGroupConfig) * grp_count);
+
+    /* 解析每个 group */
+    for (g = 0; g < grp_count; g++) {
+        TextGroupConfig *grp = &cfg->grpConfigs[g];
+        snprintf(grp_base, sizeof(grp_base), "%s.groups.%d", base_path, g);
+
+        /* 获取 group ID */
+        snprintf(path, sizeof(path), "%s.grp_id", grp_base);
+        grp->grpId = (RKNS_S32)yaml_get_int(doc, path, g);
+
+        /* 初始化 param */
+        rkos_memset(&grp->param, 0, sizeof(RKNSTextParam));
+
+        /* 解析 type - 这是 group 的属性 */
+        snprintf(path, sizeof(path), "%s.grp_config.type", grp_base);
+        str = yaml_get_string(doc, path, "CONTEXT");
+        if (strcmp(str, "CONTEXT") == 0) {
+            grp->param.type = RKNS_TEXT_TYPE_CONTEXT;
+        } else if (strcmp(str, "AGENT") == 0) {
+            grp->param.type = RKNS_TEXT_TYPE_AGENT;
+        } else if (strcmp(str, "RAG") == 0) {
+            grp->param.type = RKNS_TEXT_TYPE_RAG;
+        } else if (strcmp(str, "MCP") == 0) {
+            grp->param.type = RKNS_TEXT_TYPE_MCP;
+        } else {
+            grp->param.type = RKNS_TEXT_TYPE_MAX;
+        }
+
+        /* 解析各类型的参数 */
+        if (grp->param.type == RKNS_TEXT_TYPE_CONTEXT) {
+            snprintf(path, sizeof(path), "%s.grp_config.max_context_size", grp_base);
+            grp->param.context.maxContextSize = yaml_get_int(doc, path, 4096);
+            snprintf(path, sizeof(path), "%s.grp_config.system_prompt", grp_base);
+            const char *system_prompt = yaml_get_string(doc, path, NULL);
+            if (system_prompt) {
+                grp->param.context.systemPrompt = (char *)rkos_kmalloc(strlen(system_prompt) + 1);
+                if (grp->param.context.systemPrompt) {
+                    strcpy(grp->param.context.systemPrompt, system_prompt);
+                }
+            }
+        } else if (grp->param.type == RKNS_TEXT_TYPE_AGENT) {
+            /* 暂不处理 AGENT 特定参数 */
+        } else if (grp->param.type == RKNS_TEXT_TYPE_RAG) {
+            /* 暂不处理 RAG 特定参数 */
+        } else if (grp->param.type == RKNS_TEXT_TYPE_MCP) {
+            /* 暂不处理 MCP 特定参数 */
+        }
+
+        /* 使用 yaml_get_count 获取该 group 的 channels 数量 */
+        snprintf(path, sizeof(path), "%s.channels", grp_base);
+        chn_count = yaml_get_count(doc, path);
+        if (chn_count <= 0) {
+            chn_count = 1;
+        }
+
+        grp->chnCount = chn_count;
+        if (chn_count > 0) {
+            /* 动态分配该 group 的 channel 配置数组 */
+            grp->chnConfigs = (TextChannelConfig *)rkos_kmalloc(
+                sizeof(TextChannelConfig) * chn_count);
+            if (!grp->chnConfigs) {
+                fprintf(stderr, "[ERROR] Failed to allocate memory for TEXT channel configs\n");
+                /* 清理已分配的内存 */
+                for (int j = 0; j <= g; j++) {
+                    TextGroupConfig *temp_grp = &cfg->grpConfigs[j];
+                    if (temp_grp->chnConfigs) {
+                        rkos_kfree(temp_grp->chnConfigs);
+                        temp_grp->chnConfigs = NULL;
+                    }
+                }
+                rkos_kfree(cfg->grpConfigs);
+                cfg->grpConfigs = NULL;
+                cfg->grpCount = 0;
+                return RKNS_FAILURE;
+            }
+            rkos_memset(grp->chnConfigs, 0, sizeof(TextChannelConfig) * chn_count);
+
+            /* 解析该 group 的每个 channel */
+            for (c = 0; c < chn_count; c++) {
+                TextChannelConfig *chn = &grp->chnConfigs[c];
+                snprintf(chn_base, sizeof(chn_base), "%s.channels.%d", grp_base, c);
+
+                /* 获取 channel ID */
+                snprintf(path, sizeof(path), "%s.chn_id", chn_base);
+                chn->chnId = (RKNS_S32)yaml_get_int(doc, path, c);
+
+                /* channel 暂时没有特殊的 chn_config 配置，就简单解析 */
+            }
+        }
+
+        /* 打印 TEXT group 配置参数 */
+        printf("[INFO] TEXT Group %d Config:\n", g);
+        printf("[INFO]   grp_id: %d\n", grp->grpId);
+        printf("[INFO]   type: ");
+        if (grp->param.type == RKNS_TEXT_TYPE_CONTEXT) printf("CONTEXT\n");
+        else if (grp->param.type == RKNS_TEXT_TYPE_AGENT) printf("AGENT\n");
+        else if (grp->param.type == RKNS_TEXT_TYPE_RAG) printf("RAG\n");
+        else if (grp->param.type == RKNS_TEXT_TYPE_MCP) printf("MCP\n");
+        else printf("UNKNOWN\n");
+        if (grp->param.type == RKNS_TEXT_TYPE_CONTEXT) {
+            printf("[INFO]   max_context_size: %d\n", grp->param.context.maxContextSize);
+            if (grp->param.context.systemPrompt) {
+                printf("[INFO]   system_prompt: %s\n", grp->param.context.systemPrompt);
+            }
+        }
+        printf("[INFO]   channel_count: %d\n", grp->chnCount);
+    }
+
+    module->configParsed = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+static void text_free_config(TextConfig *cfg) {
+    if (cfg->grpConfigs) {
+        for (int j = 0; j < (int)cfg->grpCount; j++) {
+            TextGroupConfig *grp = &cfg->grpConfigs[j];
+            if (grp->param.type == RKNS_TEXT_TYPE_CONTEXT && grp->param.context.systemPrompt) {
+                rkos_kfree(grp->param.context.systemPrompt);
+                grp->param.context.systemPrompt = NULL;
+            }
+            if (grp->chnConfigs) {
+                rkos_kfree(grp->chnConfigs);
+                grp->chnConfigs = NULL;
+            }
+        }
+        rkos_kfree(cfg->grpConfigs);
+        cfg->grpConfigs = NULL;
+    }
+    cfg->grpCount = 0;
+}
+
+RKNS_S32 text_create(const RKNSLaunchModule *module,
+                                RKNSLaunchModuleState *state) {
+    TextConfig *cfg = MODULE_CONFIG(module, TextConfig);
+    RKNSLaunchTextState *text_state = &state->textState;
+    int g, c, ret;
+
+    rkos_memset(text_state, 0, sizeof(RKNSLaunchTextState));
+
+    /* 初始化 group count */
+    text_state->grpCount = cfg->grpCount;
+    if (text_state->grpCount == 0) {
+        fprintf(stderr, "[ERROR] No TEXT groups to create\n");
+        text_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+
+    /* 动态分配 group enable 数组 */
+    text_state->grpEnabled = (RKNS_BOOL *)rkos_kmalloc(
+        sizeof(RKNS_BOOL) * text_state->grpCount);
+    if (!text_state->grpEnabled) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for TEXT group state\n");
+        text_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(text_state->grpEnabled, 0, sizeof(RKNS_BOOL) * text_state->grpCount);
+
+    /* 动态分配 channel count 数组 */
+    text_state->chnCount = (RKNS_U32 *)rkos_kmalloc(
+        sizeof(RKNS_U32) * text_state->grpCount);
+    if (!text_state->chnCount) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for TEXT channel count\n");
+        rkos_kfree(text_state->grpEnabled);
+        text_state->grpEnabled = NULL;
+        text_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(text_state->chnCount, 0, sizeof(RKNS_U32) * text_state->grpCount);
+
+    /* 动态分配 channel enable 二维数组 */
+    text_state->chnEnabled = (RKNS_BOOL **)rkos_kmalloc(
+        sizeof(RKNS_BOOL *) * text_state->grpCount);
+    if (!text_state->chnEnabled) {
+        fprintf(stderr, "[ERROR] Failed to allocate memory for TEXT channel state\n");
+        rkos_kfree(text_state->grpEnabled);
+        rkos_kfree(text_state->chnCount);
+        text_state->grpEnabled = NULL;
+        text_state->chnCount = NULL;
+        text_free_config(cfg);
+        return RKNS_FAILURE;
+    }
+    rkos_memset(text_state->chnEnabled, 0, sizeof(RKNS_BOOL *) * text_state->grpCount);
+
+    /* 为每个 group 创建 TEXT 组 */
+    for (g = 0; g < (int)cfg->grpCount; g++) {
+        TextGroupConfig *grp = &cfg->grpConfigs[g];
+        ret = RKNS_TEXT_CreateGroup(grp->grpId, &grp->param);
+        if (ret != RKNS_SUCCESS) {
+            fprintf(stderr, "[ERROR] RKNS_TEXT_CreateGroup failed for group %d: %d\n",
+                    g, ret);
+            /* 清理已创建的组 */
+            for (int j = 0; j < g; j++) {
+                RKNS_TEXT_DestroyGroup(cfg->grpConfigs[j].grpId);
+            }
+            /* 释放已分配的内存 */
+            for (int j = 0; j < g; j++) {
+                if (text_state->chnEnabled[j]) {
+                    rkos_kfree(text_state->chnEnabled[j]);
+                }
+            }
+            rkos_kfree(text_state->chnEnabled);
+            rkos_kfree(text_state->chnCount);
+            rkos_kfree(text_state->grpEnabled);
+            text_state->chnEnabled = NULL;
+            text_state->chnCount = NULL;
+            text_state->grpEnabled = NULL;
+            text_free_config(cfg);
+            return ret;
+        }
+        text_state->grpEnabled[g] = RKNS_TRUE;
+        text_state->chnCount[g] = grp->chnCount;
+
+        /* 如果这个 group 有 channels，分配 channel enable 数组 */
+        if (grp->chnCount > 0) {
+            text_state->chnEnabled[g] = (RKNS_BOOL *)rkos_kmalloc(
+                sizeof(RKNS_BOOL) * grp->chnCount);
+            if (!text_state->chnEnabled[g]) {
+                fprintf(stderr, "[ERROR] Failed to allocate memory for TEXT channel state\n");
+                /* 清理已创建的组 */
+                for (int j = 0; j <= g; j++) {
+                    RKNS_TEXT_DestroyGroup(cfg->grpConfigs[j].grpId);
+                }
+                /* 释放已分配的内存 */
+                for (int j = 0; j < g; j++) {
+                    if (text_state->chnEnabled[j]) {
+                        rkos_kfree(text_state->chnEnabled[j]);
+                    }
+                }
+                rkos_kfree(text_state->chnEnabled);
+                rkos_kfree(text_state->chnCount);
+                rkos_kfree(text_state->grpEnabled);
+                text_state->chnEnabled = NULL;
+                text_state->chnCount = NULL;
+                text_state->grpEnabled = NULL;
+                text_free_config(cfg);
+                return RKNS_FAILURE;
+            }
+            rkos_memset(text_state->chnEnabled[g], 0, sizeof(RKNS_BOOL) * grp->chnCount);
+
+            /* 暂时通道不需要创建，因为 TEXT 的 API 主要是基于 group 的 */
+            for (c = 0; c < (int)grp->chnCount; c++) {
+                text_state->chnEnabled[g][c] = RKNS_TRUE;
+            }
+        }
+    }
+
+    state->chn.enModId = RKNS_ID_TEXT;
+    state->chn.s32DevId = module->devId;
+    if (cfg->grpCount > 0 && cfg->grpConfigs[0].chnCount > 0) {
+        state->chn.s32ChnId = cfg->grpConfigs[0].chnConfigs[0].chnId;
+    } else if (cfg->grpCount > 0) {
+        state->chn.s32ChnId = cfg->grpConfigs[0].grpId;
+    }
+    state->created = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 text_destroy(const RKNSLaunchModule *module,
+                                 RKNSLaunchModuleState *state) {
+    TextConfig *cfg = MODULE_CONFIG(module, TextConfig);
+    RKNSLaunchTextState *text_state = &state->textState;
+
+    if (state->created) {
+        /* 销毁所有 TEXT 组 */
+        for (int g = 0; g < (int)cfg->grpCount; g++) {
+            if (text_state->grpEnabled[g]) {
+                RKNS_TEXT_DestroyGroup(cfg->grpConfigs[g].grpId);
+                text_state->grpEnabled[g] = RKNS_FALSE;
+            }
+        }
+        /* 释放状态内存 */
+        for (int g = 0; g < (int)text_state->grpCount; g++) {
+            if (text_state->chnEnabled[g]) {
+                rkos_kfree(text_state->chnEnabled[g]);
+            }
+        }
+        if (text_state->chnEnabled) {
+            rkos_kfree(text_state->chnEnabled);
+            text_state->chnEnabled = NULL;
+        }
+        if (text_state->chnCount) {
+            rkos_kfree(text_state->chnCount);
+            text_state->chnCount = NULL;
+        }
+        if (text_state->grpEnabled) {
+            rkos_kfree(text_state->grpEnabled);
+            text_state->grpEnabled = NULL;
+        }
+        text_state->grpCount = 0;
+        state->created = RKNS_FALSE;
+    }
+
+    /* 释放配置内存 */
+    text_free_config(cfg);
+
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 text_start(const RKNSLaunchModule *module,
+                                RKNSLaunchModuleState *state) {
+    TextConfig *cfg = MODULE_CONFIG(module, TextConfig);
+    RKNSLaunchTextState *text_state = &state->textState;
+    RKNS_S32 ret;
+
+    for (int g = 0; g < (int)cfg->grpCount; g++) {
+        if (text_state->grpEnabled[g]) {
+            ret = RKNS_TEXT_StartGroup(cfg->grpConfigs[g].grpId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[ERROR] RKNS_TEXT_StartGroup failed for group %d: %d\n",
+                        g, ret);
+                return ret;
+            }
+        }
+    }
+    state->started = RKNS_TRUE;
+    return RKNS_SUCCESS;
+}
+
+RKNS_S32 text_stop(const RKNSLaunchModule *module,
+                               RKNSLaunchModuleState *state) {
+    TextConfig *cfg = MODULE_CONFIG(module, TextConfig);
+    RKNSLaunchTextState *text_state = &state->textState;
+    RKNS_S32 ret;
+
+    for (int g = 0; g < (int)cfg->grpCount; g++) {
+        if (text_state->grpEnabled[g]) {
+            ret = RKNS_TEXT_StopGroup(cfg->grpConfigs[g].grpId);
+            if (ret != RKNS_SUCCESS) {
+                fprintf(stderr, "[WARNING] RKNS_TEXT_StopGroup failed for group %d: %d\n",
                         g, ret);
             }
         }
@@ -3733,6 +4342,8 @@ static const RKNSLaunchModuleOps g_moduleOps[] = {
       voice_create,    voice_destroy,    voice_start,    voice_stop    },
     { RKNS_ID_BUSINESS, "BUSINESS", business_parse_config,
       business_create, business_destroy, business_start, business_stop },
+    { RKNS_ID_TEXT,     "TEXT",     text_parse_config,
+      text_create,     text_destroy,     text_start,     text_stop     },
     /* Rockit 模块 - 原始 ID (RK_ID_XXX) + 偏移 */
     { RK_ID_VI + RKNS_LAUNCH_ROCKIT_ID_OFFSET,    "VI",       rockit_vi_parse_config,
       rockit_vi_create,    rockit_vi_destroy,    rockit_vi_start,    rockit_vi_stop },
@@ -4025,6 +4636,131 @@ static void destroy_pipeline(const RKNSLaunchPipelineDesc *pl,
     }
 }
 
+/**
+ * @brief rknnstream launch ui
+ */
+static void rknnstream_launch_ui(void) {
+    struct timespec start_time, current_time;
+    int fd = STDIN_FILENO;
+    long elapsed_seconds = 0;
+    RKNS_S32 ret;
+
+    // 输入缓冲区
+    char input_buf[1024] = {0};
+    int input_pos = 0;
+
+    // 获取开始时间
+    clock_gettime(CLOCK_MONOTONIC, &start_time);
+
+    // 直接使用配置文件中的 UI 交互配置
+    int send_dev_id = g_config.uiConfig.sendDevId;
+    int send_chn_id = g_config.uiConfig.sendChnId;
+    int recv_dev_id = g_config.uiConfig.recvDevId;
+    int recv_chn_id = g_config.uiConfig.recvChnId;
+    // 清除屏幕并移动光标到左上角
+    clear_screen();
+    
+    // 初始绘制聊天界面
+    redraw_chat_interface(input_buf, input_pos);
+
+    char last_char = 0;
+    
+    // 主循环
+    while (g_running && !g_exit) {
+        // 检查超时
+        if (g_config.timeout > 0) {
+            clock_gettime(CLOCK_MONOTONIC, &current_time);
+            elapsed_seconds = current_time.tv_sec - start_time.tv_sec;
+
+            if (elapsed_seconds >= g_config.timeout) {
+                break;
+            }
+        }
+
+        // 检查用户输入
+        char c;
+        int key_ret = read(fd, &c, 1);
+        if (key_ret > 0) {
+            // 避免重复处理回车换行（\r 和 \n 经常一起出现）
+            if ((c == '\n' && last_char == '\r') || (c == '\r' && last_char == '\n')) {
+                last_char = c;
+                continue;
+            }
+            last_char = c;
+            
+            if (c == 'q' || c == 'Q') {
+                // 退出程序
+                break;
+            } else if (c == '\n' || c == '\r') {
+                // 发送输入
+                if (input_pos > 0) {
+                    input_buf[input_pos] = '\0';
+                    
+                    // 添加用户消息到聊天历史
+                    add_chat_message(MSG_TYPE_USER, input_buf);
+                    redraw_chat_interface("", 0); // 全屏重绘
+
+                    // 发送到配置的发送模块
+                    if (send_dev_id >= 0 && send_chn_id >= 0) {
+                        RKNS_HANDLE hInBuf = 0;
+                        if (create_string_value_frame(input_buf, &hInBuf) == 0) {
+                            ret = RKNS_INPUT_SendFrame(send_dev_id, send_chn_id, hInBuf);
+                            if (ret != RKNS_SUCCESS) {
+                                // 发送失败，不显示
+                            } else {
+                                // 等待配置的接收模块的回复
+                                RKNS_HANDLE hOutBuf = 0;
+                                ret = RKNS_OUTPUT_GetFrame(recv_dev_id, recv_chn_id, &hOutBuf, 600000); // 10分钟超时
+                                if (ret == RKNS_SUCCESS && hOutBuf != 0) {
+                                    RKNSMemFrame out_info;
+                                    if (RKNS_MEM_GetBufInfo(hOutBuf, &out_info) == RKNS_SUCCESS) {
+                                        const char *llm_output = out_info.value.s ? out_info.value.s : "";
+                                        // 添加LLM回复到聊天历史
+                                        add_chat_message(MSG_TYPE_LLM, llm_output);
+                                    }
+                                    RKNS_OUTPUT_ReleaseFrame(recv_dev_id, recv_chn_id, hOutBuf);
+                                }
+                                // 重新绘制界面显示新消息
+                                redraw_chat_interface("", 0);
+                            }
+                            RKNS_MEM_DestroyFrame(hInBuf);
+                        }
+                    }
+
+                    // 重置缓冲区
+                    input_pos = 0;
+                    memset(input_buf, 0, sizeof(input_buf));
+                }
+            } else if (c == '\b' || c == 127) {
+                // 退格键 - 只更新输入行，不刷屏
+                if (input_pos > 0) {
+                    input_pos--;
+                    input_buf[input_pos] = '\0';
+                    // 清除当前行并重新打印
+                    printf("\r\033[2K> %s", input_buf);
+                    fflush(stdout);
+                }
+            } else if (input_pos < sizeof(input_buf) - 1) {
+                // 普通字符 - 只更新输入行，不刷屏
+                input_buf[input_pos++] = c;
+                printf("%c", c);
+                fflush(stdout);
+            }
+        } else if (key_ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+            // 读错误
+            char err_msg[256];
+            snprintf(err_msg, sizeof(err_msg), "Read error: %s", strerror(errno));
+            add_chat_message(MSG_TYPE_SYSTEM, err_msg);
+            redraw_chat_interface(input_buf, input_pos);
+            break;
+        }
+
+        // 短暂休眠避免 CPU 占用过高
+        usleep(10000);  // 10ms，响应更快
+    }   
+}
+
+
 /* ============================================================
  * 主函数
  * ============================================================ */
@@ -4142,6 +4878,10 @@ int main(int argc, char *argv[]) {
     }
     printf("[INFO] System initialized successfully\n\n");
 
+    // 保存全局变量供后续使用
+    g_pipeline_contexts = pipelineContexts;
+    g_pipeline_count = pipelineCount;
+
     // 设置终端为非阻塞模式
     set_nonblocking(fd);
 
@@ -4171,43 +4911,38 @@ int main(int argc, char *argv[]) {
     }
     printf("[INFO] All pipelines started successfully\n\n");
 
-    printf("=====================================================\n");
-    printf("  %u Pipeline(s) running...\n", pipelineCount);
-    printf("  Press 'q' or Ctrl+C to exit\n");
-    printf("=====================================================\n\n");
+    // 检查是否启用 UI 交互
+    if (g_config.uiConfig.enabled) {
+        rknnstream_launch_ui();
+    } else {
+        // UI 交互未启用，简单等待退出信号或超时
+        printf("[INFO] UI interaction disabled. Press Ctrl+C to exit.\n");
+        
+        // 获取开始时间
+        clock_gettime(CLOCK_MONOTONIC, &start_time);
 
-    // 获取开始时间
-    clock_gettime(CLOCK_MONOTONIC, &start_time);
+        while (g_running && !g_exit) {
+            // 检查超时
+            if (g_config.timeout > 0) {
+                clock_gettime(CLOCK_MONOTONIC, &current_time);
+                elapsed_seconds = current_time.tv_sec - start_time.tv_sec;
 
-    // 主循环
-    while (g_running && !g_exit) {
-        // 检查超时
-        if (g_config.timeout > 0) {
-            clock_gettime(CLOCK_MONOTONIC, &current_time);
-            elapsed_seconds = current_time.tv_sec - start_time.tv_sec;
+                if (elapsed_seconds >= g_config.timeout) {
+                    break;
+                }
+            }
 
-            if (elapsed_seconds >= g_config.timeout) {
-                printf("\n[INFO] Timeout reached (%d seconds)\n", g_config.timeout);
+            // 检查用户输入（简单的 q 退出）
+            char c;
+            int key_ret = read(fd, &c, 1);
+            if (key_ret > 0 && (c == 'q' || c == 'Q')) {
+                // 退出程序
                 break;
             }
-        }
 
-        // 检查用户输入
-        char c;
-        int key_ret = read(fd, &c, 1);
-        if (key_ret > 0) {
-            if (c == 'q' || c == 'Q') {
-                printf("\n[INFO] User requested exit\n");
-                break;
-            }
-        } else if (key_ret < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-            // 读错误
-            fprintf(stderr, "\n[WARN] Read error: %s\n", strerror(errno));
-            break;
+            // 短暂休眠避免 CPU 占用过高
+            usleep(100000);  // 100ms
         }
-
-        // 短暂休眠避免 CPU 占用过高
-        usleep(100000);  // 100ms
     }
 
     // 停止所有 pipeline（正向顺序）

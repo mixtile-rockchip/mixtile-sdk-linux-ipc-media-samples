@@ -96,6 +96,8 @@ RKNSInputSourceType parse_input_type(const char *type_str) {
         return RKNS_INPUT_SOURCE_GSTREAMER;
     } else if (strcmp(type_str, "OPENCV") == 0) {
         return RKNS_INPUT_SOURCE_OPENCV;
+    } else if (strcmp(type_str, "APP") == 0) {
+        return RKNS_INPUT_SOURCE_APP;
     } else if (strcmp(type_str, "CUSTOM") == 0) {
         return RKNS_INPUT_SOURCE_CUSTOM;
     }
@@ -396,6 +398,37 @@ static RKNS_S32 load_runtime_config(YamlDocument *doc, RKNSLaunchConfig *config)
     return RKNS_SUCCESS;
 }
 
+/**
+ * @brief 加载系统配置
+ */
+static RKNS_S32 load_system_config(YamlDocument *doc, RKNSLaunchConfig *config) {
+    // 检查是否存在 UI 交互配置
+    YamlNode *ui_node = yaml_get_node(doc, "system.ui_interaction");
+    if (ui_node != NULL) {
+        // 只要存在 ui_interaction 节点，就启用 UI
+        config->uiConfig.enabled = RKNS_TRUE;
+        
+        // 加载 UI 交互配置 - 发送模块
+        const char *send_module = yaml_get_string(doc, "system.ui_interaction.send_module", "INPUT");
+        rkos_strncpy(config->uiConfig.sendModuleName, send_module, MAX_MODULE_NAME - 1);
+        config->uiConfig.sendModuleName[MAX_MODULE_NAME - 1] = '\0';
+        config->uiConfig.sendDevId = (RKNS_S32)yaml_get_int(doc, "system.ui_interaction.send_dev_id", 0);
+        config->uiConfig.sendChnId = (RKNS_S32)yaml_get_int(doc, "system.ui_interaction.send_chn_id", 0);
+        
+        // 加载 UI 交互配置 - 接收模块
+        const char *recv_module = yaml_get_string(doc, "system.ui_interaction.recv_module", "OUTPUT");
+        rkos_strncpy(config->uiConfig.recvModuleName, recv_module, MAX_MODULE_NAME - 1);
+        config->uiConfig.recvModuleName[MAX_MODULE_NAME - 1] = '\0';
+        config->uiConfig.recvDevId = (RKNS_S32)yaml_get_int(doc, "system.ui_interaction.recv_dev_id", 0);
+        config->uiConfig.recvChnId = (RKNS_S32)yaml_get_int(doc, "system.ui_interaction.recv_chn_id", 0);
+    } else {
+        // 如果没有 UI 交互配置，则禁用
+        config->uiConfig.enabled = RKNS_FALSE;
+    }
+
+    return RKNS_SUCCESS;
+}
+
 /* ============================================================
  * 公共函数
  * ============================================================ */
@@ -423,6 +456,12 @@ RKNS_S32 rkns_launch_load_config_from_yaml(RKNSLaunchConfig *config,
 
     if (load_runtime_config(&doc, config) != RKNS_SUCCESS) {
         fprintf(stderr, "[ERROR] Failed to load runtime configuration\n");
+        ret = RKNS_FAILURE;
+        goto cleanup;
+    }
+
+    if (load_system_config(&doc, config) != RKNS_SUCCESS) {
+        fprintf(stderr, "[ERROR] Failed to load system configuration\n");
         ret = RKNS_FAILURE;
         goto cleanup;
     }
@@ -476,6 +515,18 @@ void init_default_config(RKNSLaunchConfig *config) {
     config->timeout = 0;
     config->enableProfiling = RKNS_FALSE;
     config->verbose = RKNS_TRUE;  
+    
+    // UI 交互配置默认值（默认启用）
+    config->uiConfig.enabled = RKNS_TRUE;
+    rkos_strncpy(config->uiConfig.sendModuleName, "INPUT", MAX_MODULE_NAME - 1);
+    config->uiConfig.sendModuleName[MAX_MODULE_NAME - 1] = '\0';
+    config->uiConfig.sendDevId = 0;
+    config->uiConfig.sendChnId = 0;
+    
+    rkos_strncpy(config->uiConfig.recvModuleName, "OUTPUT", MAX_MODULE_NAME - 1);
+    config->uiConfig.recvModuleName[MAX_MODULE_NAME - 1] = '\0';
+    config->uiConfig.recvDevId = 0;
+    config->uiConfig.recvChnId = 0;
 }
 
 /**
@@ -493,6 +544,21 @@ void print_config(const RKNSLaunchConfig *config) {
            config->enableProfiling ? "enabled" : "disabled");
     printf("[INFO] Verbose: %s\n",
            config->verbose ? "enabled" : "disabled");
+
+    // UI 交互配置
+    printf("\n[INFO] UI Interaction Configuration:\n");
+    printf("[INFO]   Enabled: %s\n",
+           config->uiConfig.enabled ? "yes" : "no");
+    if (config->uiConfig.enabled) {
+        printf("[INFO]   Send Module: %s (dev=%d, chn=%d)\n",
+               config->uiConfig.sendModuleName,
+               config->uiConfig.sendDevId,
+               config->uiConfig.sendChnId);
+        printf("[INFO]   Recv Module: %s (dev=%d, chn=%d)\n",
+               config->uiConfig.recvModuleName,
+               config->uiConfig.recvDevId,
+               config->uiConfig.recvChnId);
+    }
 
     // Pipeline 配置
     if (config->pipelineCount > 0) {
