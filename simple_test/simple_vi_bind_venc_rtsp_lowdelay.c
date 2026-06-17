@@ -46,6 +46,8 @@
 static RK_S32 g_s32FrameCnt = -1;
 static RK_U32 g_u32Bitrate = 10 * 1024;
 static RK_U32 g_u32SliceSplit = 0;
+static RK_U32 g_u32SliceMode = 3;
+static RK_U32 g_u32SliceSize = 120;
 static RK_S32 g_s32ChnCnt = 1;
 static RK_S32 g_s32FrameRate = 60;
 static bool quit = false;
@@ -299,8 +301,8 @@ static RK_S32 test_venc_init(int chnId, int width, int height, RK_CODEC_ID_E enT
         VENC_SLICE_SPLIT_S stSliceSplit;
         RK_MPI_VENC_GetSliceSplit(chnId, &stSliceSplit);
         stSliceSplit.bSplitEnable = RK_TRUE;
-        stSliceSplit.u32SplitMode = 3;
-        stSliceSplit.u32SplitSize = 120;
+        stSliceSplit.u32SplitMode = g_u32SliceMode;
+        stSliceSplit.u32SplitSize = g_u32SliceSize;
         RK_MPI_VENC_SetSliceSplit(chnId, &stSliceSplit);
     }
 
@@ -493,7 +495,7 @@ int test_vpss_init(int VpssChn, int width, int height) {
     return s32Ret;
 }
 
-static RK_CHAR optstr[] = "?::a::w:h:c:I:e:b:s:C:f:m:n:d:W:H:";
+static RK_CHAR optstr[] = "?::a::w:h:c:I:e:b:s:C:f:m:n:d:W:H:M:S:";
 static void print_usage(const RK_CHAR *name) {
     printf("Usage example:\n");
     printf("\t%s -I 0 -w 1920 -h 1080 (rtsp://ip/live/0)\n", name);
@@ -511,6 +513,8 @@ static void print_usage(const RK_CHAR *name) {
     printf("\t-e | --encode: encode type, Default:h264, Value:h264, h265\n");
     printf("\t-b | --bitrate: set bitrate (Kbps), Default: 10Mbps\n");
     printf("\t-s | --slice_split: set slice split (0, 1), Default: 0\n");
+    printf("\t-M | --slice_mode: set slice split mode, Default: 3\n");
+    printf("\t-S | --slice_size: set slice split size, Default: 120\n");
     printf("\t-C | --chn cnt : set venc chn (1, 2), Default: 1\n");
     printf("\t-f | --fps : set venc encode frame rate, Default: 60\n");
     printf("\t-m | --rtsp mode : set rtsp send mode, Default: 1\n");
@@ -590,6 +594,12 @@ int main(int argc, char *argv[]) {
             break;
         case 'H':
             u32ScaleHeight = atoi(optarg);
+            break;
+        case 'M':
+            g_u32SliceMode = atoi(optarg);
+            break;
+        case 'S':
+            g_u32SliceSize = atoi(optarg);
             break;
         case '?':
         default:
