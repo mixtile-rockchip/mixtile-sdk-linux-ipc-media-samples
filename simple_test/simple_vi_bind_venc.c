@@ -196,7 +196,7 @@ int vi_chn_init(int channelId, int width, int height, char *name) {
 	vi_chn_attr.stIspOpt.enMemoryType =
 	    VI_V4L2_MEMORY_TYPE_DMABUF; // VI_V4L2_MEMORY_TYPE_MMAP;
 	if (name) {
-		strcpy(&vi_chn_attr.stIspOpt.aEntityName, name);
+		strcpy(vi_chn_attr.stIspOpt.aEntityName, name);
 		pipeid = VI_VIR_PIPE_ID;
 	}
 	vi_chn_attr.stSize.u32Width = width;
