@@ -34,6 +34,7 @@ extern "C" {
 #include "rk_mpi_cal.h"
 #include "rk_mpi_ivs.h"
 #include "rk_mpi_mb.h"
+#include "rk_mpi_mmz.h"
 #include "rk_mpi_rgn.h"
 #include "rk_mpi_sys.h"
 #include "rk_mpi_tde.h"
