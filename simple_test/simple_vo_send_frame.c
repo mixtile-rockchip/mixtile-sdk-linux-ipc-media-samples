@@ -2,9 +2,11 @@
 #include "rk_mpi_vo.h"
 #include "rk_comm_vo.h"
 #include "rk_mpi_mb.h"
+#include "rk_mpi_sys.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #ifdef RV1126B
 #define RK356X_VO_DEV_HD0 0
