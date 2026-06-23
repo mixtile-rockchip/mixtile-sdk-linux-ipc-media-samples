@@ -6,6 +6,7 @@
 #include "rk_comm_vpss.h"
 #include "rk_mpi_sys.h"
 #include "rk_mpi_mb.h"
+#include "rk_mpi_mmz.h"
 #include "rk_mpi_vpss.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,12 @@
 #define DEFAULT_WIDTH 1920
 #define DEFAULT_HEIGHT 1080
 #define BUFFER_SIZE (1024 * 1024)
+
+// 线程参数：共享给生产者与线程函数，避免匿名结构体类型不兼容
+struct h264_send_arg {
+	int vdec_chn;
+	const char *file_path;
+};
 
 // 检查函数返回值，若失败则打印错误信息并退出程序
 static void check_ret(RK_S32 ret, const char* func_name) {
@@ -64,10 +71,7 @@ int is_nal_start(const unsigned char* buf) {
 
 // 线程函数，用于发送 H.264 数据
 void* send_h264_data(void* arg) {
-    struct {
-        int vdec_chn;
-        const char* file_path;
-    } *data = (struct { int vdec_chn; const char* file_path; } *)arg;
+    struct h264_send_arg *data = (struct h264_send_arg *)arg;
 
     FILE* h264_file = fopen(data->file_path, "rb");
     if (h264_file == NULL) {
@@ -308,10 +312,7 @@ int main(int argc, char* argv[]) {
 
      // 创建线程发送 H264 数据
     pthread_t h264_thread;
-    struct {
-        int vdec_chn;
-        const char* file_path;
-    } thread_data = {DEFAULT_VDEC_CHN, h264_file_path};
+    struct h264_send_arg thread_data = {DEFAULT_VDEC_CHN, h264_file_path};
     ret = pthread_create(&h264_thread, NULL, send_h264_data, &thread_data);
     if (ret != 0) {
         perror("Failed to create thread");
