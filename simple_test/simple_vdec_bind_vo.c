@@ -53,6 +53,18 @@
 #define DEFAULT_HEIGHT 1080
 #define BUFFER_SIZE (1024 * 1024)
 
+// 线程参数：共享给生产者与线程函数，避免匿名结构体类型不兼容
+struct h264_send_arg {
+	int vdec_chn;
+	const char *file_path;
+};
+
+struct bind_info_arg {
+	MPP_CHN_S src_chn;
+	MPP_CHN_S dest_chn;
+	int loop;
+};
+
 // 检查函数返回值，若失败则打印错误信息并退出程序
 static void check_ret(RK_S32 ret, const char* func_name) {
     if (ret != RK_SUCCESS) {
@@ -83,10 +95,7 @@ int is_nal_start(const unsigned char* buf) {
 
 // 线程函数，用于发送 H.264 数据
 void* send_h264_data(void* arg) {
-    struct {
-        int vdec_chn;
-        const char* file_path;
-    } *data = (struct { int vdec_chn; const char* file_path; } *)arg;
+    struct h264_send_arg *data = (struct h264_send_arg *)arg;
 
     FILE* h264_file = fopen(data->file_path, "rb");
     if (h264_file == NULL) {
@@ -178,11 +187,7 @@ void* send_h264_data(void* arg) {
 
 void* vdec_get_send_vo(void* arg) {
     VIDEO_FRAME_INFO_S sFrame;
-    struct {
-        MPP_CHN_S src_chn;
-        MPP_CHN_S dest_chn;
-        int loop;
-    } *data = (struct { MPP_CHN_S src_chn; MPP_CHN_S dest_chn; int loop;} *)arg;
+    struct bind_info_arg *data = (struct bind_info_arg *)arg;
     int ret;
 
     while (1) {
@@ -262,10 +267,7 @@ int main(int argc, char* argv[]) {
 
     // 创建线程发送 H264 数据
     pthread_t h264_thread;
-    struct {
-        int vdec_chn;
-        const char* file_path;
-    } thread_data = {DEFAULT_VDEC_CHN, h264_file_path};
+    struct h264_send_arg thread_data = {DEFAULT_VDEC_CHN, h264_file_path};
     ret = pthread_create(&h264_thread, NULL, send_h264_data, &thread_data);
     if (ret != 0) {
         perror("Failed to create thread");
@@ -326,11 +328,7 @@ int main(int argc, char* argv[]) {
     check_ret(ret, "RK_MPI_VO_EnableChn");
 
     pthread_t vo_thread;
-    struct {
-        MPP_CHN_S src_chn;
-        MPP_CHN_S dest_chn;
-        int loop;
-    } vo_thread_data;
+    struct bind_info_arg vo_thread_data;
     // 绑定 VO 图层到 VO 设备
     MPP_CHN_S src_chn = {.enModId = RK_ID_VDEC, .s32DevId = 0, .s32ChnId = DEFAULT_VDEC_CHN};
     MPP_CHN_S dest_chn = {.enModId = RK_ID_VO, .s32DevId = DEFAULT_VO_LAYER, .s32ChnId = DEFAULT_VO_CHN}; // 设备层一般通道号为 0
