@@ -212,7 +212,7 @@ XCamReturn SAMPLE_COMM_ISP_CamGroup_setMeshToLdch(int CamGrpId, uint8_t SetLdchM
 					ldchAttr.lut.u.buffer.size = isp_get_ldch_mesh_size(LdchMesh[i]);
 				} else {
 					char *pLastWord = NULL;
-					pLastWord = strrchr(LdchMesh[i], '/');
+					pLastWord = strrchr((const char *)LdchMesh[i], '/');
 					if (!pLastWord) {
 						printf("---- error !!! the: %s path isn't to be parsed!!!!\n",
 						       (char *)LdchMesh[i]);
@@ -281,7 +281,7 @@ RK_S32 SAMPLE_COMM_ISP_CamGroup_Init(RK_S32 CamGroupId, rk_aiq_working_mode_t WD
 	}
 	/* set LDCH must before <camgroup prepare>*/
 	if (OpenLdch) {
-		SAMPLE_COMM_ISP_CamGroup_setMeshToLdch(CamGroupId, OpenLdch, LdchMesh);
+		SAMPLE_COMM_ISP_CamGroup_setMeshToLdch(CamGroupId, OpenLdch, (uint16_t **)LdchMesh);
 	}
 
 	ret = rk_aiq_uapi2_camgroup_prepare(g_aiq_camgroup_ctx[CamGroupId], WDRMode);
